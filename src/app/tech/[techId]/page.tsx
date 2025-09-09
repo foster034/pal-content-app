@@ -420,8 +420,8 @@ export default function TechMarketingDashboard() {
 
         {/* Camera Guide Modal */}
         {showCameraGuide && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-green-200">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">📱 Camera Positioning Guide</h2>
                 <button
@@ -849,7 +849,11 @@ export default function TechMarketingDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                     <button
                       type="button"
-                      onClick={() => setShowCameraGuide(true)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowCameraGuide(true);
+                      }}
                       className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 hover:bg-green-100"
                     >
                       <div className="text-center">
