@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface LoginCode {
   code: string;
@@ -133,8 +134,14 @@ export default function TechLoginPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">🔐</h2>
-          <h2 className="mt-2 text-3xl font-bold text-gray-900">Pop-A-Lock Technician</h2>
+          <Image
+            src="/images/pop-a-lock-logo.svg"
+            alt="Pop-A-Lock"
+            width={250}
+            height={100}
+            className="mx-auto mb-4"
+          />
+          <h2 className="text-2xl font-bold text-gray-900">Technician Login</h2>
           <p className="mt-2 text-sm text-gray-600">
             Enter your email to receive a secure login code
           </p>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface Tech {
   id: string;
@@ -109,6 +110,7 @@ export default function TechMarketingDashboard() {
   const [marketingContent, setMarketingContent] = useState<MarketingContent[]>([]);
   const [showContentForm, setShowContentForm] = useState(false);
   const [socialMediaFormat, setSocialMediaFormat] = useState<'instagram' | 'facebook' | 'auto'>('auto');
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [contentForm, setContentForm] = useState({
     category: '' as MarketingContent['category'] | '',
     service: '',
@@ -349,9 +351,18 @@ export default function TechMarketingDashboard() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">📸 {tech.name}'s Marketing Portal</h1>
-              <p className="text-sm text-gray-600">{tech.franchiseeName} Territory • Pop-A-Lock Content Creation</p>
+            <div className="flex items-center">
+              <Image
+                src="/images/pop-a-lock-logo.svg"
+                alt="Pop-A-Lock"
+                width={160}
+                height={64}
+                className="mr-4"
+              />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">📸 {tech.name}'s Marketing Portal</h1>
+                <p className="text-sm text-gray-600">{tech.franchiseeName} Territory • Content Creation</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
@@ -890,13 +901,14 @@ export default function TechMarketingDashboard() {
                   <p className="text-xs text-gray-500 mt-1">Upload photos of your work (before/after shots work great!)</p>
                   
                   {contentForm.photos.length > 0 && (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="mt-3 space-y-3">
                       {contentForm.photos.map((photo, index) => (
-                        <div key={index} className="relative">
+                        <div key={index} className="relative inline-block">
                           <img 
                             src={photo} 
                             alt={`Upload ${index + 1}`} 
-                            className="w-full h-24 object-cover rounded border"
+                            className="max-w-full max-h-48 object-contain rounded border bg-gray-50 cursor-pointer hover:opacity-80 transition-opacity shadow-sm"
+                            onClick={() => setSelectedPhoto(photo)}
                           />
                           <button
                             type="button"
@@ -1019,13 +1031,14 @@ export default function TechMarketingDashboard() {
                       {content.photos.length > 0 && (
                         <div className="mb-3">
                           <p className="text-sm text-gray-500 mb-2">📸 Photos ({content.photos.length}):</p>
-                          <div className="flex space-x-2 overflow-x-auto">
+                          <div className="flex flex-wrap gap-2">
                             {content.photos.map((photo, index) => (
                               <img 
                                 key={index}
                                 src={photo} 
                                 alt={`Content ${index + 1}`} 
-                                className="w-20 h-20 object-cover rounded border flex-shrink-0"
+                                className="max-h-24 max-w-32 object-contain rounded border bg-gray-50 cursor-pointer hover:opacity-80 transition-opacity shadow-sm"
+                                onClick={() => setSelectedPhoto(photo)}
                               />
                             ))}
                           </div>
@@ -1045,6 +1058,35 @@ export default function TechMarketingDashboard() {
         </div>
 
       </div>
+
+      {/* Photo Viewer Modal */}
+      {selectedPhoto && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[70] p-4"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div 
+            className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={selectedPhoto} 
+              alt="Full size photo" 
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              style={{ imageRendering: 'high-quality' }}
+            />
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute top-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl font-bold transition-all backdrop-blur-sm"
+            >
+              ×
+            </button>
+            <div className="absolute bottom-4 left-4 bg-black bg-opacity-60 text-white px-4 py-2 rounded-lg text-sm backdrop-blur-sm">
+              📸 Original size • Click outside or × to close
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

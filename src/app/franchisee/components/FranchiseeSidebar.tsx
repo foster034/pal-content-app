@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 const navigation = [
@@ -17,7 +18,13 @@ export function FranchiseeSidebar() {
   return (
     <div className="w-64 bg-white shadow-lg">
       <div className="p-6">
-        <h2 className="text-2xl font-bold text-gray-800">🔐 Pop-A-Lock</h2>
+        <Image
+          src="/images/pop-a-lock-logo.svg"
+          alt="Pop-A-Lock"
+          width={200}
+          height={80}
+          className="mb-2"
+        />
         <p className="text-sm text-gray-600 mt-1">Franchisee Portal</p>
         <p className="text-xs text-gray-500">Downtown Territory</p>
       </div>

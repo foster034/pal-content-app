@@ -5,12 +5,12 @@ export default function Home() {
     <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
         <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
+          src="/images/pop-a-lock-logo.svg"
+          alt="Pop-A-Lock Locksmith - Auto, Home, Business"
+          width={300}
+          height={120}
           priority
+          className="mb-4"
         />
         <div className="text-center sm:text-left">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">🔐 Pop-A-Lock Franchise Management</h2>

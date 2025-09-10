@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface TechAuth {
   email: string;
@@ -158,7 +159,14 @@ export default function TechDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">🔐 Pop-A-Lock Technician</h1>
+              <Image
+                src="/images/pop-a-lock-logo.svg"
+                alt="Pop-A-Lock"
+                width={180}
+                height={72}
+                className="mr-4"
+              />
+              <h1 className="text-xl font-bold text-gray-900">Technician Portal</h1>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
