@@ -1,48 +1,238 @@
-import { StatsCard } from './components/StatsCard';
 import { RecentActivity } from './components/RecentActivity';
-import { Chart } from './components/Chart';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import BlurFade from "@/components/ui/blur-fade";
+import NumberTicker from "@/components/ui/number-ticker";
+import Meteors from "@/components/ui/meteors";
+import { AnimatedChart } from "@/components/ui/animated-chart";
+import { Plus, Download, RefreshCw, TrendingUp, Users, Building2, Wrench, Activity, Zap, Globe, Target } from 'lucide-react';
+
+const statsData = [
+  {
+    title: "Total Franchisees",
+    value: 89,
+    change: "+12%",
+    trend: "up",
+    icon: Building2,
+    color: "from-blue-500 to-cyan-500"
+  },
+  {
+    title: "Active Technicians", 
+    value: 567,
+    change: "+8%",
+    trend: "up",
+    icon: Wrench,
+    color: "from-emerald-500 to-teal-500"
+  },
+  {
+    title: "Total Users",
+    value: 1234,
+    change: "-3%",
+    trend: "down",
+    icon: Users,
+    color: "from-purple-500 to-pink-500"
+  },
+  {
+    title: "Content Submissions",
+    value: 2845,
+    change: "+15%",
+    trend: "up", 
+    icon: Activity,
+    color: "from-orange-500 to-red-500"
+  }
+];
+
+const quickActions = [
+  {
+    title: "Add Franchisee",
+    icon: Building2,
+    description: "Register new franchise",
+    color: "from-blue-500 to-cyan-500"
+  },
+  {
+    title: "Add Technician",
+    icon: Wrench,
+    description: "Onboard new tech",
+    color: "from-emerald-500 to-teal-500"
+  },
+  {
+    title: "Manage Users",
+    icon: Users,
+    description: "User administration",
+    color: "from-purple-500 to-pink-500"
+  },
+  {
+    title: "Export Data",
+    icon: Download,
+    description: "Download reports",
+    color: "from-orange-500 to-red-500"
+  }
+];
 
 export default function AdminDashboard() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <div className="text-sm text-gray-500">
-          Last updated: {new Date().toLocaleDateString()}
+    <div className="relative">
+      {/* Background Effects */}
+      <div className="fixed inset-0 bg-gradient-to-br from-background via-background to-muted/20 -z-10" />
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent -z-10" />
+      
+      {/* Header */}
+      <BlurFade delay={0.1}>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+              Dashboard
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              Welcome back! Here's what's happening with your Pop-A-Lock franchise network.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="backdrop-blur-sm border-border/40 hover:bg-muted/50">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" className="backdrop-blur-sm border-border/40 hover:bg-muted/50">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button size="sm" className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg">
+              <Plus className="h-4 w-4 mr-2" />
+              Add New
+            </Button>
+          </div>
         </div>
+      </BlurFade>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {statsData.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <BlurFade key={stat.title} delay={0.2 + index * 0.1}>
+              <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-500 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm group">
+                <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity duration-500" 
+                     style={{backgroundImage: `linear-gradient(135deg, ${stat.color.split(' ')[1]}, ${stat.color.split(' ')[3]})`}} />
+                <Meteors number={5} />
+                
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`p-2 rounded-full bg-gradient-to-br ${stat.color} opacity-80`}>
+                    <Icon className="h-4 w-4 text-white" />
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="relative">
+                  <div className="text-3xl font-bold text-foreground mb-2">
+                    <NumberTicker 
+                      value={stat.value} 
+                      delay={0.3 + index * 0.1}
+                      className="text-foreground"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <Badge 
+                      variant={stat.trend === "up" ? "secondary" : "destructive"} 
+                      className="text-xs"
+                    >
+                      <TrendingUp className={`h-3 w-3 mr-1 ${stat.trend === "down" ? "rotate-180" : ""}`} />
+                      {stat.change}
+                    </Badge>
+                    <p className="text-xs text-muted-foreground ml-2">from last month</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </BlurFade>
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          title="Total Users"
-          value="1,234"
-          change="+12%"
-          trend="up"
-        />
-        <StatsCard
-          title="Revenue"
-          value="$45,678"
-          change="+8%"
-          trend="up"
-        />
-        <StatsCard
-          title="Orders"
-          value="2,345"
-          change="-3%"
-          trend="down"
-        />
-        <StatsCard
-          title="Conversion Rate"
-          value="3.2%"
-          change="+0.5%"
-          trend="up"
-        />
+      {/* Charts and Activity */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+        <BlurFade delay={0.6} className="xl:col-span-2">
+          <AnimatedChart />
+        </BlurFade>
+        
+        <BlurFade delay={0.7}>
+          <RecentActivity />
+        </BlurFade>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Chart />
-        <RecentActivity />
-      </div>
+      {/* System Status */}
+      <BlurFade delay={0.8}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500/10 to-teal-500/5 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">System Health</CardTitle>
+              <Zap className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">99.9%</div>
+              <p className="text-xs text-emerald-600/80">Uptime this month</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-500/10 to-cyan-500/5 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">Global Reach</CardTitle>
+              <Globe className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">24</div>
+              <p className="text-xs text-blue-600/80">States & provinces</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md bg-gradient-to-br from-purple-500/10 to-pink-500/5 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-400">Success Rate</CardTitle>
+              <Target className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">97.3%</div>
+              <p className="text-xs text-purple-600/80">Job completion</p>
+            </CardContent>
+          </Card>
+        </div>
+      </BlurFade>
+
+      {/* Quick Actions */}
+      <BlurFade delay={0.9}>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+          <CardHeader className="relative">
+            <CardTitle className="text-xl">Quick Actions</CardTitle>
+            <CardDescription>
+              Frequently used administrative tasks and shortcuts for efficient management.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="relative">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {quickActions.map((action, index) => {
+                const Icon = action.icon;
+                return (
+                  <Button
+                    key={action.title}
+                    variant="outline"
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm border-border/40 hover:shadow-lg transition-all duration-300 group"
+                  >
+                    <div className={`p-2 rounded-full bg-gradient-to-br ${action.color} opacity-80 group-hover:opacity-100 transition-opacity`}>
+                      <Icon className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="text-center">
+                      <span className="text-sm font-medium">{action.title}</span>
+                      <p className="text-xs text-muted-foreground mt-1">{action.description}</p>
+                    </div>
+                  </Button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </BlurFade>
     </div>
   );
 }

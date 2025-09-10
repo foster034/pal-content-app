@@ -1,36 +1,96 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface Franchisee {
   id: number;
   name: string;
+  username: string;
   email: string;
   phone: string;
   territory: string;
   status: 'Active' | 'Inactive' | 'Pending';
   joinDate: string;
   revenue: string;
+  image: string;
 }
 
 const initialFranchisees: Franchisee[] = [
-  { id: 1, name: 'John Smith', email: 'john@franchise1.com', phone: '(555) 123-4567', territory: 'Downtown', status: 'Active', joinDate: '2024-01-15', revenue: '$45,000' },
-  { id: 2, name: 'Sarah Johnson', email: 'sarah@franchise2.com', phone: '(555) 234-5678', territory: 'Westside', status: 'Active', joinDate: '2024-02-20', revenue: '$38,500' },
-  { id: 3, name: 'Mike Davis', email: 'mike@franchise3.com', phone: '(555) 345-6789', territory: 'Eastside', status: 'Pending', joinDate: '2024-03-10', revenue: '$12,000' },
-  { id: 4, name: 'Lisa Wilson', email: 'lisa@franchise4.com', phone: '(555) 456-7890', territory: 'Northside', status: 'Active', joinDate: '2024-04-05', revenue: '$52,300' },
+  { 
+    id: 1, 
+    name: 'Alex Thompson', 
+    username: '@alexthompson',
+    email: 'alex.thompson@popalock.com', 
+    phone: '(555) 123-4567', 
+    territory: 'Dallas Downtown', 
+    status: 'Active', 
+    joinDate: '2024-01-15', 
+    revenue: '$145,250',
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg'
+  },
+  { 
+    id: 2, 
+    name: 'Sarah Chen', 
+    username: '@sarahchen',
+    email: 'sarah.chen@popalock.com', 
+    phone: '(555) 234-5678', 
+    territory: 'Austin Central', 
+    status: 'Active', 
+    joinDate: '2024-02-20', 
+    revenue: '$98,600',
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg'
+  },
+  { 
+    id: 3, 
+    name: 'Maria Garcia', 
+    username: '@mariagarcia',
+    email: 'maria.garcia@popalock.com', 
+    phone: '(555) 345-6789', 
+    territory: 'Houston West', 
+    status: 'Active', 
+    joinDate: '2024-03-10', 
+    revenue: '$76,840',
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_dkeufx.jpg'
+  },
+  { 
+    id: 4, 
+    name: 'David Kim', 
+    username: '@davidkim',
+    email: 'david.kim@popalock.com', 
+    phone: '(555) 456-7890', 
+    territory: 'San Antonio North', 
+    status: 'Pending', 
+    joinDate: '2024-04-05', 
+    revenue: '$32,100',
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
+  },
 ];
 
 export default function FranchiseesPage() {
   const [franchisees, setFranchisees] = useState<Franchisee[]>(initialFranchisees);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingFranchisee, setEditingFranchisee] = useState<Franchisee | null>(null);
+  const [sendingMagicLink, setSendingMagicLink] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
     phone: '',
     territory: '',
     status: 'Active' as const,
+    image: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -51,7 +111,7 @@ export default function FranchiseesPage() {
       };
       setFranchisees(prev => [...prev, newFranchisee]);
     }
-    setFormData({ name: '', email: '', phone: '', territory: '', status: 'Active' });
+    setFormData({ name: '', username: '', email: '', phone: '', territory: '', status: 'Active', image: '' });
     setShowCreateForm(false);
   };
 
@@ -59,10 +119,12 @@ export default function FranchiseesPage() {
     setEditingFranchisee(franchisee);
     setFormData({
       name: franchisee.name,
+      username: franchisee.username,
       email: franchisee.email,
       phone: franchisee.phone,
       territory: franchisee.territory,
       status: franchisee.status,
+      image: franchisee.image,
     });
     setShowCreateForm(true);
   };
@@ -71,25 +133,55 @@ export default function FranchiseesPage() {
     setFranchisees(prev => prev.filter(f => f.id !== id));
   };
 
-  const getStatusColor = (status: string) => {
+  const sendMagicLink = async (franchisee: Franchisee) => {
+    setSendingMagicLink(franchisee.id);
+    try {
+      const response = await fetch('/api/magic-links', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: franchisee.email,
+          userType: 'franchisee',
+          userId: franchisee.id,
+          name: franchisee.name,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Magic link sent successfully to ${franchisee.email}!`);
+      } else {
+        alert(`Failed to send magic link: ${data.error}`);
+      }
+    } catch (error) {
+      alert('Failed to send magic link. Please try again.');
+    } finally {
+      setSendingMagicLink(null);
+    }
+  };
+
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Inactive': return 'bg-red-100 text-red-800';
-      case 'Pending': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'Active': return 'default';
+      case 'Inactive': return 'destructive';
+      case 'Pending': return 'secondary';
+      default: return 'outline';
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Franchisees</h1>
-        <button 
-          onClick={() => setShowCreateForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Franchisees</h1>
+          <p className="text-muted-foreground">Manage your Pop-A-Lock franchise network</p>
+        </div>
+        <Button onClick={() => setShowCreateForm(true)}>
           Add Franchisee
-        </button>
+        </Button>
       </div>
 
       {showCreateForm && (
@@ -163,7 +255,7 @@ export default function FranchiseesPage() {
                   onClick={() => {
                     setShowCreateForm(false);
                     setEditingFranchisee(null);
-                    setFormData({ name: '', email: '', phone: '', territory: '', status: 'Active' });
+                    setFormData({ name: '', username: '', email: '', phone: '', territory: '', status: 'Active', image: '' });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
                 >
@@ -175,73 +267,90 @@ export default function FranchiseesPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Franchisee
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Contact
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Territory
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Revenue
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {franchisees.map((franchisee) => (
-              <tr key={franchisee.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{franchisee.name}</div>
-                    <div className="text-sm text-gray-500">Joined {new Date(franchisee.joinDate).toLocaleDateString()}</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{franchisee.email}</div>
-                  <div className="text-sm text-gray-500">{franchisee.phone}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {franchisee.territory}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(franchisee.status)}`}>
-                    {franchisee.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {franchisee.revenue}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                  <button 
-                    onClick={() => handleEdit(franchisee)}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(franchisee.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Franchise Partners</CardTitle>
+          <CardDescription>A list of active and pending franchise partners in your network.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Territory</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {franchisees.map((franchisee) => (
+                <TableRow key={franchisee.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <img
+                        className="rounded-full"
+                        src={franchisee.image}
+                        width={40}
+                        height={40}
+                        alt={franchisee.name}
+                      />
+                      <div>
+                        <div className="font-medium">{franchisee.name}</div>
+                        <span className="text-muted-foreground mt-0.5 text-xs">
+                          {franchisee.username}
+                        </span>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{franchisee.email}</div>
+                      <div className="text-muted-foreground text-xs">{franchisee.phone}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{franchisee.territory}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(franchisee.status)}>
+                      {franchisee.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">{franchisee.revenue}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => sendMagicLink(franchisee)}
+                        disabled={sendingMagicLink === franchisee.id}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        {sendingMagicLink === franchisee.id ? 'Sending...' : 'Send Link'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(franchisee)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(franchisee.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

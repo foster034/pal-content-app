@@ -1,10 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface Tech {
   id: number;
   name: string;
+  username: string;
   email: string;
   phone: string;
   franchiseeId: number;
@@ -14,68 +26,77 @@ interface Tech {
   hireDate: string;
   rating: number;
   completedJobs: number;
+  image: string;
 }
 
 const initialTechs: Tech[] = [
   { 
     id: 1, 
     name: 'Alex Rodriguez', 
-    email: 'alex@popalock.com', 
+    username: '@alexrodriguez',
+    email: 'alex.rodriguez@popalock.com', 
     phone: '(555) 111-2222', 
     franchiseeId: 1,
-    franchiseeName: 'Downtown',
+    franchiseeName: 'Dallas Downtown',
     specialties: ['Automotive Locksmith', 'Roadside Assistance'], 
     status: 'Active', 
     hireDate: '2024-01-20', 
     rating: 4.8,
-    completedJobs: 156
+    completedJobs: 156,
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg'
   },
   { 
     id: 2, 
-    name: 'Maria Garcia', 
-    email: 'maria@popalock.com', 
+    name: 'Sofia Martinez', 
+    username: '@sofiamartinez',
+    email: 'sofia.martinez@popalock.com', 
     phone: '(555) 222-3333', 
     franchiseeId: 2,
-    franchiseeName: 'Westside',
+    franchiseeName: 'Austin Central',
     specialties: ['Commercial Locksmith', 'Access Control'], 
     status: 'Active', 
     hireDate: '2024-02-15', 
     rating: 4.9,
-    completedJobs: 203
+    completedJobs: 203,
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg'
   },
   { 
     id: 3, 
     name: 'David Chen', 
-    email: 'david@popalock.com', 
+    username: '@davidchen',
+    email: 'david.chen@popalock.com', 
     phone: '(555) 333-4444', 
-    franchiseeId: 1,
-    franchiseeName: 'Downtown',
+    franchiseeId: 3,
+    franchiseeName: 'Houston West',
     specialties: ['Residential Locksmith', 'Key Programming'], 
     status: 'On Leave', 
     hireDate: '2024-03-01', 
     rating: 4.5,
-    completedJobs: 89
+    completedJobs: 89,
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
   },
   { 
     id: 4, 
-    name: 'Jennifer Lee', 
-    email: 'jennifer@popalock.com', 
+    name: 'Jennifer Walsh', 
+    username: '@jenwalsh',
+    email: 'jennifer.walsh@popalock.com', 
     phone: '(555) 444-5555', 
     franchiseeId: 4,
-    franchiseeName: 'Northside',
+    franchiseeName: 'San Antonio North',
     specialties: ['Safe Services', 'Emergency Services'], 
     status: 'Active', 
     hireDate: '2024-04-10', 
     rating: 4.7,
-    completedJobs: 124
+    completedJobs: 124,
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_dkeufx.jpg'
   },
 ];
 
 const franchisees = [
-  { id: 1, name: 'Downtown' },
-  { id: 2, name: 'Westside' },
-  { id: 3, name: 'Eastside' },
-  { id: 4, name: 'Northside' },
+  { id: 1, name: 'Dallas Downtown' },
+  { id: 2, name: 'Austin Central' },
+  { id: 3, name: 'Houston West' },
+  { id: 4, name: 'San Antonio North' },
 ];
 
 const specialtyOptions = ['Automotive Locksmith', 'Commercial Locksmith', 'Residential Locksmith', 'Roadside Assistance', 'Key Programming', 'Safe Services', 'Access Control', 'Emergency Services'];
@@ -84,14 +105,17 @@ export default function TechsPage() {
   const [techs, setTechs] = useState<Tech[]>(initialTechs);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTech, setEditingTech] = useState<Tech | null>(null);
+  const [sendingMagicLink, setSendingMagicLink] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
     phone: '',
     franchiseeId: 1,
     specialties: [] as string[],
     status: 'Active' as const,
+    image: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -120,7 +144,7 @@ export default function TechsPage() {
       };
       setTechs(prev => [...prev, newTech]);
     }
-    setFormData({ name: '', email: '', phone: '', franchiseeId: 1, specialties: [], status: 'Active' });
+    setFormData({ name: '', username: '', email: '', phone: '', franchiseeId: 1, specialties: [], status: 'Active', image: '' });
     setShowCreateForm(false);
   };
 
@@ -128,17 +152,49 @@ export default function TechsPage() {
     setEditingTech(tech);
     setFormData({
       name: tech.name,
+      username: tech.username,
       email: tech.email,
       phone: tech.phone,
       franchiseeId: tech.franchiseeId,
       specialties: tech.specialties,
       status: tech.status,
+      image: tech.image,
     });
     setShowCreateForm(true);
   };
 
   const handleDelete = (id: number) => {
     setTechs(prev => prev.filter(t => t.id !== id));
+  };
+
+  const sendMagicLink = async (tech: Tech) => {
+    setSendingMagicLink(tech.id);
+    try {
+      const response = await fetch('/api/magic-links', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: tech.email,
+          userType: 'technician',
+          userId: tech.id,
+          name: tech.name,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Magic link sent successfully to ${tech.email}!`);
+      } else {
+        alert(`Failed to send magic link: ${data.error}`);
+      }
+    } catch (error) {
+      alert('Failed to send magic link. Please try again.');
+    } finally {
+      setSendingMagicLink(null);
+    }
   };
 
   const handleSpecialtyChange = (specialty: string, checked: boolean) => {
@@ -149,12 +205,12 @@ export default function TechsPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Inactive': return 'bg-red-100 text-red-800';
-      case 'On Leave': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'Active': return 'default';
+      case 'Inactive': return 'destructive';
+      case 'On Leave': return 'secondary';
+      default: return 'outline';
     }
   };
 
@@ -165,13 +221,13 @@ export default function TechsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Technicians</h1>
-        <button 
-          onClick={() => setShowCreateForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Technicians</h1>
+          <p className="text-muted-foreground">Manage your skilled locksmith technicians</p>
+        </div>
+        <Button onClick={() => setShowCreateForm(true)}>
           Add Technician
-        </button>
+        </Button>
       </div>
 
       {showCreateForm && (
@@ -265,7 +321,7 @@ export default function TechsPage() {
                   onClick={() => {
                     setShowCreateForm(false);
                     setEditingTech(null);
-                    setFormData({ name: '', email: '', phone: '', franchiseeId: 1, specialties: [], status: 'Active' });
+                    setFormData({ name: '', username: '', email: '', phone: '', franchiseeId: 1, specialties: [], status: 'Active', image: '' });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
                 >
@@ -277,88 +333,110 @@ export default function TechsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Technician
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Contact
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Franchisee
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Specialties
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Performance
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {techs.map((tech) => (
-              <tr key={tech.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{tech.name}</div>
-                    <div className="text-sm text-gray-500">Hired {new Date(tech.hireDate).toLocaleDateString()}</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{tech.email}</div>
-                  <div className="text-sm text-gray-500">{tech.phone}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {tech.franchiseeName}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex flex-wrap gap-1">
-                    {tech.specialties.map(specialty => (
-                      <span key={specialty} className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                        {specialty}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(tech.status)}`}>
-                    {tech.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    <div className="text-yellow-400">{renderStars(tech.rating)}</div>
-                    <div className="text-xs text-gray-500">{tech.completedJobs} jobs completed</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                  <button 
-                    onClick={() => handleEdit(tech)}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(tech.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Skilled Technicians</CardTitle>
+          <CardDescription>Professional locksmith technicians across your franchise network.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Name</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Franchise</TableHead>
+                <TableHead>Specialties</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Performance</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {techs.map((tech) => (
+                <TableRow key={tech.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <img
+                        className="rounded-full"
+                        src={tech.image}
+                        width={40}
+                        height={40}
+                        alt={tech.name}
+                      />
+                      <div>
+                        <div className="font-medium">{tech.name}</div>
+                        <span className="text-muted-foreground mt-0.5 text-xs">
+                          {tech.username}
+                        </span>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{tech.email}</div>
+                      <div className="text-muted-foreground text-xs">{tech.phone}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{tech.franchiseeName}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {tech.specialties.slice(0, 2).map(specialty => (
+                        <Badge key={specialty} variant="outline" className="text-xs">
+                          {specialty}
+                        </Badge>
+                      ))}
+                      {tech.specialties.length > 2 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{tech.specialties.length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(tech.status)}>
+                      {tech.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="text-yellow-500">{renderStars(tech.rating)}</div>
+                      <div className="text-xs text-muted-foreground">{tech.completedJobs} jobs</div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => sendMagicLink(tech)}
+                        disabled={sendingMagicLink === tech.id}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        {sendingMagicLink === tech.id ? 'Sending...' : 'Send Link'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(tech)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(tech.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
