@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useLogo } from '@/contexts/logo-context';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -75,6 +76,7 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { mainLogo } = useLogo();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [profileImage, setProfileImage] = useState("");
 
@@ -85,7 +87,7 @@ export function Sidebar() {
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center mb-4">
             <Image
-              src="/images/pop-a-lock-logo.png"
+              src={mainLogo}
               alt="Pop-A-Lock"
               width={180}
               height={72}

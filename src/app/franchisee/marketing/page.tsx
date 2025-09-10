@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { JobPicModal, JobPicData } from "@/components/ui/job-pic-modal";
 
 interface TechPhoto {
   id: number;
@@ -99,6 +100,8 @@ export default function FranchiseeMarketingPage() {
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState<string>('Pending');
+  const [selectedPhoto, setSelectedPhoto] = useState<TechPhoto | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const filteredPhotos = useMemo(() => {
     return photos.filter(photo => {
@@ -133,6 +136,38 @@ export default function FranchiseeMarketingPage() {
 
   const deletePhoto = (photoId: number) => {
     setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+  };
+
+  const openJobModal = (photo: TechPhoto) => {
+    setSelectedPhoto(photo);
+    setIsModalOpen(true);
+  };
+
+  const closeJobModal = () => {
+    setSelectedPhoto(null);
+    setIsModalOpen(false);
+  };
+
+  const convertToJobPicData = (photo: TechPhoto): JobPicData => {
+    return {
+      id: photo.id,
+      customer: `${photo.jobType} Client`, // We'll use a generic customer name
+      technician: photo.techName,
+      service: photo.jobDescription,
+      status: photo.franchiseeApproved === undefined ? 'Pending' : 
+              photo.franchiseeApproved ? 'Approved' : 'Denied',
+      submittedDate: photo.dateUploaded,
+      location: photo.jobLocation,
+      description: photo.jobDescription,
+      images: [photo.photoUrl], // Convert single photo to array
+      workPerformed: `${photo.jobType} locksmith service completed successfully.`,
+      materials: photo.tags,
+      timeSpent: '2-3 hours',
+      cost: '$150-300',
+      notes: `Job completed at ${photo.jobLocation}. All work performed to industry standards.`,
+      customerPhone: '(555) 123-4567',
+      techPhone: '(555) 987-6543'
+    };
   };
 
   const getJobTypeVariant = (jobType: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -265,7 +300,7 @@ export default function FranchiseeMarketingPage() {
             </TableHeader>
             <TableBody>
               {filteredPhotos.map((photo) => (
-                <TableRow key={photo.id}>
+                <TableRow key={photo.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" onClick={() => openJobModal(photo)}>
                   <TableCell>
                     <div className="w-20 h-16 relative rounded overflow-hidden">
                       <img
@@ -315,7 +350,10 @@ export default function FranchiseeMarketingPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => approvePhoto(photo.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              approvePhoto(photo.id);
+                            }}
                             className="text-green-600 hover:text-green-700"
                           >
                             Approve
@@ -323,7 +361,10 @@ export default function FranchiseeMarketingPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => denyPhoto(photo.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              denyPhoto(photo.id);
+                            }}
                             className="text-red-600 hover:text-red-700"
                           >
                             Deny
@@ -334,7 +375,10 @@ export default function FranchiseeMarketingPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => resetApproval(photo.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            resetApproval(photo.id);
+                          }}
                           className="text-blue-600 hover:text-blue-700"
                         >
                           Reset
@@ -343,7 +387,10 @@ export default function FranchiseeMarketingPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deletePhoto(photo.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deletePhoto(photo.id);
+                        }}
                         className="text-destructive hover:text-destructive"
                       >
                         Delete
@@ -356,6 +403,21 @@ export default function FranchiseeMarketingPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Job Pic Modal */}
+      <JobPicModal
+        isOpen={isModalOpen}
+        onClose={closeJobModal}
+        jobData={selectedPhoto ? convertToJobPicData(selectedPhoto) : null}
+        onApprove={(id) => {
+          approvePhoto(id);
+          closeJobModal();
+        }}
+        onDeny={(id) => {
+          denyPhoto(id);
+          closeJobModal();
+        }}
+      />
     </div>
   );
 }

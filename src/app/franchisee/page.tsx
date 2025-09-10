@@ -129,7 +129,7 @@ export default function FranchiseeDashboard() {
               ))}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Link href="/franchisee/jobs">
+              <Link href="/franchisee/marketing">
                 <Button variant="outline" className="w-full">
                   View All Submissions
                 </Button>
@@ -192,14 +192,9 @@ export default function FranchiseeDashboard() {
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Link href="/franchisee/jobs">
-              <Button className="w-full" variant="default">
-                Review Photo Submissions
-              </Button>
-            </Link>
             <Link href="/franchisee/marketing">
-              <Button className="w-full" variant="outline">
-                Marketing Gallery
+              <Button className="w-full" variant="default">
+                Review Job Pics
               </Button>
             </Link>
             <Link href="/franchisee/reports">

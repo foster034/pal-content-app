@@ -2,57 +2,53 @@
 import React, { useState } from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
-  IconDashboard,
+  IconBrandTabler,
   IconSettings,
-  IconTool,
-  IconFileText,
-  IconChartBar,
-  IconUser,
   IconPhoto,
+  IconTool,
+  IconChartBar,
+  IconLogout,
+  IconUser,
+  IconFileText,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { useLogo } from "@/contexts/logo-context";
 
-export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+export function TechSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
+  // Extract techId from pathname if available
+  const techId = pathname.split('/tech/')[1]?.split('/')[0];
+  const isOnTechForm = techId && techId !== 'dashboard' && techId !== 'photos' && techId !== 'profile';
+  
   const links = [
     {
       label: "Dashboard",
-      href: "/franchisee",
+      href: "/tech/dashboard",
       icon: (
-        <IconDashboard className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+        <IconBrandTabler className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
-      label: "My Technicians",
-      href: "/franchisee/techs",
-      icon: (
-        <IconTool className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-      ),
-    },
-    {
-      label: "Job Pics",
-      href: "/franchisee/marketing",
+      label: "My Photos",
+      href: "/tech/photos",
       icon: (
         <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
-    {
-      label: "Reports",
-      href: "/franchisee/reports",
+    ...(isOnTechForm ? [{
+      label: "Submit Content",
+      href: `/tech/${techId}`,
       icon: (
-        <IconChartBar className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+        <IconTool className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
-    },
+    }] : []),
     {
       label: "Profile",
-      href: "/franchisee/profile",
+      href: "/tech/profile",
       icon: (
         <IconUser className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
@@ -88,8 +84,8 @@ export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
                         }),
                       }}
                       className={cn(
-                        "hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg px-3 py-2",
-                        isActive && "bg-primary/10 text-primary dark:bg-primary/20"
+                        "hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-md px-2",
+                        isActive && "bg-primary/10 text-primary"
                       )}
                     />
                   </Link>
@@ -100,11 +96,11 @@ export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
           <div>
             <SidebarLink
               link={{
-                label: "John Smith",
+                label: "Technician",
                 href: "#",
                 icon: (
                   <div className="h-7 w-7 shrink-0 rounded-full bg-primary/20 flex items-center justify-center">
-                    <IconUser className="h-4 w-4 text-primary" />
+                    <IconTool className="h-4 w-4 text-primary" />
                   </div>
                 ),
               }}
@@ -122,27 +118,34 @@ export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
 }
 
 export const Logo = () => {
-  const { mainLogo } = useLogo();
-  
   return (
     <Link
-      href="/franchisee"
+      href="/tech/dashboard"
       className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black"
     >
-      <Image
-        src={mainLogo}
-        alt="Pop-A-Lock"
-        width={120}
-        height={40}
-        className="h-8 w-auto"
-      />
+      <div className="h-8 w-8 shrink-0 rounded-lg bg-primary flex items-center justify-center">
+        <IconTool className="h-5 w-5 text-primary-foreground" />
+      </div>
       <motion.span
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="whitespace-pre font-medium text-black dark:text-white"
+        className="font-medium whitespace-pre text-black dark:text-white"
       >
-        Franchisee
+        Pop-A-Lock Tech
       </motion.span>
+    </Link>
+  );
+};
+
+export const LogoIcon = () => {
+  return (
+    <Link
+      href="/tech/dashboard"
+      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black"
+    >
+      <div className="h-8 w-8 shrink-0 rounded-lg bg-primary flex items-center justify-center">
+        <IconTool className="h-5 w-5 text-primary-foreground" />
+      </div>
     </Link>
   );
 };

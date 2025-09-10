@@ -27,6 +27,11 @@ interface MarketingContent {
   vehicleYear?: string;
   vehicleMake?: string;
   vehicleModel?: string;
+  jobDuration?: number; // in minutes
+  customerSatisfaction?: number; // 1-5 stars
+  customerQuote?: string;
+  jobComplexity?: 'Simple' | 'Standard' | 'Complex' | 'Emergency';
+  photoTypes?: { [photoId: string]: 'before' | 'after' | 'process' | 'result' | 'tools' };
 }
 
 // Service categories and their dependent services
@@ -111,6 +116,14 @@ export default function TechMarketingDashboard() {
   const [showContentForm, setShowContentForm] = useState(false);
   const [socialMediaFormat, setSocialMediaFormat] = useState<'instagram' | 'facebook' | 'auto'>('auto');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [vinLoading, setVinLoading] = useState(false);
+  const [vin, setVin] = useState('');
+  const [showVinScanner, setShowVinScanner] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [showPhotoCamera, setShowPhotoCamera] = useState(false);
+  const [photoCameraStream, setPhotoCameraStream] = useState<MediaStream | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [contentForm, setContentForm] = useState({
     category: '' as MarketingContent['category'] | '',
     service: '',
@@ -120,7 +133,12 @@ export default function TechMarketingDashboard() {
     customerPermission: false,
     vehicleYear: '',
     vehicleMake: '',
-    vehicleModel: ''
+    vehicleModel: '',
+    jobDuration: undefined as number | undefined,
+    customerSatisfaction: undefined as number | undefined,
+    customerQuote: '',
+    jobComplexity: '' as MarketingContent['jobComplexity'] | '',
+    photoTypes: {} as { [photoId: string]: 'before' | 'after' | 'process' | 'result' | 'tools' }
   });
 
   useEffect(() => {
@@ -151,6 +169,18 @@ export default function TechMarketingDashboard() {
     }
   }, [techId, router]);
 
+  // Cleanup camera streams on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+      if (photoCameraStream) {
+        photoCameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream, photoCameraStream]);
+
   const handleSubmitContent = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -158,6 +188,7 @@ export default function TechMarketingDashboard() {
       alert('Please select both category and service');
       return;
     }
+
 
     const newContent: MarketingContent = {
       id: marketingContent.length + 1,
@@ -172,7 +203,12 @@ export default function TechMarketingDashboard() {
       customerPermission: contentForm.customerPermission,
       vehicleYear: contentForm.vehicleYear || undefined,
       vehicleMake: contentForm.vehicleMake || undefined,
-      vehicleModel: contentForm.vehicleModel || undefined
+      vehicleModel: contentForm.vehicleModel || undefined,
+      jobDuration: contentForm.jobDuration,
+      customerSatisfaction: contentForm.customerSatisfaction,
+      customerQuote: contentForm.customerQuote || undefined,
+      jobComplexity: contentForm.jobComplexity || undefined,
+      photoTypes: contentForm.photoTypes
     };
 
     setMarketingContent(prev => [newContent, ...prev]);
@@ -185,8 +221,14 @@ export default function TechMarketingDashboard() {
       customerPermission: false,
       vehicleYear: '',
       vehicleMake: '',
-      vehicleModel: ''
+      vehicleModel: '',
+      jobDuration: undefined,
+      customerSatisfaction: undefined,
+      customerQuote: '',
+      jobComplexity: '',
+      photoTypes: {}
     });
+    setVin('');
     setShowContentForm(false);
   };
 
@@ -217,8 +259,13 @@ export default function TechMarketingDashboard() {
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            // Get optimal dimensions based on selected format
-            let targetWidth: number, targetHeight: number;
+            // Enhanced orientation detection and cropping logic
+            const originalWidth = img.width;
+            const originalHeight = img.height;
+            const originalAspectRatio = originalWidth / originalHeight;
+            
+            // Determine optimal format based on orientation
+            let targetWidth: number, targetHeight: number, cropMode: 'fit' | 'crop' = 'crop';
             
             switch (socialMediaFormat) {
               case 'instagram':
@@ -230,44 +277,60 @@ export default function TechMarketingDashboard() {
                 break;
               case 'auto':
               default:
-                // Auto-detect best format based on original image orientation
-                if (img.width > img.height * 1.3) {
-                  // Landscape - use Facebook format
+                // Enhanced auto-detection based on orientation and aspect ratio
+                if (originalAspectRatio >= 1.5) {
+                  // Wide landscape - use Facebook format
                   targetWidth = 1200;
                   targetHeight = 630;
+                } else if (originalAspectRatio >= 1.1) {
+                  // Moderate landscape - could work for either, prefer Facebook
+                  targetWidth = 1200;
+                  targetHeight = 630;
+                } else if (originalAspectRatio >= 0.9) {
+                  // Nearly square - perfect for Instagram
+                  targetWidth = targetHeight = 1080;
+                } else if (originalAspectRatio >= 0.6) {
+                  // Portrait - crop to square for Instagram
+                  targetWidth = targetHeight = 1080;
                 } else {
-                  // Square or portrait - use Instagram format
+                  // Very tall portrait - crop to square for Instagram
                   targetWidth = targetHeight = 1080;
                 }
                 break;
             }
             
-            let { width, height } = img;
-            
-            // Calculate new dimensions maintaining aspect ratio
-            const aspectRatio = width / height;
             const targetAspectRatio = targetWidth / targetHeight;
             
-            if (aspectRatio > targetAspectRatio) {
-              // Image is wider than target
-              width = targetWidth;
-              height = targetWidth / aspectRatio;
-            } else {
-              // Image is taller than target
-              height = targetHeight;
-              width = targetHeight * aspectRatio;
+            // Smart cropping logic
+            let sourceX = 0, sourceY = 0, sourceWidth = originalWidth, sourceHeight = originalHeight;
+            let canvasWidth = targetWidth, canvasHeight = targetHeight;
+            
+            if (originalAspectRatio > targetAspectRatio) {
+              // Image is wider than target - crop sides
+              sourceWidth = originalHeight * targetAspectRatio;
+              sourceX = (originalWidth - sourceWidth) / 2; // Center crop
+            } else if (originalAspectRatio < targetAspectRatio) {
+              // Image is taller than target - crop top/bottom
+              sourceHeight = originalWidth / targetAspectRatio;
+              sourceY = (originalHeight - sourceHeight) / 4; // Crop more from bottom, less from top (better for photos with people/objects)
             }
 
-            canvas.width = width;
-            canvas.height = height;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
 
             // Apply image enhancements for social media
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             
-            // Draw and compress with optimal quality
-            ctx.drawImage(img, 0, 0, width, height);
-            const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+            // Smart cropping and drawing
+            ctx.drawImage(
+              img,
+              sourceX, sourceY, sourceWidth, sourceHeight, // Source rectangle (crop area)
+              0, 0, canvasWidth, canvasHeight // Destination rectangle (canvas)
+            );
+            
+            // Compress with optimal quality for social media
+            const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.90);
             
             setContentForm(prev => ({
               ...prev,
@@ -281,14 +344,121 @@ export default function TechMarketingDashboard() {
     }
   };
 
+  const startPhotoCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment', // Use back camera
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 }
+        }
+      });
+      
+      setPhotoCameraStream(stream);
+      setShowPhotoCamera(true);
+    } catch (error) {
+      console.error('Camera access error:', error);
+      alert('Unable to access camera. Please check permissions and try again.');
+    }
+  };
+
+  const stopPhotoCamera = () => {
+    if (photoCameraStream) {
+      photoCameraStream.getTracks().forEach(track => track.stop());
+      setPhotoCameraStream(null);
+    }
+    setShowPhotoCamera(false);
+  };
+
+  const capturePhoto = () => {
+    const video = document.getElementById('photoCameraVideo') as HTMLVideoElement;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (video && ctx) {
+      // Enhanced orientation detection and cropping logic
+      const originalWidth = video.videoWidth;
+      const originalHeight = video.videoHeight;
+      const originalAspectRatio = originalWidth / originalHeight;
+      
+      // Determine optimal format based on orientation
+      let targetWidth: number, targetHeight: number;
+      
+      switch (socialMediaFormat) {
+        case 'instagram':
+          targetWidth = targetHeight = 1080; // Square format
+          break;
+        case 'facebook':
+          targetWidth = 1200;
+          targetHeight = 630; // Landscape format
+          break;
+        case 'auto':
+        default:
+          // Enhanced auto-detection based on orientation and aspect ratio
+          if (originalAspectRatio >= 1.5) {
+            // Wide landscape - use Facebook format
+            targetWidth = 1200;
+            targetHeight = 630;
+          } else if (originalAspectRatio >= 1.1) {
+            // Moderate landscape - could work for either, prefer Facebook
+            targetWidth = 1200;
+            targetHeight = 630;
+          } else if (originalAspectRatio >= 0.9) {
+            // Nearly square - perfect for Instagram
+            targetWidth = targetHeight = 1080;
+          } else if (originalAspectRatio >= 0.6) {
+            // Portrait - crop to square for Instagram
+            targetWidth = targetHeight = 1080;
+          } else {
+            // Very tall portrait - crop to square for Instagram
+            targetWidth = targetHeight = 1080;
+          }
+          break;
+      }
+      
+      const targetAspectRatio = targetWidth / targetHeight;
+      
+      // Smart cropping logic
+      let sourceX = 0, sourceY = 0, sourceWidth = originalWidth, sourceHeight = originalHeight;
+      
+      if (originalAspectRatio > targetAspectRatio) {
+        // Image is wider than target - crop sides
+        sourceWidth = originalHeight * targetAspectRatio;
+        sourceX = (originalWidth - sourceWidth) / 2; // Center crop
+      } else if (originalAspectRatio < targetAspectRatio) {
+        // Image is taller than target - crop top/bottom
+        sourceHeight = originalWidth / targetAspectRatio;
+        sourceY = (originalHeight - sourceHeight) / 4; // Crop more from bottom, less from top
+      }
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      // Apply image enhancements for social media
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
+      // Smart cropping and drawing
+      ctx.drawImage(
+        video,
+        sourceX, sourceY, sourceWidth, sourceHeight, // Source rectangle (crop area)
+        0, 0, targetWidth, targetHeight // Destination rectangle (canvas)
+      );
+      
+      // Compress with optimal quality for social media
+      const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+      
+      setContentForm(prev => ({
+        ...prev,
+        photos: [...prev.photos, optimizedDataUrl]
+      }));
+      
+      stopPhotoCamera();
+    }
+  };
+
   const handleCameraCapture = () => {
-    // Trigger camera with specific settings for social media
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*';
-    fileInput.capture = 'environment'; // Use back camera
-    fileInput.onchange = (e) => handlePhotoUpload(e as any);
-    fileInput.click();
+    startPhotoCamera();
   };
 
   const removePhoto = (index: number) => {
@@ -296,6 +466,258 @@ export default function TechMarketingDashboard() {
       ...prev,
       photos: prev.photos.filter((_, i) => i !== index)
     }));
+  };
+
+  const getCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    setLocationLoading(true);
+    
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          reject,
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000 // 5 minutes
+          }
+        );
+      });
+
+      const { latitude, longitude } = position.coords;
+      
+      // Use reverse geocoding to get address
+      try {
+        const response = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Create a readable address from the response
+          const addressParts = [];
+          
+          if (data.locality) addressParts.push(data.locality);
+          if (data.city) addressParts.push(data.city);
+          if (data.principalSubdivisionCode) addressParts.push(data.principalSubdivisionCode);
+          
+          const address = addressParts.length > 0 ? addressParts.join(', ') : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          
+          setContentForm(prev => ({
+            ...prev,
+            location: address
+          }));
+        } else {
+          // Fallback to coordinates
+          setContentForm(prev => ({
+            ...prev,
+            location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+          }));
+        }
+      } catch (geocodeError) {
+        // Fallback to coordinates if reverse geocoding fails
+        setContentForm(prev => ({
+          ...prev,
+          location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+        }));
+      }
+    } catch (error: any) {
+      let errorMessage = 'Unable to get your location. ';
+      
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage += 'Please enable location access in your browser settings.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage += 'Location information is unavailable.';
+          break;
+        case error.TIMEOUT:
+          errorMessage += 'The request to get your location timed out.';
+          break;
+        default:
+          errorMessage += 'An unknown error occurred.';
+          break;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const decodeVIN = async (vinCode: string) => {
+    if (!vinCode || vinCode.length !== 17) {
+      alert('Please enter a valid 17-character VIN');
+      return;
+    }
+
+    setVinLoading(true);
+    
+    try {
+      // Use NHTSA VIN decode API
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vinCode}?format=json`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        const results = data.Results;
+        
+        // Extract year, make, and model from the results
+        const year = results.find((item: any) => item.Variable === 'Model Year')?.Value;
+        const make = results.find((item: any) => item.Variable === 'Make')?.Value;
+        const model = results.find((item: any) => item.Variable === 'Model')?.Value;
+        
+        if (year && make && model) {
+          setContentForm(prev => ({
+            ...prev,
+            vehicleYear: year,
+            vehicleMake: make,
+            vehicleModel: model
+          }));
+          
+          // Show success message
+          alert(`Vehicle decoded successfully!\n${year} ${make} ${model}`);
+        } else {
+          alert('Could not decode vehicle information from VIN. Please enter manually.');
+        }
+      } else {
+        throw new Error('Failed to decode VIN');
+      }
+    } catch (error) {
+      console.error('VIN decode error:', error);
+      alert('Unable to decode VIN. Please check the VIN and try again, or enter vehicle information manually.');
+    } finally {
+      setVinLoading(false);
+    }
+  };
+
+  const startVinScanner = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment', // Use back camera
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      });
+      
+      setCameraStream(stream);
+      setShowVinScanner(true);
+    } catch (error) {
+      console.error('Camera access error:', error);
+      alert('Unable to access camera. Please check permissions and try again.');
+    }
+  };
+
+  const stopVinScanner = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowVinScanner(false);
+  };
+
+  const captureVinFrame = () => {
+    const video = document.getElementById('vinScannerVideo') as HTMLVideoElement;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (video && ctx) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      
+      // For now, we'll show a message that the frame was captured
+      // In a full implementation, you'd use OCR libraries like Tesseract.js to read the VIN
+      alert('Frame captured! For now, please manually enter the VIN you see in the camera view. Future versions will include automatic VIN recognition.');
+      
+      stopVinScanner();
+    }
+  };
+
+  const lookupVehicleByYMM = async (year: string, make: string) => {
+    if (!year || !make) return;
+    
+    try {
+      // Get models for the selected year and make
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${year}?format=json`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        const models = data.Results.map((item: any) => item.Model_Name);
+        
+        // For now, we'll just log the available models
+        // In a full implementation, you'd show a dropdown with these models
+        console.log('Available models:', models);
+      }
+    } catch (error) {
+      console.error('YMM lookup error:', error);
+    }
+  };
+
+  const generateAISummary = async () => {
+    if (!contentForm.service || !contentForm.category) {
+      alert('Please select service category and type first');
+      return;
+    }
+
+    setAiGenerating(true);
+    
+    try {
+      // Prepare context for AI generation
+      const context = {
+        category: contentForm.category,
+        service: contentForm.service,
+        location: contentForm.location,
+        description: contentForm.description, // The tech's description/comments to enhance
+        jobComplexity: contentForm.jobComplexity,
+        customerSatisfaction: contentForm.customerSatisfaction,
+        customerQuote: contentForm.customerQuote,
+        jobDuration: contentForm.jobDuration,
+        vehicle: contentForm.vehicleYear && contentForm.vehicleMake && contentForm.vehicleModel ? 
+          `${contentForm.vehicleYear} ${contentForm.vehicleMake} ${contentForm.vehicleModel}` : null,
+        techName: tech?.name,
+        photoCount: contentForm.photos.length
+      };
+
+      // Call the OpenAI API endpoint
+      const response = await fetch('/api/generate-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(context),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate summary');
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setContentForm(prev => ({
+        ...prev,
+        description: data.summary
+      }));
+
+    } catch (error) {
+      console.error('AI generation error:', error);
+      alert('Unable to generate summary with AI. Please try again or write manually.');
+    } finally {
+      setAiGenerating(false);
+    }
   };
 
   const getAvailableServices = () => {
@@ -713,6 +1135,213 @@ export default function TechMarketingDashboard() {
           </div>
         )}
 
+        {/* VIN Scanner Modal */}
+        {showVinScanner && (
+          <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h2 className="text-xl font-bold text-gray-900">📷 VIN Scanner</h2>
+                <button
+                  onClick={stopVinScanner}
+                  className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="p-4">
+                <div className="relative bg-black rounded-lg overflow-hidden mb-4">
+                  <video
+                    id="vinScannerVideo"
+                    ref={(video) => {
+                      if (video && cameraStream) {
+                        video.srcObject = cameraStream;
+                        video.play();
+                      }
+                    }}
+                    className="w-full h-64 object-cover"
+                    playsInline
+                    muted
+                  />
+                  
+                  {/* VIN scanning overlay */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute inset-4 border-2 border-dashed border-green-400 rounded-lg flex items-center justify-center">
+                      <div className="text-center text-white bg-black bg-opacity-50 p-2 rounded">
+                        <p className="text-sm font-medium">Position VIN within this frame</p>
+                        <p className="text-xs">VIN is usually on dashboard or door jamb</p>
+                      </div>
+                    </div>
+                    
+                    {/* Corner guides */}
+                    <div className="absolute top-8 left-8 w-6 h-6 border-t-4 border-l-4 border-green-400"></div>
+                    <div className="absolute top-8 right-8 w-6 h-6 border-t-4 border-r-4 border-green-400"></div>
+                    <div className="absolute bottom-8 left-8 w-6 h-6 border-b-4 border-l-4 border-green-400"></div>
+                    <div className="absolute bottom-8 right-8 w-6 h-6 border-b-4 border-r-4 border-green-400"></div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <h4 className="text-sm font-semibold text-blue-800 mb-2">📋 VIN Location Guide</h4>
+                    <ul className="text-xs text-blue-700 space-y-1">
+                      <li>• <strong>Dashboard:</strong> Driver side, visible through windshield</li>
+                      <li>• <strong>Door Jamb:</strong> Driver side door frame sticker</li>
+                      <li>• <strong>Engine Block:</strong> Usually near front of engine</li>
+                      <li>• <strong>Registration:</strong> Listed on vehicle registration document</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={captureVinFrame}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    >
+                      📸 Capture VIN
+                    </button>
+                    <button
+                      onClick={stopVinScanner}
+                      className="flex-1 bg-gray-400 text-white py-3 rounded-lg hover:bg-gray-500 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  
+                  <p className="text-xs text-gray-600 text-center">
+                    💡 Position the VIN clearly within the frame and tap "Capture VIN"
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Photo Camera Modal */}
+        {showPhotoCamera && (
+          <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-[60] p-4">
+            <div className="bg-black rounded-lg w-full max-w-lg max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-gray-700">
+                <h2 className="text-xl font-bold text-white">📸 Take Photo</h2>
+                <button
+                  onClick={stopPhotoCamera}
+                  className="text-gray-400 hover:text-white text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="relative">
+                <video
+                  id="photoCameraVideo"
+                  ref={(video) => {
+                    if (video && photoCameraStream) {
+                      video.srcObject = photoCameraStream;
+                      video.play();
+                    }
+                  }}
+                  className="w-full aspect-square object-cover"
+                  playsInline
+                  muted
+                />
+                
+                {/* Professional Grid Overlay */}
+                <div className="absolute inset-0 pointer-events-none">
+                  {/* Rule of thirds grid */}
+                  <div className="absolute inset-0">
+                    {/* Vertical lines */}
+                    <div className="absolute left-1/3 top-0 bottom-0 w-[1px] bg-white opacity-30"></div>
+                    <div className="absolute left-2/3 top-0 bottom-0 w-[1px] bg-white opacity-30"></div>
+                    {/* Horizontal lines */}
+                    <div className="absolute top-1/3 left-0 right-0 h-[1px] bg-white opacity-30"></div>
+                    <div className="absolute top-2/3 left-0 right-0 h-[1px] bg-white opacity-30"></div>
+                  </div>
+                  
+                  {/* Center focus point */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                    <div className="relative">
+                      {/* Plus icon */}
+                      <div className="w-8 h-8 flex items-center justify-center">
+                        <div className="absolute w-6 h-[2px] bg-white opacity-70 rounded"></div>
+                        <div className="absolute w-[2px] h-6 bg-white opacity-70 rounded"></div>
+                      </div>
+                      {/* Center circle */}
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 border-2 border-white opacity-50 rounded-full"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Corner frame indicators */}
+                  <div className="absolute top-4 left-4 w-6 h-6">
+                    <div className="absolute top-0 left-0 w-4 h-[2px] bg-white opacity-60 rounded"></div>
+                    <div className="absolute top-0 left-0 w-[2px] h-4 bg-white opacity-60 rounded"></div>
+                  </div>
+                  <div className="absolute top-4 right-4 w-6 h-6">
+                    <div className="absolute top-0 right-0 w-4 h-[2px] bg-white opacity-60 rounded"></div>
+                    <div className="absolute top-0 right-0 w-[2px] h-4 bg-white opacity-60 rounded"></div>
+                  </div>
+                  <div className="absolute bottom-4 left-4 w-6 h-6">
+                    <div className="absolute bottom-0 left-0 w-4 h-[2px] bg-white opacity-60 rounded"></div>
+                    <div className="absolute bottom-0 left-0 w-[2px] h-4 bg-white opacity-60 rounded"></div>
+                  </div>
+                  <div className="absolute bottom-4 right-4 w-6 h-6">
+                    <div className="absolute bottom-0 right-0 w-4 h-[2px] bg-white opacity-60 rounded"></div>
+                    <div className="absolute bottom-0 right-0 w-[2px] h-4 bg-white opacity-60 rounded"></div>
+                  </div>
+                  
+                  {/* Format indicator */}
+                  <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+                    <div className="bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                      {socialMediaFormat === 'instagram' && '📷 Square (1:1)'}
+                      {socialMediaFormat === 'facebook' && '📷 Landscape (16:9)'}
+                      {socialMediaFormat === 'auto' && '📷 Smart Auto'}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Camera Controls */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
+                  <div className="flex items-center justify-center gap-8">
+                    <button
+                      onClick={stopPhotoCamera}
+                      className="w-12 h-12 bg-gray-600 hover:bg-gray-500 text-white rounded-full flex items-center justify-center transition-colors"
+                      title="Cancel"
+                    >
+                      ❌
+                    </button>
+                    
+                    <button
+                      onClick={capturePhoto}
+                      className="w-16 h-16 bg-white hover:bg-gray-200 text-black rounded-full flex items-center justify-center transition-colors border-4 border-gray-400"
+                      title="Take Photo"
+                    >
+                      <div className="w-12 h-12 bg-black rounded-full"></div>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        // Cycle through formats
+                        const formats = ['auto', 'instagram', 'facebook'] as const;
+                        const currentIndex = formats.indexOf(socialMediaFormat);
+                        const nextIndex = (currentIndex + 1) % formats.length;
+                        setSocialMediaFormat(formats[nextIndex]);
+                      }}
+                      className="w-12 h-12 bg-gray-600 hover:bg-gray-500 text-white rounded-full flex items-center justify-center transition-colors text-xs"
+                      title="Change Format"
+                    >
+                      🔄
+                    </button>
+                  </div>
+                  
+                  <div className="mt-3 text-center">
+                    <p className="text-white text-xs opacity-75">
+                      Use grid lines and center point for better composition
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Content Form Modal */}
         {showContentForm && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -756,55 +1385,150 @@ export default function TechMarketingDashboard() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
-                  <input
-                    type="text"
-                    value={contentForm.location}
-                    onChange={(e) => setContentForm(prev => ({ ...prev, location: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="e.g., Downtown Mall, Main Street, Customer's Home"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={contentForm.location}
+                      onChange={(e) => setContentForm(prev => ({ ...prev, location: e.target.value }))}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., Downtown Mall, Main Street, Customer's Home"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={getCurrentLocation}
+                      disabled={locationLoading}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 transition-colors flex items-center gap-1 whitespace-nowrap"
+                      title="Get current location"
+                    >
+                      {locationLoading ? (
+                        <>
+                          <span className="animate-spin">⏳</span>
+                          <span className="text-xs">Getting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>📍</span>
+                          <span className="text-xs">Use Location</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Click "Use Location" to automatically fill with your current location
+                  </p>
                 </div>
                 
                 {/* Vehicle Information - Show only for Automotive and Roadside categories */}
                 {(contentForm.category === 'Automotive' || contentForm.category === 'Roadside') && (
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                     <h4 className="text-sm font-semibold text-blue-800 mb-3">🚗 Vehicle Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-blue-700 mb-1">Year</label>
+                    
+                    {/* VIN Section */}
+                    <div className="mb-4 p-3 bg-white rounded-md border border-blue-200">
+                      <label className="block text-sm font-medium text-blue-700 mb-2">VIN (Vehicle Identification Number)</label>
+                      <div className="flex gap-2">
                         <input
                           type="text"
-                          value={contentForm.vehicleYear}
-                          onChange={(e) => setContentForm(prev => ({ ...prev, vehicleYear: e.target.value }))}
-                          className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="e.g., 2023"
-                          maxLength={4}
+                          value={vin}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            if (value.length <= 17) {
+                              setVin(value);
+                            }
+                          }}
+                          className="flex-1 border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                          placeholder="Enter 17-character VIN"
+                          maxLength={17}
                         />
+                        <button
+                          type="button"
+                          onClick={startVinScanner}
+                          className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center gap-1 whitespace-nowrap"
+                          title="Scan VIN with live camera"
+                        >
+                          <span>📷</span>
+                          <span className="text-xs">Scan</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => decodeVIN(vin)}
+                          disabled={vinLoading || vin.length !== 17}
+                          className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center gap-1 whitespace-nowrap"
+                          title="Decode VIN using NHTSA database"
+                        >
+                          {vinLoading ? (
+                            <>
+                              <span className="animate-spin">⏳</span>
+                              <span className="text-xs">Decoding...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>🔍</span>
+                              <span className="text-xs">Decode</span>
+                            </>
+                          )}
+                        </button>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-blue-700 mb-1">Make</label>
-                        <input
-                          type="text"
-                          value={contentForm.vehicleMake}
-                          onChange={(e) => setContentForm(prev => ({ ...prev, vehicleMake: e.target.value }))}
-                          className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="e.g., Honda, Ford, Toyota"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-blue-700 mb-1">Model</label>
-                        <input
-                          type="text"
-                          value={contentForm.vehicleModel}
-                          onChange={(e) => setContentForm(prev => ({ ...prev, vehicleModel: e.target.value }))}
-                          className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="e.g., Civic, F-150, Camry"
-                        />
+                      <p className="text-xs text-blue-600 mt-1">
+                        📱 Use "Scan" to photograph the VIN, then "Decode" to auto-fill vehicle details from NHTSA database
+                      </p>
+                    </div>
+
+                    {/* Manual Entry Section */}
+                    <div className="space-y-3">
+                      <p className="text-xs text-blue-700 font-medium">Or enter manually:</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-blue-700 mb-1">Year</label>
+                          <input
+                            type="text"
+                            value={contentForm.vehicleYear}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setContentForm(prev => ({ ...prev, vehicleYear: value }));
+                              // Trigger model lookup when year and make are available
+                              if (value && contentForm.vehicleMake) {
+                                lookupVehicleByYMM(value, contentForm.vehicleMake);
+                              }
+                            }}
+                            className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="e.g., 2023"
+                            maxLength={4}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-blue-700 mb-1">Make</label>
+                          <input
+                            type="text"
+                            value={contentForm.vehicleMake}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setContentForm(prev => ({ ...prev, vehicleMake: value }));
+                              // Trigger model lookup when year and make are available
+                              if (value && contentForm.vehicleYear) {
+                                lookupVehicleByYMM(contentForm.vehicleYear, value);
+                              }
+                            }}
+                            className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="e.g., Honda, Ford, Toyota"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-blue-700 mb-1">Model</label>
+                          <input
+                            type="text"
+                            value={contentForm.vehicleModel}
+                            onChange={(e) => setContentForm(prev => ({ ...prev, vehicleModel: e.target.value }))}
+                            className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="e.g., Civic, F-150, Camry"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <p className="text-xs text-blue-600 mt-2">
-                      💡 Vehicle details help with marketing content and service documentation
+                    
+                    <p className="text-xs text-blue-600 mt-3">
+                      💡 VIN decoding uses official NHTSA database for accurate vehicle information
                     </p>
                   </div>
                 )}
@@ -851,9 +1575,9 @@ export default function TechMarketingDashboard() {
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      {socialMediaFormat === 'auto' && 'Automatically choose best format based on photo orientation'}
-                      {socialMediaFormat === 'instagram' && 'Square format optimized for Instagram posts (1080x1080)'}
-                      {socialMediaFormat === 'facebook' && 'Landscape format optimized for Facebook posts (1200x630)'}
+                      {socialMediaFormat === 'auto' && 'Automatically detects orientation and crops for optimal social media format'}
+                      {socialMediaFormat === 'instagram' && 'Square format with smart cropping for Instagram (1080x1080)'}
+                      {socialMediaFormat === 'facebook' && 'Landscape format with smart cropping for Facebook (1200x630)'}
                     </p>
                   </div>
                   
@@ -883,9 +1607,9 @@ export default function TechMarketingDashboard() {
                         <span className="text-2xl mb-2 block">📸</span>
                         <span className="text-sm font-medium text-blue-700">Take Photo</span>
                         <p className="text-xs text-blue-600 mt-1">
-                          {socialMediaFormat === 'instagram' && 'Square format'}
-                          {socialMediaFormat === 'facebook' && 'Landscape format'}
-                          {socialMediaFormat === 'auto' && 'Auto-optimized'}
+                          {socialMediaFormat === 'instagram' && 'Square crop'}
+                          {socialMediaFormat === 'facebook' && 'Landscape crop'}
+                          {socialMediaFormat === 'auto' && 'Smart auto-crop'}
                         </p>
                       </div>
                     </button>
@@ -924,16 +1648,111 @@ export default function TechMarketingDashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Description *</label>
+                    <button
+                      type="button"
+                      onClick={generateAISummary}
+                      disabled={aiGenerating || !contentForm.service || !contentForm.category}
+                      className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-400 transition-colors flex items-center gap-1 text-xs"
+                      title="Generate AI marketing summary using form data"
+                    >
+                      {aiGenerating ? (
+                        <>
+                          <span className="animate-spin">⏳</span>
+                          <span>Generating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🤖</span>
+                          <span>AI Generate</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <textarea
                     value={contentForm.description}
                     onChange={(e) => setContentForm(prev => ({ ...prev, description: e.target.value }))}
                     rows={4}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="Describe the service provided, customer satisfaction, any special details for marketing..."
+                    placeholder="Describe the service provided, challenges encountered, work performed, tools used, resolution details, or any technical notes..."
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">Include details that would be good for marketing content</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-gray-500">Add your technical notes - AI will help format into a professional service report</p>
+                    {!aiGenerating && (contentForm.service && contentForm.category) && (
+                      <p className="text-xs text-purple-600">💡 Click "AI Generate" to format your notes into a professional service report</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Job Performance Section */}
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <h4 className="text-sm font-semibold text-green-800 mb-3">📊 Job Performance & Marketing Details</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+                    {/* Job Complexity */}
+                    <div>
+                      <label className="block text-sm font-medium text-green-700 mb-2">🎯 Job Complexity</label>
+                      <select
+                        value={contentForm.jobComplexity}
+                        onChange={(e) => setContentForm(prev => ({ ...prev, jobComplexity: e.target.value as MarketingContent['jobComplexity'] }))}
+                        className="w-full border border-green-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="">Select complexity...</option>
+                        <option value="Simple">🟢 Simple - Basic service</option>
+                        <option value="Standard">🟡 Standard - Regular job</option>
+                        <option value="Complex">🟠 Complex - Challenging work</option>
+                        <option value="Emergency">🔴 Emergency - Urgent situation</option>
+                      </select>
+                      <p className="text-xs text-green-600 mt-1">Showcases skill level required</p>
+                    </div>
+                  </div>
+
+                  {/* Customer Satisfaction */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-green-700 mb-2">⭐ Customer Satisfaction</label>
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setContentForm(prev => ({ ...prev, customerSatisfaction: star }))}
+                            className={`text-2xl transition-colors ${
+                              contentForm.customerSatisfaction && contentForm.customerSatisfaction >= star
+                                ? 'text-yellow-400'
+                                : 'text-gray-300 hover:text-yellow-300'
+                            }`}
+                          >
+                            ⭐
+                          </button>
+                        ))}
+                      </div>
+                      {contentForm.customerSatisfaction && (
+                        <span className="text-sm text-green-700">
+                          {contentForm.customerSatisfaction === 5 ? '🎉 Excellent!' : 
+                           contentForm.customerSatisfaction === 4 ? '😊 Great!' :
+                           contentForm.customerSatisfaction === 3 ? '👍 Good' :
+                           contentForm.customerSatisfaction === 2 ? '😐 Fair' : '😕 Poor'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <input
+                      type="text"
+                      value={contentForm.customerQuote}
+                      onChange={(e) => setContentForm(prev => ({ ...prev, customerQuote: e.target.value }))}
+                      className="w-full border border-green-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Optional: Customer quote or feedback (great for marketing!)"
+                    />
+                    <p className="text-xs text-green-600 mt-1">Customer testimonials are powerful marketing content</p>
+                  </div>
+
+                  <p className="text-xs text-green-600">
+                    💡 These details help create compelling marketing content that showcases professionalism and customer satisfaction
+                  </p>
                 </div>
 
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
@@ -1027,6 +1846,32 @@ export default function TechMarketingDashboard() {
                         </p>
                       )}
                       <p className="text-gray-600 mb-3">📋 {content.description}</p>
+                      
+                      {/* Marketing Details */}
+                      <div className="flex flex-wrap gap-3 mb-3 text-sm">
+                        {content.jobDuration && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                            ⏱️ {content.jobDuration} min
+                          </span>
+                        )}
+                        {content.customerSatisfaction && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
+                            ⭐ {content.customerSatisfaction}/5 stars
+                          </span>
+                        )}
+                        {content.jobComplexity && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full">
+                            🎯 {content.jobComplexity}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {content.customerQuote && (
+                        <div className="bg-green-50 border-l-4 border-green-400 p-3 mb-3">
+                          <p className="text-sm text-green-700 italic">"{content.customerQuote}"</p>
+                          <p className="text-xs text-green-600 mt-1">- Customer Testimonial</p>
+                        </div>
+                      )}
                       
                       {content.photos.length > 0 && (
                         <div className="mb-3">
