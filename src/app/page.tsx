@@ -1,4 +1,7 @@
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export default function Home() {
   return (
@@ -12,39 +15,74 @@ export default function Home() {
           priority
           className="mb-4"
         />
-        <div className="text-center sm:text-left">
+        <div className="text-center sm:text-left max-w-2xl">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">🔐 Pop-A-Lock Franchise Management</h2>
-          <p className="text-lg text-gray-700 mb-2">Complete locksmith services management platform</p>
-          <ul className="text-sm text-gray-600 space-y-1 mb-6">
-            <li>🚗 <strong>Automotive:</strong> Car lockouts, key programming, ignition repair</li>
-            <li>🏢 <strong>Commercial:</strong> Office locks, access control, master key systems</li>
-            <li>🏠 <strong>Residential:</strong> Home lockouts, lock installation, security upgrades</li>
-            <li>🛣️ <strong>Roadside:</strong> Emergency lockout assistance, 24/7 mobile service</li>
-          </ul>
+          <p className="text-lg text-gray-700 mb-6">Complete locksmith services management platform</p>
+          
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>🔧</span>
+                Our Services
+              </CardTitle>
+              <CardDescription>
+                Professional locksmith services for all your security needs
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">🚗</Badge>
+                  <div>
+                    <p className="font-medium">Automotive</p>
+                    <p className="text-sm text-gray-600">Car lockouts, key programming, ignition repair</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">🏢</Badge>
+                  <div>
+                    <p className="font-medium">Commercial</p>
+                    <p className="text-sm text-gray-600">Office locks, access control, master key systems</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">🏠</Badge>
+                  <div>
+                    <p className="font-medium">Residential</p>
+                    <p className="text-sm text-gray-600">Home lockouts, lock installation, security upgrades</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">🛣️</Badge>
+                  <div>
+                    <p className="font-medium">Roadside</p>
+                    <p className="text-sm text-gray-600">Emergency lockout assistance, 24/7 mobile service</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-blue-600 text-white gap-2 hover:bg-blue-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="/admin"
-          >
-            <span>⚙️</span>
-            Admin Dashboard
-          </a>
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-green-600 text-white gap-2 hover:bg-green-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="/franchisee"
-          >
-            <span>🏢</span>
-            Franchisee Portal
-          </a>
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-orange-600 text-white gap-2 hover:bg-orange-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="/tech/login"
-          >
-            <span>🔧</span>
-            Tech Login
-          </a>
+          <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
+            <a href="/admin">
+              <span>⚙️</span>
+              Admin Dashboard
+            </a>
+          </Button>
+          <Button asChild size="lg" className="bg-green-600 hover:bg-green-700">
+            <a href="/franchisee">
+              <span>🏢</span>
+              Franchisee Portal
+            </a>
+          </Button>
+          <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700">
+            <a href="/tech/login">
+              <span>🔧</span>
+              Tech Login
+            </a>
+          </Button>
         </div>
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
