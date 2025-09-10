@@ -161,8 +161,177 @@ export default function AdminDashboard() {
         </BlurFade>
       </div>
 
+      {/* Performance Dashboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <BlurFade delay={0.8}>
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5" />
+            <CardHeader className="relative">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-amber-600" />
+                Top Technicians
+              </CardTitle>
+              <CardDescription>
+                Network performance leaders
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="relative">
+              <div className="space-y-3">
+                {[
+                  { 
+                    rank: 1,
+                    name: 'Alex Rodriguez', 
+                    franchise: 'Dallas Downtown',
+                    photoSubmissions: 18, 
+                    approved: 15, 
+                    marketingScore: 96, 
+                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg'
+                  },
+                  { 
+                    rank: 2,
+                    name: 'Sofia Martinez', 
+                    franchise: 'Austin Central',
+                    photoSubmissions: 16, 
+                    approved: 14, 
+                    marketingScore: 92, 
+                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg'
+                  },
+                  { 
+                    rank: 3,
+                    name: 'Jennifer Walsh', 
+                    franchise: 'San Antonio North',
+                    photoSubmissions: 14, 
+                    approved: 12, 
+                    marketingScore: 89, 
+                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_dkeufx.jpg'
+                  },
+                  { 
+                    rank: 4,
+                    name: 'Mike Johnson', 
+                    franchise: 'Houston West',
+                    photoSubmissions: 13, 
+                    approved: 10, 
+                    marketingScore: 85, 
+                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
+                  },
+                  { 
+                    rank: 5,
+                    name: 'David Chen', 
+                    franchise: 'Dallas Downtown',
+                    photoSubmissions: 12, 
+                    approved: 9, 
+                    marketingScore: 82, 
+                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
+                  }
+                ].map((tech, index) => (
+                  <div key={tech.name} className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-bold shrink-0">
+                      #{tech.rank}
+                    </div>
+                    <div className="w-8 h-8 relative rounded-full overflow-hidden shrink-0">
+                      <img
+                        src={tech.image}
+                        alt={tech.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {tech.name}
+                        </p>
+                        <Badge variant="secondary" className="text-xs">
+                          {tech.marketingScore}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{tech.photoSubmissions} sent</span>
+                        <span>{tech.approved} approved</span>
+                        <span>{Math.round((tech.approved / tech.photoSubmissions) * 100)}%</span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-700"
+                          style={{ width: `${tech.marketingScore}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-3 border-t border-border/20">
+                <Button variant="outline" size="sm" className="w-full bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm border-border/40">
+                  View All Technicians
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </BlurFade>
+
+        <BlurFade delay={0.85}>
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-purple-500/5" />
+            <CardHeader className="relative">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="h-5 w-5 text-violet-600" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>
+                Latest franchise network updates
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="relative">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                  <div className="w-2 h-2 rounded-full bg-green-500 shrink-0"></div>
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground">New photo submission approved</p>
+                    <p className="text-xs text-muted-foreground">Alex Rodriguez • Dallas Downtown • 2 min ago</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></div>
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground">Magic link sent to technician</p>
+                    <p className="text-xs text-muted-foreground">Sofia Martinez • Austin Central • 5 min ago</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                  <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0"></div>
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground">New franchisee registered</p>
+                    <p className="text-xs text-muted-foreground">Fort Worth East • 15 min ago</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                  <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></div>
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground">Marketing report generated</p>
+                    <p className="text-xs text-muted-foreground">Houston West • 22 min ago</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                  <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground">Photo submission denied</p>
+                    <p className="text-xs text-muted-foreground">Mike Johnson • Quality review • 28 min ago</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-border/20">
+                <Button variant="outline" size="sm" className="w-full bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm border-border/40">
+                  View Activity Log
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </BlurFade>
+      </div>
+
       {/* System Status */}
-      <BlurFade delay={0.8}>
+      <BlurFade delay={0.9}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500/10 to-teal-500/5 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -200,7 +369,7 @@ export default function AdminDashboard() {
       </BlurFade>
 
       {/* Quick Actions */}
-      <BlurFade delay={0.9}>
+      <BlurFade delay={1.0}>
         <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
           <CardHeader className="relative">

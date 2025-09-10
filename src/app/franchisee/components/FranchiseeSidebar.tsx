@@ -1,64 +1,152 @@
-'use client';
+"use client";
+import React, { useState } from "react";
+import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
+import {
+  IconDashboard,
+  IconSettings,
+  IconTool,
+  IconFileText,
+  IconChartBar,
+  IconUser,
+  IconPhoto,
+} from "@tabler/icons-react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-
-const navigation = [
-  { name: 'Dashboard', href: '/franchisee', icon: '📊' },
-  { name: 'My Technicians', href: '/franchisee/techs', icon: '🔧' },
-  { name: 'Jobs', href: '/franchisee/jobs', icon: '📋' },
-  { name: 'Reports', href: '/franchisee/reports', icon: '📈' },
-  { name: 'Profile', href: '/franchisee/profile', icon: '👤' },
-];
-
-export function FranchiseeSidebar() {
+export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
+  const links = [
+    {
+      label: "Dashboard",
+      href: "/franchisee",
+      icon: (
+        <IconDashboard className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "My Technicians",
+      href: "/franchisee/techs",
+      icon: (
+        <IconTool className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Jobs",
+      href: "/franchisee/jobs",
+      icon: (
+        <IconFileText className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Marketing",
+      href: "/franchisee/marketing",
+      icon: (
+        <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Reports",
+      href: "/franchisee/reports",
+      icon: (
+        <IconChartBar className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Profile",
+      href: "/franchisee/profile",
+      icon: (
+        <IconUser className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+  ];
+
   return (
-    <div className="w-64 bg-white shadow-lg">
-      <div className="p-6">
-        <Image
-          src="/images/pop-a-lock-logo.svg"
-          alt="Pop-A-Lock"
-          width={200}
-          height={80}
-          className="mb-2"
-        />
-        <p className="text-sm text-gray-600 mt-1">Franchisee Portal</p>
-        <p className="text-xs text-gray-500">Downtown Territory</p>
-      </div>
-      
-      <nav className="mt-6">
-        <ul className="space-y-2 px-4">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <li key={item.name}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <span className="mr-3 text-lg">{item.icon}</span>
-                  {item.name}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-      
-      <div className="absolute bottom-4 left-4 right-4">
-        <div className="bg-gray-100 rounded-lg p-3">
-          <p className="text-xs text-gray-600">Logged in as:</p>
-          <p className="text-sm font-medium text-gray-900">John Smith</p>
-          <p className="text-xs text-gray-500">john@franchise1.com</p>
+    <div
+      className={cn(
+        "mx-auto flex w-full max-w-none flex-1 flex-col overflow-hidden bg-gray-100 md:flex-row dark:bg-neutral-800",
+        "h-screen"
+      )}
+    >
+      <Sidebar open={open} setOpen={setOpen} animate={true}>
+        <SidebarBody className="justify-between gap-10">
+          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
+            <Logo />
+            <div className="mt-8 flex flex-col gap-2">
+              {links.map((link, idx) => {
+                const isActive = pathname === link.href;
+                return (
+                  <Link key={idx} href={link.href}>
+                    <SidebarLink
+                      link={{
+                        ...link,
+                        icon: React.cloneElement(link.icon as React.ReactElement, {
+                          className: cn(
+                            "h-5 w-5 shrink-0",
+                            isActive 
+                              ? "text-primary" 
+                              : "text-neutral-700 dark:text-neutral-200"
+                          ),
+                        }),
+                      }}
+                      className={cn(
+                        "hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg px-3 py-2",
+                        isActive && "bg-primary/10 text-primary dark:bg-primary/20"
+                      )}
+                    />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <SidebarLink
+              link={{
+                label: "John Smith",
+                href: "#",
+                icon: (
+                  <div className="h-7 w-7 shrink-0 rounded-full bg-primary/20 flex items-center justify-center">
+                    <IconUser className="h-4 w-4 text-primary" />
+                  </div>
+                ),
+              }}
+            />
+          </div>
+        </SidebarBody>
+      </Sidebar>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex w-full flex-1 flex-col gap-4 rounded-tl-2xl border border-neutral-200 bg-white p-4 md:p-8 dark:border-neutral-700 dark:bg-neutral-900 overflow-y-auto">
+          {children}
         </div>
       </div>
     </div>
   );
 }
+
+export const Logo = () => {
+  return (
+    <Link
+      href="/franchisee"
+      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black"
+    >
+      <Image
+        src="/images/pop-a-lock-logo.svg"
+        alt="Pop-A-Lock"
+        width={120}
+        height={40}
+        className="h-8 w-auto"
+      />
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="whitespace-pre font-medium text-black dark:text-white"
+      >
+        Franchisee
+      </motion.span>
+    </Link>
+  );
+};
