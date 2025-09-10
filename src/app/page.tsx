@@ -1,12 +1,9 @@
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
+      <main className="flex flex-col gap-8 items-center text-center max-w-4xl">
         <Image
           src="/images/pop-a-lock-logo.svg"
           alt="Pop-A-Lock Locksmith - Auto, Home, Business"
@@ -15,74 +12,71 @@ export default function Home() {
           priority
           className="mb-4"
         />
-        <div className="text-center sm:text-left max-w-2xl">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">🔐 Pop-A-Lock Franchise Management</h2>
-          <p className="text-lg text-gray-700 mb-6">Complete locksmith services management platform</p>
+        
+        <div className="space-y-6">
+          <h2 className="text-3xl font-bold text-gray-900">Pop-A-Lock Franchise Management</h2>
+          <p className="text-xl text-gray-700">Complete locksmith services management platform</p>
           
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span>🔧</span>
-                Our Services
-              </CardTitle>
-              <CardDescription>
-                Professional locksmith services for all your security needs
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">🚗</Badge>
-                  <div>
-                    <p className="font-medium">Automotive</p>
-                    <p className="text-sm text-gray-600">Car lockouts, key programming, ignition repair</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">🏢</Badge>
-                  <div>
-                    <p className="font-medium">Commercial</p>
-                    <p className="text-sm text-gray-600">Office locks, access control, master key systems</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">🏠</Badge>
-                  <div>
-                    <p className="font-medium">Residential</p>
-                    <p className="text-sm text-gray-600">Home lockouts, lock installation, security upgrades</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">🛣️</Badge>
-                  <div>
-                    <p className="font-medium">Roadside</p>
-                    <p className="text-sm text-gray-600">Emergency lockout assistance, 24/7 mobile service</p>
-                  </div>
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <h3 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center justify-center gap-2">
+              <span>🔧</span>
+              Our Services
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🚗</span>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Automotive</h4>
+                  <p className="text-gray-600">Car lockouts, key programming, ignition repair</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🏢</span>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Commercial</h4>
+                  <p className="text-gray-600">Office locks, access control, master key systems</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🏠</span>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Residential</h4>
+                  <p className="text-gray-600">Home lockouts, lock installation, security upgrades</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🛣️</span>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Roadside</h4>
+                  <p className="text-gray-600">Emergency lockout assistance, 24/7 mobile service</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
-            <a href="/admin">
-              <span>⚙️</span>
-              Admin Dashboard
-            </a>
-          </Button>
-          <Button asChild size="lg" className="bg-green-600 hover:bg-green-700">
-            <a href="/franchisee">
-              <span>🏢</span>
-              Franchisee Portal
-            </a>
-          </Button>
-          <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700">
-            <a href="/tech/login">
-              <span>🔧</span>
-              Tech Login
-            </a>
-          </Button>
+        <div className="flex gap-6 items-center flex-wrap justify-center">
+          <a
+            href="/admin"
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg"
+          >
+            <span>⚙️</span>
+            Admin Dashboard
+          </a>
+          <a
+            href="/franchisee"
+            className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-lg"
+          >
+            <span>🏢</span>
+            Franchisee Portal
+          </a>
+          <a
+            href="/tech/login"
+            className="flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 transition-colors font-semibold shadow-lg"
+          >
+            <span>🔧</span>
+            Tech Login
+          </a>
         </div>
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
