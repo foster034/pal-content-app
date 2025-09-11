@@ -1,4 +1,5 @@
 import { AdminSidebar } from './components/AdminSidebar';
+import { TableProvider } from '@/contexts/table-context';
 
 export default function AdminLayout({
   children,
@@ -6,8 +7,10 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AdminSidebar>
-      {children}
-    </AdminSidebar>
+    <TableProvider>
+      <AdminSidebar>
+        {children}
+      </AdminSidebar>
+    </TableProvider>
   );
 }

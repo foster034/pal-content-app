@@ -4,16 +4,9 @@ import { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useTable } from '@/contexts/table-context';
 
-interface TechPhoto {
+interface ArchivedMedia {
   id: number;
   photoUrl: string;
   jobType: 'Commercial' | 'Residential' | 'Automotive' | 'Roadside';
@@ -23,13 +16,15 @@ interface TechPhoto {
   franchiseeId: number;
   jobDescription: string;
   dateUploaded: string;
+  dateArchived: string;
   jobLocation: string;
   tags: string[];
-  franchiseeApproved: boolean;
-  adminOverride?: boolean;
+  category: 'Before' | 'After' | 'Process' | 'Tools' | 'Documentation';
+  notes?: string;
+  archived: boolean;
 }
 
-const initialPhotos: TechPhoto[] = [
+const initialArchivedMedia: ArchivedMedia[] = [
   {
     id: 1,
     photoUrl: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=300&fit=crop',
@@ -40,9 +35,12 @@ const initialPhotos: TechPhoto[] = [
     franchiseeId: 1,
     jobDescription: 'Office building master key system installation',
     dateUploaded: '2024-09-08',
+    dateArchived: '2024-09-08',
     jobLocation: 'Downtown Dallas, TX',
     tags: ['master key', 'office building', 'installation'],
-    franchiseeApproved: true,
+    category: 'After',
+    notes: 'Completed installation showing new master key system',
+    archived: true,
   },
   {
     id: 2,
@@ -54,9 +52,12 @@ const initialPhotos: TechPhoto[] = [
     franchiseeId: 2,
     jobDescription: 'Smart lock installation and setup',
     dateUploaded: '2024-09-07',
+    dateArchived: '2024-09-07',
     jobLocation: 'Austin, TX',
     tags: ['smart lock', 'residential', 'installation'],
-    franchiseeApproved: true,
+    category: 'Process',
+    notes: 'Step-by-step smart lock setup process',
+    archived: true,
   },
   {
     id: 3,
@@ -68,9 +69,12 @@ const initialPhotos: TechPhoto[] = [
     franchiseeId: 3,
     jobDescription: 'Car lockout service - key extraction',
     dateUploaded: '2024-09-06',
+    dateArchived: '2024-09-06',
     jobLocation: 'Houston, TX',
     tags: ['car lockout', 'key extraction', 'emergency'],
-    franchiseeApproved: false,
+    category: 'Tools',
+    notes: 'Emergency tools used for key extraction',
+    archived: true,
   },
   {
     id: 4,
@@ -82,9 +86,12 @@ const initialPhotos: TechPhoto[] = [
     franchiseeId: 4,
     jobDescription: 'Emergency roadside assistance - broken key removal',
     dateUploaded: '2024-09-05',
+    dateArchived: '2024-09-05',
     jobLocation: 'San Antonio, TX',
     tags: ['roadside', 'emergency', 'key repair'],
-    franchiseeApproved: true,
+    category: 'Before',
+    notes: 'Before photo showing broken key in lock',
+    archived: true,
   },
   {
     id: 5,
@@ -96,9 +103,12 @@ const initialPhotos: TechPhoto[] = [
     franchiseeId: 1,
     jobDescription: 'Access control system upgrade',
     dateUploaded: '2024-09-04',
+    dateArchived: '2024-09-04',
     jobLocation: 'Dallas, TX',
     tags: ['access control', 'commercial', 'upgrade'],
-    franchiseeApproved: true,
+    category: 'Documentation',
+    notes: 'System documentation and specifications',
+    archived: true,
   },
   {
     id: 6,
@@ -110,9 +120,12 @@ const initialPhotos: TechPhoto[] = [
     franchiseeId: 2,
     jobDescription: 'Lock rekey service for new homeowner',
     dateUploaded: '2024-09-03',
+    dateArchived: '2024-09-03',
     jobLocation: 'Austin, TX',
     tags: ['rekey', 'residential', 'new home'],
-    franchiseeApproved: true,
+    category: 'After',
+    notes: 'Completed rekey service with new keys',
+    archived: true,
   },
 ];
 
@@ -130,39 +143,45 @@ const technicians = [
   { id: 4, name: 'Jennifer Walsh' },
 ];
 
-export default function MarketingPage() {
-  const [photos, setPhotos] = useState<TechPhoto[]>(initialPhotos);
+export default function MediaArchivePage() {
+  const { getTableClasses } = useTable();
+  const tableClasses = getTableClasses();
+  
+  const [archivedMedia, setArchivedMedia] = useState<ArchivedMedia[]>(initialArchivedMedia);
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [selectedFranchisee, setSelectedFranchisee] = useState<string>('All');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('All');
-  const [selectedApprovalStatus, setSelectedApprovalStatus] = useState<string>('Franchisee Approved');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [viewMode, setViewMode] = useState<'gallery' | 'table'>('table');
 
-  const filteredPhotos = useMemo(() => {
-    return photos.filter(photo => {
-      if (selectedJobType !== 'All' && photo.jobType !== selectedJobType) return false;
-      if (selectedFranchisee !== 'All' && photo.franchiseeName !== selectedFranchisee) return false;
-      if (selectedTechnician !== 'All' && photo.techName !== selectedTechnician) return false;
-      if (selectedApprovalStatus !== 'All') {
-        if (selectedApprovalStatus === 'Franchisee Approved' && !photo.franchiseeApproved) return false;
-        if (selectedApprovalStatus === 'Franchisee Denied' && photo.franchiseeApproved) return false;
-        if (selectedApprovalStatus === 'Admin Override' && !photo.adminOverride) return false;
-      }
+  const filteredMedia = useMemo(() => {
+    return archivedMedia.filter(media => {
+      if (selectedJobType !== 'All' && media.jobType !== selectedJobType) return false;
+      if (selectedFranchisee !== 'All' && media.franchiseeName !== selectedFranchisee) return false;
+      if (selectedTechnician !== 'All' && media.techName !== selectedTechnician) return false;
+      if (selectedCategory !== 'All' && media.category !== selectedCategory) return false;
+      if (searchTerm && !media.jobDescription.toLowerCase().includes(searchTerm.toLowerCase()) && 
+          !media.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) &&
+          !media.notes?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       return true;
     });
-  }, [photos, selectedJobType, selectedFranchisee, selectedTechnician, selectedApprovalStatus]);
+  }, [archivedMedia, selectedJobType, selectedFranchisee, selectedTechnician, selectedCategory, searchTerm]);
 
-  const toggleAdminOverride = (photoId: number) => {
-    setPhotos(prev => prev.map(photo => 
-      photo.id === photoId ? { 
-        ...photo, 
-        adminOverride: !photo.adminOverride 
-      } : photo
+  const updateMediaNotes = (mediaId: number, notes: string) => {
+    setArchivedMedia(prev => prev.map(media => 
+      media.id === mediaId ? { ...media, notes } : media
     ));
   };
 
-  const deletePhoto = (photoId: number) => {
-    setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+  const updateMediaCategory = (mediaId: number, category: 'Before' | 'After' | 'Process' | 'Tools' | 'Documentation') => {
+    setArchivedMedia(prev => prev.map(media => 
+      media.id === mediaId ? { ...media, category } : media
+    ));
+  };
+
+  const deleteMedia = (mediaId: number) => {
+    setArchivedMedia(prev => prev.filter(media => media.id !== mediaId));
   };
 
   const getJobTypeVariant = (jobType: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -175,30 +194,36 @@ export default function MarketingPage() {
     }
   };
 
-  const getStatusVariant = (photo: TechPhoto): "default" | "secondary" | "destructive" | "outline" => {
-    if (photo.adminOverride === true) return 'default'; // Admin approved override
-    if (photo.adminOverride === false) return 'destructive'; // Admin denied override
-    if (photo.franchiseeApproved) return 'secondary'; // Franchisee approved, awaiting admin review
-    return 'outline'; // Franchisee denied
-  };
-
-  const getStatusText = (photo: TechPhoto): string => {
-    if (photo.adminOverride === true) return 'Admin Approved';
-    if (photo.adminOverride === false) return 'Admin Denied';
-    if (photo.franchiseeApproved) return 'Pending Review';
-    return 'Franchisee Denied';
+  const getCategoryVariant = (category: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (category) {
+      case 'Before': return 'outline';
+      case 'After': return 'default';
+      case 'Process': return 'secondary';
+      case 'Tools': return 'destructive';
+      case 'Documentation': return 'default';
+      default: return 'outline';
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Marketing Gallery</h1>
-          <p className="text-muted-foreground">Manage technician photos and job documentation</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Media Archive</h1>
+          <p className="text-muted-foreground">Browse and organize archived technician media by job type, franchisee, and category</p>
         </div>
-        <Button>
-          Upload Photo
-        </Button>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Search media..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <Button>
+            Export Archive
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -250,119 +275,148 @@ export default function MarketingPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
           <select
-            value={selectedApprovalStatus}
-            onChange={(e) => setSelectedApprovalStatus(e.target.value)}
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="All">All Status</option>
-            <option value="Franchisee Approved">Pending Review</option>
-            <option value="Franchisee Denied">Franchisee Denied</option>
-            <option value="Admin Override">Admin Override</option>
+            <option value="All">All Categories</option>
+            <option value="Before">Before</option>
+            <option value="After">After</option>
+            <option value="Process">Process</option>
+            <option value="Tools">Tools</option>
+            <option value="Documentation">Documentation</option>
           </select>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Marketing Photos</CardTitle>
-          <CardDescription>Manage technician photos and job documentation. Showing {filteredPhotos.length} of {photos.length} photos.</CardDescription>
+          <CardTitle>Archived Media</CardTitle>
+          <CardDescription>Browse and organize archived technician media. Showing {filteredMedia.length} of {archivedMedia.length} items.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Photo</TableHead>
-                <TableHead>Job Details</TableHead>
-                <TableHead>Technician</TableHead>
-                <TableHead>Franchisee</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPhotos.map((photo) => (
-                <TableRow key={photo.id}>
-                  <TableCell>
-                    <div className="w-20 h-16 relative rounded overflow-hidden">
-                      <img
-                        src={photo.photoUrl}
-                        alt={photo.jobDescription}
-                        className="w-full h-full object-cover"
+          <div className={tableClasses.wrapper}>
+            <table className={tableClasses.table}>
+              <thead className={tableClasses.header}>
+                <tr>
+                  <th scope="col" className="p-4">
+                    <div className="flex items-center">
+                      <input 
+                        id="checkbox-all" 
+                        type="checkbox" 
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                       />
+                      <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-                        {photo.jobDescription}
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Media
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Job Details
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Technician
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Franchisee
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Category
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Archive Date
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMedia.map((media, index) => (
+                  <tr key={media.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                    <td className="w-4 p-4">
+                      <div className="flex items-center">
+                        <input 
+                          id={`checkbox-table-${media.id}`} 
+                          type="checkbox" 
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <label htmlFor={`checkbox-table-${media.id}`} className="sr-only">checkbox</label>
                       </div>
-                      <div className="flex gap-1 mb-1">
-                        <Badge variant={getJobTypeVariant(photo.jobType)} className="text-xs">
-                          {photo.jobType}
-                        </Badge>
-                        {photo.tags.slice(0, 2).map(tag => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="w-20 h-16 relative rounded overflow-hidden">
+                        <img
+                          src={media.photoUrl}
+                          alt={media.jobDescription}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </td>
+                    <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                      <div>
+                        <div className="mb-2">
+                          {media.jobDescription}
+                        </div>
+                        <div className="flex gap-1 mb-1">
+                          <Badge variant={getJobTypeVariant(media.jobType)} className="text-xs">
+                            {media.jobType}
                           </Badge>
-                        ))}
-                        {photo.tags.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{photo.tags.length - 2}
-                          </Badge>
+                          {media.tags.slice(0, 2).map(tag => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {media.tags.length > 2 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{media.tags.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                          {media.jobLocation} • Uploaded: {media.dateUploaded}
+                        </div>
+                        {media.notes && (
+                          <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 italic font-normal">
+                            "{media.notes}"
+                          </div>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {photo.jobLocation} • {photo.dateUploaded}
+                    </th>
+                    <td className="px-6 py-4">
+                      {media.techName}
+                    </td>
+                    <td className="px-6 py-4">
+                      {media.franchiseeName}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={getCategoryVariant(media.category)}>
+                        {media.category}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      {media.dateArchived}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <a href="#" className="font-medium text-blue-600 dark:text-blue-500 hover:underline">View</a>
+                        <a href="#" className="font-medium text-green-600 dark:text-green-500 hover:underline">Edit</a>
+                        <button 
+                          onClick={() => deleteMedia(media.id)}
+                          className="font-medium text-red-600 dark:text-red-500 hover:underline"
+                        >
+                          Delete
+                        </button>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">{photo.techName}</div>
-                  </TableCell>
-                  <TableCell>{photo.franchiseeName}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(photo)}>
-                      {getStatusText(photo)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      {photo.franchiseeApproved && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleAdminOverride(photo.id)}
-                          className={photo.adminOverride === true ? 'text-orange-600 hover:text-orange-700' : 'text-blue-600 hover:text-blue-700'}
-                        >
-                          {photo.adminOverride === true ? 'Unapprove' : 'Approve'}
-                        </Button>
-                      )}
-                      {photo.franchiseeApproved && photo.adminOverride === undefined && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleAdminOverride(photo.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Deny
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deletePhoto(photo.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
     </div>

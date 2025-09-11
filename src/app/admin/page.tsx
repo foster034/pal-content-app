@@ -7,6 +7,7 @@ import NumberTicker from "@/components/ui/number-ticker";
 import Meteors from "@/components/ui/meteors";
 import { AnimatedChart } from "@/components/ui/animated-chart";
 import { Plus, Download, RefreshCw, TrendingUp, Users, Building2, Wrench, Activity, Zap, Globe, Target } from 'lucide-react';
+import Link from 'next/link';
 
 const statsData = [
   {
@@ -179,6 +180,7 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 {[
                   { 
+                    id: 'alex-rodriguez',
                     rank: 1,
                     name: 'Alex Rodriguez', 
                     franchise: 'Dallas Downtown',
@@ -188,6 +190,7 @@ export default function AdminDashboard() {
                     image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg'
                   },
                   { 
+                    id: 'sofia-martinez',
                     rank: 2,
                     name: 'Sofia Martinez', 
                     franchise: 'Austin Central',
@@ -197,6 +200,7 @@ export default function AdminDashboard() {
                     image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg'
                   },
                   { 
+                    id: 'jennifer-walsh',
                     rank: 3,
                     name: 'Jennifer Walsh', 
                     franchise: 'San Antonio North',
@@ -206,6 +210,7 @@ export default function AdminDashboard() {
                     image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_dkeufx.jpg'
                   },
                   { 
+                    id: 'mike-johnson',
                     rank: 4,
                     name: 'Mike Johnson', 
                     franchise: 'Houston West',
@@ -215,6 +220,7 @@ export default function AdminDashboard() {
                     image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
                   },
                   { 
+                    id: 'david-chen',
                     rank: 5,
                     name: 'David Chen', 
                     franchise: 'Dallas Downtown',
@@ -224,41 +230,43 @@ export default function AdminDashboard() {
                     image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
                   }
                 ].map((tech, index) => (
-                  <div key={tech.name} className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
-                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-bold shrink-0">
-                      #{tech.rank}
-                    </div>
-                    <div className="w-8 h-8 relative rounded-full overflow-hidden shrink-0">
-                      <img
-                        src={tech.image}
-                        alt={tech.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {tech.name}
-                        </p>
-                        <Badge variant="secondary" className="text-xs">
-                          {tech.marketingScore}
-                        </Badge>
+                  <Link key={tech.name} href={`/tech/${tech.id}`} className="block transition-all duration-200 hover:scale-102 hover:shadow-lg">
+                    <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20 hover:from-background/70 hover:to-background/40 cursor-pointer">
+                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-bold shrink-0">
+                        #{tech.rank}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{tech.photoSubmissions} sent</span>
-                        <span>{tech.approved} approved</span>
-                        <span>{Math.round((tech.approved / tech.photoSubmissions) * 100)}%</span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-700"
-                          style={{ width: `${tech.marketingScore}%` }}
+                      <div className="w-8 h-8 relative rounded-full overflow-hidden shrink-0">
+                        <img
+                          src={tech.image}
+                          alt={tech.name}
+                          className="w-full h-full object-cover"
                         />
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {tech.name}
+                          </p>
+                          <Badge variant="secondary" className="text-xs">
+                            {tech.marketingScore}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{tech.photoSubmissions} sent</span>
+                          <span>{tech.approved} approved</span>
+                          <span>{Math.round((tech.approved / tech.photoSubmissions) * 100)}%</span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-700"
+                            style={{ width: `${tech.marketingScore}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
               <div className="mt-4 pt-3 border-t border-border/20">

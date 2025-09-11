@@ -434,7 +434,7 @@ async function handleToolCall(toolName: string, args: any, id?: string | number)
         break;
 
       case 'generate_ai_summary':
-        const { category: cat, service, location, techName: technicianName, customerSatisfaction } = args;
+        const { category: cat, service, location, techName: technicianNameVar, customerSatisfaction } = args;
         
         const satisfactionText = customerSatisfaction 
           ? ` The customer was ${customerSatisfaction === 5 ? 'extremely satisfied' : 
@@ -442,7 +442,7 @@ async function handleToolCall(toolName: string, args: any, id?: string | number)
                customerSatisfaction === 3 ? 'satisfied' : 'moderately satisfied'} with the service.`
           : '';
 
-        const summary = `${technicianName} successfully completed a ${service} service${location ? ` in ${location}` : ''}. Professional ${cat?.toLowerCase()} locksmith services were provided with expertise and efficiency.${satisfactionText} This demonstrates Pop-A-Lock's commitment to quality service and customer satisfaction.`;
+        const summary = `${technicianNameVar} successfully completed a ${service} service${location ? ` in ${location}` : ''}. Professional ${cat?.toLowerCase()} locksmith services were provided with expertise and efficiency.${satisfactionText} This demonstrates Pop-A-Lock's commitment to quality service and customer satisfaction.`;
 
         result = {
           success: true,

@@ -252,7 +252,7 @@ export default function TechMarketingDashboard() {
       Array.from(files).forEach((file) => {
         const reader = new FileReader();
         reader.onload = (event) => {
-          const img = new Image();
+          const img = new window.Image();
           img.onload = () => {
             // Create canvas for optimization
             const canvas = document.createElement('canvas');
@@ -1918,7 +1918,7 @@ export default function TechMarketingDashboard() {
               src={selectedPhoto} 
               alt="Full size photo" 
               className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              style={{ imageRendering: 'high-quality' }}
+              style={{ imageRendering: 'auto' }}
             />
             <button
               onClick={() => setSelectedPhoto(null)}

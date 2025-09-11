@@ -297,89 +297,87 @@ export default function FranchiseeTechsPage() {
           <CardTitle>Your Technician Team</CardTitle>
           <CardDescription>Manage and coordinate with your skilled locksmith technicians.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Technician</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Specialties</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Performance</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <CardContent className="p-0">
+          <div className="overflow-hidden">
+            <div className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-200/50 dark:border-gray-700/50">
+              <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">
+                <div className="col-span-3">Technician</div>
+                <div className="col-span-2">Contact</div>
+                <div className="col-span-2">Specialties</div>
+                <div className="col-span-1">Status</div>
+                <div className="col-span-2">Performance</div>
+                <div className="col-span-2 text-right">Actions</div>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {techs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <div className="text-gray-400 text-6xl mb-4">🔧</div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No technicians yet</h3>
-                    <p className="text-muted-foreground mb-6">Get started by adding your first technician to your team.</p>
-                    <Button onClick={() => setShowCreateForm(true)}>
-                      Add Your First Technician
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                <div className="px-6 py-12 text-center">
+                  <div className="text-gray-400 text-6xl mb-4">🔧</div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No technicians yet</h3>
+                  <p className="text-muted-foreground mb-6">Get started by adding your first technician to your team.</p>
+                  <Button onClick={() => setShowCreateForm(true)}>
+                    Add Your First Technician
+                  </Button>
+                </div>
               ) : (
                 techs.map((tech) => (
-                  <TableRow key={tech.id}>
-                    <TableCell>
+                  <div key={tech.id} className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors duration-150">
+                    <div className="col-span-3">
                       <div className="flex items-center gap-3">
                         <img
-                          className="rounded-full"
+                          className="rounded-full ring-2 ring-gray-100 dark:ring-gray-700"
                           src={tech.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(tech.name)}&background=0ea5e9&color=fff`}
                           width={40}
                           height={40}
                           alt={tech.name}
                         />
                         <div>
-                          <div className="font-medium">{tech.name}</div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100">{tech.name}</div>
                           <span className="text-muted-foreground text-xs">
                             Hired {new Date(tech.hireDate).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="col-span-2">
                       <div>
-                        <div className="font-medium">{tech.email}</div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{tech.email}</div>
                         <div className="text-muted-foreground text-xs">{tech.phone}</div>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="col-span-2">
                       <div className="flex flex-wrap gap-1">
                         {tech.specialties.slice(0, 2).map(specialty => (
-                          <Badge key={specialty} variant="outline" className="text-xs">
+                          <Badge key={specialty} variant="outline" className="text-xs border-gray-200 dark:border-gray-700">
                             {specialty}
                           </Badge>
                         ))}
                         {tech.specialties.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                             +{tech.specialties.length - 2}
                           </Badge>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusVariant(tech.status)}>
+                    </div>
+                    <div className="col-span-1">
+                      <Badge variant={getStatusVariant(tech.status)} className="shadow-sm">
                         {tech.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="col-span-2">
                       <div>
-                        <div className="text-yellow-500">{renderStars(tech.rating)}</div>
+                        <div className="text-yellow-500 text-sm">{renderStars(tech.rating)}</div>
                         <div className="text-xs text-muted-foreground">{tech.completedJobs} jobs</div>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                    </div>
+                    <div className="col-span-2">
+                      <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => sendMagicLink(tech)}
                           disabled={sendingMagicLink === tech.id}
-                          className="text-blue-600 hover:text-blue-700"
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 h-8 px-2 text-xs"
                         >
                           {sendingMagicLink === tech.id ? 'Sending...' : 'Generate Login'}
                         </Button>
@@ -387,6 +385,7 @@ export default function FranchiseeTechsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(tech)}
+                          className="hover:bg-gray-100 dark:hover:bg-gray-700 h-8 px-2 text-xs"
                         >
                           Edit
                         </Button>
@@ -394,17 +393,17 @@ export default function FranchiseeTechsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDelete(tech.id)}
-                          className="text-destructive hover:text-destructive"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 h-8 px-2 text-xs"
                         >
                           Remove
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))
               )}
-            </TableBody>
-          </Table>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

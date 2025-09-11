@@ -11,6 +11,8 @@ import {
   IconLogout,
   IconShield,
   IconPhoto,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -20,7 +22,7 @@ import Image from "next/image";
 
 export function AdminSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const links = [
     {
@@ -52,7 +54,7 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
       ),
     },
     {
-      label: "Marketing",
+      label: "Media Archive",
       href: "/admin/marketing",
       icon: (
         <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
@@ -84,8 +86,58 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
       <Sidebar open={open} setOpen={setOpen} animate={true}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-            <Logo />
-            <div className="mt-8 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Logo />
+              <button
+                onClick={() => setOpen(!open)}
+                className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                title={open ? "Collapse sidebar" : "Expand sidebar"}
+              >
+                {open ? (
+                  <IconChevronLeft className="h-4 w-4 text-neutral-700 dark:text-neutral-200" />
+                ) : (
+                  <IconChevronRight className="h-4 w-4 text-neutral-700 dark:text-neutral-200" />
+                )}
+              </button>
+            </div>
+            
+            {/* User Profile Section */}
+            <div className="mt-6 mb-6 px-2">
+              {open ? (
+                <div className="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <div className="relative">
+                    <img 
+                      className="object-cover w-10 h-10 rounded-full" 
+                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=764&h=764&q=100" 
+                      alt="Admin User"
+                    />
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 absolute right-0.5 ring-1 ring-white bottom-0"></span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                      Admin User
+                    </p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                      admin@popalock.com
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-center">
+                  <div className="relative">
+                    <img 
+                      className="object-cover w-8 h-8 rounded-full" 
+                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=764&h=764&q=100" 
+                      alt="Admin User"
+                      title="Admin User - admin@popalock.com"
+                    />
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 absolute right-0.5 ring-1 ring-white bottom-0"></span>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-2 flex flex-col gap-2">
               {links.map((link, idx) => {
                 const isActive = pathname === link.href;
                 return (
