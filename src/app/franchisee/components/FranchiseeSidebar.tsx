@@ -9,6 +9,7 @@ import {
   IconChartBar,
   IconUser,
   IconPhoto,
+  IconDeviceGamepad2,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,13 @@ export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
       href: "/franchisee/marketing",
       icon: (
         <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Tech Hub",
+      href: "/tech-hub",
+      icon: (
+        <IconDeviceGamepad2 className="h-5 w-5 shrink-0 text-purple-600 dark:text-purple-400" />
       ),
     },
     {

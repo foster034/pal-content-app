@@ -225,10 +225,68 @@ export default function TechsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Technicians</h1>
           <p className="text-muted-foreground">Manage your skilled locksmith technicians</p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)}>
-          Add Technician
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            onClick={() => window.open('/tech-hub', '_blank')}
+            variant="outline"
+            className="bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700"
+          >
+            💬 Quick Connect to Tech Hub
+          </Button>
+          <Button onClick={() => setShowCreateForm(true)}>
+            Add Technician
+          </Button>
+        </div>
       </div>
+
+      {/* Tech Hub Quick Access Card */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            💬 Tech Hub - Live Team Communication
+          </CardTitle>
+          <CardDescription className="text-blue-600">
+            Connect with your technician team in real-time. See job completions, chat discussions, and team leaderboards.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="text-2xl">🎯</div>
+              <div>
+                <p className="text-sm font-medium text-blue-800">
+                  Monitor technician activity, job completions, and team collaboration
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  30 technicians across franchise network • Real-time chat • Performance leaderboards
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => window.open('/tech-hub', '_blank')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                🚀 Open Tech Hub
+              </Button>
+              <Button 
+                onClick={() => window.open('/tech/dashboard', '_blank')}
+                variant="outline"
+                className="border-green-300 text-green-700 hover:bg-green-50"
+              >
+                👁️ View as Technician
+              </Button>
+              <Button 
+                onClick={() => window.open('/tech/profile', '_blank')}
+                variant="outline"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+              >
+                ⚙️ Profile Settings
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {showCreateForm && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -405,6 +463,24 @@ export default function TechsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open('/tech-hub', '_blank')}
+                        className="text-indigo-600 hover:text-indigo-700"
+                        title="Connect to Tech Hub to see technician activity"
+                      >
+                        💬 Hub
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open('/tech/dashboard', '_blank')}
+                        className="text-green-600 hover:text-green-700"
+                        title="View tech dashboard as this technician"
+                      >
+                        👁️ View as Tech
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

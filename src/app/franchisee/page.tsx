@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +40,76 @@ const techLeaderboard = [
   },
 ];
 
+interface GMBPost {
+  name: string;
+  languageCode: string;
+  summary: string;
+  createTime: string;
+  updateTime: string;
+  state: string;
+  callToAction?: {
+    actionType: string;
+    url: string;
+  };
+  media?: Array<{
+    mediaFormat: string;
+    sourceUrl: string;
+  }>;
+  insights?: {
+    viewsCount: number;
+    actionsCount: number;
+  };
+}
+
 export default function FranchiseeDashboard() {
+  const [gmbPosts, setGmbPosts] = useState<GMBPost[]>([]);
+  const [gmbLoading, setGmbLoading] = useState(false);
+  const [gmbError, setGmbError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // Load GMB posts on component mount
+  useEffect(() => {
+    loadGMBPosts();
+  }, []);
+
+  const loadGMBPosts = async () => {
+    const franchiseeId = 1; // TODO: Get from auth context
+    setGmbLoading(true);
+    setGmbError(null);
+    
+    try {
+      const response = await fetch(`/api/google-my-business/posts?franchisee_id=${franchiseeId}&limit=3`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setGmbPosts(data.posts);
+        setLastRefresh(new Date());
+      } else {
+        setGmbError(data.error || 'Failed to load GMB posts');
+      }
+    } catch (error) {
+      console.error('Error loading GMB posts:', error);
+      setGmbError('Failed to load GMB posts');
+    } finally {
+      setGmbLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -76,9 +146,11 @@ export default function FranchiseeDashboard() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">12</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Reports Generated</div>
-            <div className="text-xs text-purple-600 dark:text-purple-400">Marketing ready</div>
+            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{gmbPosts.length}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">GMB Posts Live</div>
+            <div className="text-xs text-purple-600 dark:text-purple-400">
+              {gmbPosts.reduce((total, post) => total + (post.insights?.viewsCount || 0), 0)} total views
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -233,27 +305,109 @@ export default function FranchiseeDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Trends</CardTitle>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  </svg>
+                  Latest GMB Posts
+                </CardTitle>
+                <CardDescription>Recent Google My Business activity</CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadGMBPosts}
+                disabled={gmbLoading}
+                className="text-blue-600 hover:text-blue-700"
+              >
+                {gmbLoading ? (
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Photo Submissions</span>
-                <span className="font-medium text-green-600 dark:text-green-400">+12%</span>
+            {gmbError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+                <div className="text-sm">{gmbError}</div>
+                <div className="text-xs mt-1 opacity-75">Try connecting to Google My Business first</div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Approval Rate</span>
-                <span className="font-medium text-green-600 dark:text-green-400">+8%</span>
+            )}
+            
+            {gmbLoading && (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  </div>
+                ))}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Marketing Ready</span>
-                <span className="font-medium text-blue-600 dark:text-blue-400">74%</span>
+            )}
+            
+            {!gmbLoading && !gmbError && gmbPosts.length === 0 && (
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <div className="text-sm">No GMB posts found</div>
+                <div className="text-xs">Connect to Google My Business to see posts</div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Reports Created</span>
-                <span className="font-medium text-purple-600 dark:text-purple-400">12</span>
+            )}
+            
+            {!gmbLoading && gmbPosts.length > 0 && (
+              <div className="space-y-4">
+                {gmbPosts.map((post, index) => (
+                  <div key={post.name} className="border-b border-gray-100 dark:border-gray-800 pb-4 last:border-b-0">
+                    <div className="flex gap-3">
+                      {post.media && post.media[0] && (
+                        <div className="w-12 h-10 relative rounded overflow-hidden shrink-0">
+                          <img
+                            src={post.media[0].sourceUrl}
+                            alt="Post media"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2 mb-1">
+                          {post.summary.length > 100 ? 
+                            post.summary.substring(0, 100) + '...' : 
+                            post.summary}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                          <span>{formatDate(post.createTime)}</span>
+                          {post.insights && (
+                            <>
+                              <span>👁 {post.insights.viewsCount}</span>
+                              <span>🎯 {post.insights.actionsCount}</span>
+                            </>
+                          )}
+                          <Badge 
+                            variant={post.state === 'LIVE' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {post.state}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2">
+                  Last updated: {formatTime(lastRefresh.toISOString())}
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -10,11 +10,19 @@ import {
   IconLogout,
   IconUser,
   IconFileText,
+  IconMessageCircle,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+
+interface TechLink {
+  label: string;
+  href: string;
+  icon: React.ReactElement;
+  external?: boolean;
+}
 
 export function TechSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -38,6 +46,14 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
       icon: (
         <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
+    },
+    {
+      label: "Tech Hub",
+      href: "/tech-hub",
+      icon: (
+        <IconMessageCircle className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+      external: true,
     },
     ...(isOnTechForm ? [{
       label: "Submit Content",
@@ -68,26 +84,47 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
             <Logo />
             <div className="mt-8 flex flex-col gap-2">
               {links.map((link, idx) => {
-                const isActive = pathname === link.href;
+                const isActive = pathname === link.href && !link.external;
+                
+                const sidebarLinkContent = (
+                  <SidebarLink
+                    link={{
+                      ...link,
+                      label: link.external ? `${link.label} ↗` : link.label,
+                      icon: React.cloneElement(link.icon as React.ReactElement, {
+                        className: cn(
+                          "h-5 w-5 shrink-0",
+                          isActive 
+                            ? "text-primary" 
+                            : link.external
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-neutral-700 dark:text-neutral-200"
+                        ),
+                      }),
+                    }}
+                    className={cn(
+                      "hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-md px-2",
+                      isActive && "bg-primary/10 text-primary",
+                      link.external && "hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    )}
+                  />
+                );
+
+                if (link.external) {
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => window.open(link.href, '_blank')}
+                      className="w-full text-left"
+                    >
+                      {sidebarLinkContent}
+                    </button>
+                  );
+                }
+
                 return (
                   <Link key={idx} href={link.href}>
-                    <SidebarLink
-                      link={{
-                        ...link,
-                        icon: React.cloneElement(link.icon as React.ReactElement, {
-                          className: cn(
-                            "h-5 w-5 shrink-0",
-                            isActive 
-                              ? "text-primary" 
-                              : "text-neutral-700 dark:text-neutral-200"
-                          ),
-                        }),
-                      }}
-                      className={cn(
-                        "hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-md px-2",
-                        isActive && "bg-primary/10 text-primary"
-                      )}
-                    />
+                    {sidebarLinkContent}
                   </Link>
                 );
               })}

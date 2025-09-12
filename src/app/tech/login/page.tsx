@@ -22,6 +22,8 @@ export default function TechLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [magicLink, setMagicLink] = useState('');
+  const [loginMethod, setLoginMethod] = useState<'email' | 'quickcode'>('email');
+  const [quickCode, setQuickCode] = useState('');
   const router = useRouter();
 
   const generateLoginCode = () => {
@@ -130,6 +132,56 @@ export default function TechLoginPage() {
     setCode('');
   };
 
+  // Mock tech profiles with login codes (in production, this would come from database)
+  const mockTechProfiles = [
+    { id: 1, name: 'Alex Rodriguez', email: 'alex@popalock.com', loginCode: 'A3X9M2', autoLoginEnabled: true },
+    { id: 2, name: 'Sarah Wilson', email: 'sarah@popalock.com', loginCode: 'S7K4N8', autoLoginEnabled: true },
+    { id: 3, name: 'Mike Johnson', email: 'mike@popalock.com', loginCode: 'M9P2Q5', autoLoginEnabled: true },
+  ];
+
+  const handleQuickCodeLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage('');
+
+    try {
+      if (!quickCode || quickCode.length < 6) {
+        throw new Error('Please enter a valid quick code');
+      }
+
+      // Find technician by quick code
+      const tech = mockTechProfiles.find(t => 
+        t.loginCode.toUpperCase() === quickCode.toUpperCase() && 
+        t.autoLoginEnabled
+      );
+
+      if (!tech) {
+        throw new Error('Invalid quick code. Check your code in Profile Settings.');
+      }
+
+      // Store login session
+      localStorage.setItem('techAuth', JSON.stringify({
+        email: tech.email,
+        name: tech.name,
+        id: tech.id,
+        loginTime: new Date().toISOString(),
+        loginMethod: 'quickcode'
+      }));
+
+      setMessage('Quick login successful! Redirecting...');
+      
+      // Redirect to tech dashboard
+      setTimeout(() => {
+        router.push('/tech/dashboard');
+      }, 1000);
+      
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Quick login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -143,14 +195,94 @@ export default function TechLoginPage() {
           />
           <h2 className="text-2xl font-bold text-gray-900">Technician Login</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Enter your email to receive a secure login code
+            {loginMethod === 'email' 
+              ? 'Enter your email to receive a secure login code'
+              : 'Enter your quick login code from your profile'
+            }
           </p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {!showCodeInput ? (
+          {/* Login Method Tabs */}
+          <div className="mb-6">
+            <div className="flex border-b">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod('email');
+                  setMessage('');
+                  setQuickCode('');
+                }}
+                className={`flex-1 py-2 px-4 text-sm font-medium text-center border-b-2 ${
+                  loginMethod === 'email'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📧 Email Code
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod('quickcode');
+                  setMessage('');
+                  setShowCodeInput(false);
+                  setCode('');
+                  setGeneratedCode('');
+                  setMagicLink('');
+                }}
+                className={`flex-1 py-2 px-4 text-sm font-medium text-center border-b-2 ${
+                  loginMethod === 'quickcode'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                ⚡ Quick Code
+              </button>
+            </div>
+          </div>
+
+          {loginMethod === 'quickcode' ? (
+            /* Quick Code Login Form */
+            <form onSubmit={handleQuickCodeLogin} className="space-y-6">
+              <div>
+                <label htmlFor="quickcode" className="block text-sm font-medium text-gray-700">
+                  Quick Login Code
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="quickcode"
+                    name="quickcode"
+                    type="text"
+                    maxLength={6}
+                    required
+                    value={quickCode}
+                    onChange={(e) => setQuickCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center text-2xl tracking-wider font-mono"
+                    placeholder="A3X9M2"
+                  />
+                </div>
+                <div className="mt-2">
+                  <p className="text-xs text-gray-500">
+                    Find your code in Profile Settings → Auto Login Code
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={isLoading || quickCode.length < 6}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                >
+                  {isLoading ? 'Logging in...' : '⚡ Quick Login'}
+                </button>
+              </div>
+            </form>
+          ) : !showCodeInput ? (
+            /* Email Login Form */
             <form onSubmit={handleSendCode} className="space-y-6">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -272,6 +404,21 @@ export default function TechLoginPage() {
             For demo purposes, the login code is displayed above.<br />
             In production, this would be sent via email.
           </p>
+          
+          {/* Demo Quick Codes */}
+          <div className="mt-4 p-3 bg-gray-100 rounded-lg">
+            <p className="text-xs font-medium text-gray-700 mb-2">Demo Quick Codes:</p>
+            <div className="space-y-1">
+              {mockTechProfiles.map(tech => (
+                <div key={tech.id} className="text-xs text-gray-600">
+                  <span className="font-mono font-bold">{tech.loginCode}</span> - {tech.name}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Try any of these codes in the Quick Code tab
+            </p>
+          </div>
         </div>
       </div>
     </div>

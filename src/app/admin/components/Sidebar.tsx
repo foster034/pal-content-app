@@ -31,11 +31,20 @@ import {
   User,
   ChevronDown,
   Zap,
-  Shield
+  Shield,
+  MessageSquare
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const navigation = [
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: any;
+  count: number | null;
+  external?: boolean;
+}
+
+const navigation: NavigationItem[] = [
   { 
     name: 'Dashboard', 
     href: '/admin', 
@@ -59,6 +68,13 @@ const navigation = [
     href: '/admin/techs', 
     icon: Wrench,
     count: 567
+  },
+  { 
+    name: 'Tech Hub', 
+    href: '/tech-hub', 
+    icon: MessageSquare,
+    count: 30,
+    external: true
   },
   { 
     name: 'Analytics', 
@@ -125,9 +141,48 @@ export function Sidebar() {
         <nav className="flex-1 px-4 pb-4">
           <div className="space-y-1">
             {navigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href && !item.external;
               const Icon = item.icon;
               
+              const content = (
+                <>
+                  <div className="flex items-center">
+                    <Icon className={`h-5 w-5 mr-3 ${
+                      isActive ? 'text-sidebar-primary' : 'text-muted-foreground group-hover:text-sidebar-accent-foreground'
+                    }`} />
+                    <span>{item.name}</span>
+                    {item.external && (
+                      <div className="ml-2 text-xs opacity-60">↗</div>
+                    )}
+                  </div>
+                  
+                  {item.count && (
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs px-2 py-0.5 min-w-[20px] ${
+                        isActive ? 'bg-sidebar-primary/10 text-sidebar-primary' : 
+                        item.external ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
+                        'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {item.count > 999 ? '999+' : item.count}
+                    </Badge>
+                  )}
+                </>
+              );
+
+              if (item.external) {
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => window.open(item.href, '_blank')}
+                    className={`w-full group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground`}
+                  >
+                    {content}
+                  </button>
+                );
+              }
+
               return (
                 <Link
                   key={item.name}
@@ -138,23 +193,7 @@ export function Sidebar() {
                       : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
                   }`}
                 >
-                  <div className="flex items-center">
-                    <Icon className={`h-5 w-5 mr-3 ${
-                      isActive ? 'text-sidebar-primary' : 'text-muted-foreground group-hover:text-sidebar-accent-foreground'
-                    }`} />
-                    <span>{item.name}</span>
-                  </div>
-                  
-                  {item.count && (
-                    <Badge 
-                      variant="secondary" 
-                      className={`text-xs px-2 py-0.5 min-w-[20px] ${
-                        isActive ? 'bg-sidebar-primary/10 text-sidebar-primary' : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {item.count > 999 ? '999+' : item.count}
-                    </Badge>
-                  )}
+                  {content}
                 </Link>
               );
             })}
