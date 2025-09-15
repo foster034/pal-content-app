@@ -40,7 +40,7 @@ interface TechPhoto {
 const initialPhotos: TechPhoto[] = [
   {
     id: 1,
-    photoUrl: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=300&fit=crop',
+    photoUrl: 'https://picsum.photos/400/300?random=1',
     jobType: 'Commercial',
     jobDescription: 'Office building master key system installation',
     dateUploaded: '2024-09-08',
@@ -50,7 +50,7 @@ const initialPhotos: TechPhoto[] = [
   },
   {
     id: 2,
-    photoUrl: 'https://images.unsplash.com/photo-1544860565-d4c4d73cb237?w=400&h=300&fit=crop',
+    photoUrl: 'https://picsum.photos/400/300?random=2',
     jobType: 'Residential',
     jobDescription: 'Smart lock installation and setup',
     dateUploaded: '2024-09-07',
@@ -60,7 +60,7 @@ const initialPhotos: TechPhoto[] = [
   },
   {
     id: 3,
-    photoUrl: 'https://images.unsplash.com/photo-1571974599782-87624638275e?w=400&h=300&fit=crop',
+    photoUrl: 'https://picsum.photos/400/300?random=3',
     jobType: 'Automotive',
     jobDescription: 'Car lockout service - key extraction',
     dateUploaded: '2024-09-06',
@@ -70,7 +70,7 @@ const initialPhotos: TechPhoto[] = [
   },
   {
     id: 4,
-    photoUrl: 'https://images.unsplash.com/photo-1587385789097-0197a7fbd179?w=400&h=300&fit=crop',
+    photoUrl: 'https://picsum.photos/400/300?random=4',
     jobType: 'Roadside',
     jobDescription: 'Emergency roadside assistance - broken key removal',
     dateUploaded: '2024-09-05',
@@ -85,6 +85,7 @@ export default function TechPhotosPage() {
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState<string>('All');
   const [editingPhoto, setEditingPhoto] = useState<TechPhoto | null>(null);
+  const [viewingPhoto, setViewingPhoto] = useState<TechPhoto | null>(null);
   const [editForm, setEditForm] = useState<Partial<TechPhoto>>({});
 
   const filteredPhotos = useMemo(() => {
@@ -207,13 +208,13 @@ export default function TechPhotosPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
           <CardTitle>My Marketing Photos</CardTitle>
           <CardDescription>Photos submitted for marketing approval. Showing {filteredPhotos.length} of {photos.length} photos.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="border-0">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Photo</TableHead>
@@ -225,9 +226,9 @@ export default function TechPhotosPage() {
             </TableHeader>
             <TableBody>
               {filteredPhotos.map((photo) => (
-                <TableRow key={photo.id}>
+                <TableRow key={photo.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
                   <TableCell>
-                    <div className="w-20 h-16 relative rounded overflow-hidden">
+                    <div className="w-20 h-20 relative rounded-full overflow-hidden">
                       <img
                         src={photo.photoUrl}
                         alt={photo.jobDescription}
@@ -240,20 +241,8 @@ export default function TechPhotosPage() {
                       <div className="font-medium text-gray-900 dark:text-gray-100 mb-1">
                         {photo.jobDescription}
                       </div>
-                      <div className="flex gap-1 mb-1">
-                        <Badge variant={getJobTypeVariant(photo.jobType)} className="text-xs">
-                          {photo.jobType}
-                        </Badge>
-                        {photo.tags.slice(0, 2).map(tag => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                        {photo.tags.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{photo.tags.length - 2}
-                          </Badge>
-                        )}
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {photo.jobType}
                       </div>
                     </div>
                   </TableCell>
@@ -273,6 +262,7 @@ export default function TechPhotosPage() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => setViewingPhoto(photo)}
                         className="text-blue-600 hover:text-blue-700"
                       >
                         View
@@ -316,7 +306,7 @@ export default function TechPhotosPage() {
             <div className="space-y-6">
               {/* Photo Preview */}
               <div className="flex gap-4">
-                <div className="w-32 h-24 relative rounded overflow-hidden shrink-0">
+                <div className="w-32 h-32 relative rounded-full overflow-hidden shrink-0">
                   <img
                     src={editingPhoto.photoUrl}
                     alt={editingPhoto.jobDescription}
@@ -397,6 +387,76 @@ export default function TechPhotosPage() {
               Save Changes
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Details Modal */}
+      <Dialog open={!!viewingPhoto} onOpenChange={() => setViewingPhoto(null)}>
+        <DialogContent className="max-w-4xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Job Details</DialogTitle>
+            <DialogDescription>
+              Complete information for this job photo submission.
+            </DialogDescription>
+          </DialogHeader>
+          {viewingPhoto && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Photo */}
+              <div className="space-y-4">
+                <div className="w-full aspect-[4/3] relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                  <img
+                    src={viewingPhoto.photoUrl}
+                    alt={viewingPhoto.jobDescription}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <button
+                  onClick={() => window.open(viewingPhoto.photoUrl, '_blank')}
+                  className="text-sm text-blue-600 hover:text-blue-700 underline"
+                >
+                  Open full size image
+                </button>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">{viewingPhoto.jobDescription}</h3>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-600 dark:text-gray-400">Job Type:</span>
+                      <span className="ml-2">{viewingPhoto.jobType}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600 dark:text-gray-400">Location:</span>
+                      <span className="ml-2">{viewingPhoto.jobLocation}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600 dark:text-gray-400">Date Uploaded:</span>
+                      <span className="ml-2">{viewingPhoto.dateUploaded}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600 dark:text-gray-400">Status:</span>
+                      <span className="ml-2">
+                        {viewingPhoto.franchiseeApproved === true ? 'Approved' : 
+                         viewingPhoto.franchiseeApproved === false ? 'Denied' : 'Pending Review'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-600 dark:text-gray-400">Tags:</span>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {viewingPhoto.tags.map(tag => (
+                          <span key={tag} className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

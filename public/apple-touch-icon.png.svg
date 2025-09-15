@@ -1,0 +1,5 @@
+<svg width="180" height="180" xmlns="http://www.w3.org/2000/svg">
+  <rect width="180" height="180" fill="#3b82f6" rx="36"/>
+  <circle cx="90" cy="90" r="54" fill="white"/>
+  <text x="90" y="102" text-anchor="middle" fill="#3b82f6" font-family="Arial, sans-serif" font-size="20" font-weight="bold">PAL</text>
+</svg>

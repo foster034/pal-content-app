@@ -12,6 +12,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, MessageCircle, Eye, Send, Edit, Trash2, Settings } from "lucide-react";
 
 interface Tech {
   id: number;
@@ -219,74 +228,19 @@ export default function TechsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white min-h-screen">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Technicians</h1>
           <p className="text-muted-foreground">Manage your skilled locksmith technicians</p>
         </div>
         <div className="flex gap-3">
-          <Button 
-            onClick={() => window.open('/tech-hub', '_blank')}
-            variant="outline"
-            className="bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700"
-          >
-            💬 Quick Connect to Tech Hub
-          </Button>
           <Button onClick={() => setShowCreateForm(true)}>
             Add Technician
           </Button>
         </div>
       </div>
 
-      {/* Tech Hub Quick Access Card */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-800">
-            💬 Tech Hub - Live Team Communication
-          </CardTitle>
-          <CardDescription className="text-blue-600">
-            Connect with your technician team in real-time. See job completions, chat discussions, and team leaderboards.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="text-2xl">🎯</div>
-              <div>
-                <p className="text-sm font-medium text-blue-800">
-                  Monitor technician activity, job completions, and team collaboration
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  30 technicians across franchise network • Real-time chat • Performance leaderboards
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => window.open('/tech-hub', '_blank')}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                🚀 Open Tech Hub
-              </Button>
-              <Button 
-                onClick={() => window.open('/tech/dashboard', '_blank')}
-                variant="outline"
-                className="border-green-300 text-green-700 hover:bg-green-50"
-              >
-                👁️ View as Technician
-              </Button>
-              <Button 
-                onClick={() => window.open('/tech/profile', '_blank')}
-                variant="outline"
-                className="border-blue-300 text-blue-700 hover:bg-blue-50"
-              >
-                ⚙️ Profile Settings
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {showCreateForm && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -391,13 +345,13 @@ export default function TechsPage() {
         </div>
       )}
 
-      <Card>
+      <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
           <CardTitle>Skilled Technicians</CardTitle>
           <CardDescription>Professional locksmith technicians across your franchise network.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="border-0">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Name</TableHead>
@@ -411,7 +365,7 @@ export default function TechsPage() {
             </TableHeader>
             <TableBody>
               {techs.map((tech) => (
-                <TableRow key={tech.id}>
+                <TableRow key={tech.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <img
@@ -462,50 +416,71 @@ export default function TechsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => window.open('/tech-hub', '_blank')}
-                        className="text-indigo-600 hover:text-indigo-700"
-                        title="Connect to Tech Hub to see technician activity"
-                      >
-                        💬 Hub
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => window.open('/tech/dashboard', '_blank')}
-                        className="text-green-600 hover:text-green-700"
-                        title="View tech dashboard as this technician"
-                      >
-                        👁️ View as Tech
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => sendMagicLink(tech)}
-                        disabled={sendingMagicLink === tech.id}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        {sendingMagicLink === tech.id ? 'Sending...' : 'Send Link'}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(tech)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(tech.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        Delete
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 bg-white border shadow-lg">
+                        <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        
+                        <DropdownMenuItem
+                          onClick={() => window.open('/tech-hub', '_blank')}
+                          className="cursor-pointer"
+                        >
+                          <MessageCircle className="mr-2 h-4 w-4 text-indigo-600" />
+                          <span>Connect to Tech Hub</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem
+                          onClick={() => window.open('/tech/dashboard', '_blank')}
+                          className="cursor-pointer"
+                        >
+                          <Eye className="mr-2 h-4 w-4 text-green-600" />
+                          <span>View as Technician</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem
+                          onClick={() => window.open('/tech/profile', '_blank')}
+                          className="cursor-pointer"
+                        >
+                          <Settings className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>Profile Settings</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuSeparator />
+                        
+                        <DropdownMenuItem
+                          onClick={() => sendMagicLink(tech)}
+                          disabled={sendingMagicLink === tech.id}
+                          className="cursor-pointer"
+                        >
+                          <Send className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>{sendingMagicLink === tech.id ? 'Sending Magic Link...' : 'Send Magic Link'}</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuSeparator />
+                        
+                        <DropdownMenuItem
+                          onClick={() => handleEdit(tech)}
+                          className="cursor-pointer"
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          <span>Edit Details</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(tech.id)}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Delete Technician</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}

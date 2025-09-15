@@ -1,4 +1,5 @@
 import { FranchiseeSidebar } from './components/FranchiseeSidebar';
+import { TableProvider } from '@/contexts/table-context';
 
 export default function FranchiseeLayout({
   children,
@@ -6,8 +7,10 @@ export default function FranchiseeLayout({
   children: React.ReactNode;
 }) {
   return (
-    <FranchiseeSidebar>
-      {children}
-    </FranchiseeSidebar>
+    <TableProvider>
+      <FranchiseeSidebar>
+        {children}
+      </FranchiseeSidebar>
+    </TableProvider>
   );
 }

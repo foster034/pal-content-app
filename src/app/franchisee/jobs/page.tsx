@@ -4,6 +4,9 @@ import { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -109,6 +112,8 @@ export default function PhotoSubmissionsPage() {
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('All');
   const [selectedServiceType, setSelectedServiceType] = useState<string>('All');
+  const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
+  const [editedPhoto, setEditedPhoto] = useState<PhotoSubmission | null>(null);
 
   const filteredPhotos = useMemo(() => {
     return photos.filter(photo => {
@@ -145,9 +150,35 @@ export default function PhotoSubmissionsPage() {
   };
 
   const resetApproval = (photoId: number) => {
-    setPhotos(prev => prev.map(photo => 
+    setPhotos(prev => prev.map(photo =>
       photo.id === photoId ? { ...photo, franchiseeApproved: undefined } : photo
     ));
+  };
+
+  const handleStartEdit = (photo: PhotoSubmission) => {
+    setEditingPhotoId(photo.id);
+    setEditedPhoto({ ...photo });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPhotoId(null);
+    setEditedPhoto(null);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editedPhoto) return;
+    setPhotos(prev =>
+      prev.map(photo =>
+        photo.id === editedPhoto.id ? editedPhoto : photo
+      )
+    );
+    setEditingPhotoId(null);
+    setEditedPhoto(null);
+  };
+
+  const updateEditedPhoto = (field: keyof PhotoSubmission, value: any) => {
+    if (!editedPhoto) return;
+    setEditedPhoto({ ...editedPhoto, [field]: value });
   };
 
   const getJobTypeVariant = (jobType: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -308,7 +339,7 @@ export default function PhotoSubmissionsPage() {
               {filteredPhotos.map((photo) => (
                 <TableRow key={photo.id}>
                   <TableCell>
-                    <div className="w-20 h-16 relative rounded overflow-hidden">
+                    <div className="w-20 h-20 relative rounded-full overflow-hidden">
                       <img
                         src={photo.photoUrl}
                         alt={photo.jobDescription}
@@ -320,46 +351,129 @@ export default function PhotoSubmissionsPage() {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-                        {photo.jobDescription}
-                      </div>
-                      <div className="flex gap-1 mb-1">
-                        <Badge variant={getJobTypeVariant(photo.jobType)} className="text-xs">
-                          {photo.jobType}
-                        </Badge>
-                        {photo.tags.slice(0, 2).map(tag => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                        {photo.tags.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{photo.tags.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {photo.jobLocation} • {photo.submissionDate}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Customer: {photo.customerName}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <Badge variant={getServiceTypeVariant(photo.serviceType)} className="text-xs mb-1">
-                        {photo.serviceType}
-                      </Badge>
-                      {photo.notes && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {photo.notes}
+                      {editingPhotoId === photo.id ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editedPhoto?.jobDescription || ''}
+                            onChange={(e) => updateEditedPhoto('jobDescription', e.target.value)}
+                            placeholder="Job Description"
+                            className="min-h-[60px]"
+                          />
+                          <Select
+                            value={editedPhoto?.jobType || ''}
+                            onValueChange={(value) => updateEditedPhoto('jobType', value)}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="Job Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Commercial">Commercial</SelectItem>
+                              <SelectItem value="Residential">Residential</SelectItem>
+                              <SelectItem value="Automotive">Automotive</SelectItem>
+                              <SelectItem value="Roadside">Roadside</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={editedPhoto?.jobLocation || ''}
+                            onChange={(e) => updateEditedPhoto('jobLocation', e.target.value)}
+                            placeholder="Job Location"
+                            className="h-8"
+                          />
+                          <Input
+                            value={editedPhoto?.customerName || ''}
+                            onChange={(e) => updateEditedPhoto('customerName', e.target.value)}
+                            placeholder="Customer Name"
+                            className="h-8"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100 mb-1">
+                            {photo.jobDescription}
+                          </div>
+                          <div className="flex gap-1 mb-1">
+                            <Badge variant={getJobTypeVariant(photo.jobType)} className="text-xs">
+                              {photo.jobType}
+                            </Badge>
+                            {photo.tags.slice(0, 2).map(tag => (
+                              <Badge key={tag} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {photo.tags.length > 2 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{photo.tags.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {photo.jobLocation} • {photo.submissionDate}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Customer: {photo.customerName}
+                          </div>
                         </div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{photo.techName}</div>
+                    {editingPhotoId === photo.id ? (
+                      <div className="space-y-2">
+                        <Select
+                          value={editedPhoto?.serviceType || ''}
+                          onValueChange={(value) => updateEditedPhoto('serviceType', value)}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Service Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Installation">Installation</SelectItem>
+                            <SelectItem value="Repair">Repair</SelectItem>
+                            <SelectItem value="Rekey">Rekey</SelectItem>
+                            <SelectItem value="Lockout">Lockout</SelectItem>
+                            <SelectItem value="Emergency">Emergency</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Textarea
+                          value={editedPhoto?.notes || ''}
+                          onChange={(e) => updateEditedPhoto('notes', e.target.value)}
+                          placeholder="Notes"
+                          className="min-h-[50px]"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <Badge variant={getServiceTypeVariant(photo.serviceType)} className="text-xs mb-1">
+                          {photo.serviceType}
+                        </Badge>
+                        {photo.notes && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {photo.notes}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {editingPhotoId === photo.id ? (
+                      <Select
+                        value={editedPhoto?.techName || ''}
+                        onValueChange={(value) => updateEditedPhoto('techName', value)}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder="Technician" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {technicians.map(tech => (
+                            <SelectItem key={tech.id} value={tech.name}>
+                              {tech.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="font-medium">{photo.techName}</div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
@@ -377,44 +491,75 @@ export default function PhotoSubmissionsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {photo.franchiseeApproved === undefined && (
+                      {editingPhotoId === photo.id ? (
                         <>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => approvePhoto(photo.id)}
+                            onClick={handleSaveEdit}
                             className="text-green-600 hover:text-green-700"
                           >
-                            Approve
+                            Save
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => denyPhoto(photo.id)}
-                            className="text-red-600 hover:text-red-700"
+                            onClick={handleCancelEdit}
+                            className="text-gray-600 hover:text-gray-700"
                           >
-                            Deny
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleStartEdit(photo)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            Edit
+                          </Button>
+                          {photo.franchiseeApproved === undefined && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => approvePhoto(photo.id)}
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => denyPhoto(photo.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                Deny
+                              </Button>
+                            </>
+                          )}
+                          {photo.franchiseeApproved !== undefined && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => resetApproval(photo.id)}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              Reset
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => generateReport(photo.id)}
+                            className="text-purple-600 hover:text-purple-700"
+                          >
+                            Report
                           </Button>
                         </>
                       )}
-                      {photo.franchiseeApproved !== undefined && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => resetApproval(photo.id)}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          Reset
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => generateReport(photo.id)}
-                        className="text-purple-600 hover:text-purple-700"
-                      >
-                        Report
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

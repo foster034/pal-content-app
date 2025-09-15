@@ -705,7 +705,43 @@ export default function TechHub() {
   const [activeTab, setActiveTab] = useState('group');
   const [selectedPrivateUser, setSelectedPrivateUser] = useState<TechUser | null>(null);
   const [privateMessages, setPrivateMessages] = useState<ChatMessage[]>([]);
+  const [showAllLeaderboard, setShowAllLeaderboard] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Get current user's franchise location
+  const currentUserLocation = currentUser.location;
+  
+  // Organize users by franchise location
+  const localTeamMembers = onlineUsers.filter(user => 
+    user.location === currentUserLocation && user.id !== currentUser.id
+  );
+  const otherLocationMembers = onlineUsers.filter(user => 
+    user.location !== currentUserLocation && user.id !== currentUser.id
+  );
+  
+  // Group other location members by location
+  const membersByLocation = otherLocationMembers.reduce((acc, user) => {
+    if (!acc[user.location]) {
+      acc[user.location] = [];
+    }
+    acc[user.location].push(user);
+    return acc;
+  }, {} as Record<string, TechUser[]>);
+
+  // Calculate rankings
+  const allUsersRanked = [...[currentUser], ...localTeamMembers, ...otherLocationMembers]
+    .sort((a, b) => b.stats.totalJobs - a.stats.totalJobs);
+  
+  const localTeamRanked = [...[currentUser], ...localTeamMembers]
+    .sort((a, b) => b.stats.totalJobs - a.stats.totalJobs);
+
+  const getUserLocalRank = (userId: number) => {
+    return localTeamRanked.findIndex(user => user.id === userId) + 1;
+  };
+
+  const getUserPALRank = (userId: number) => {
+    return allUsersRanked.findIndex(user => user.id === userId) + 1;
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -964,37 +1000,126 @@ export default function TechHub() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Tech Hub</h1>
-            <p className="text-gray-600 dark:text-gray-400">Connect with your team • {onlineCount} online</p>
-          </div>
-          <div className="flex gap-3">
-            <Button 
-              onClick={simulateJobCompletion}
-              variant="outline"
-              size="sm"
-            >
-              🧪 Test Auto-Share
-            </Button>
-            <Button 
-              onClick={() => window.open('/tech-profile', '_blank')}
-              variant="default"
-              size="sm"
-            >
-              ⚙️ Profile Settings
-            </Button>
-          </div>
-        </div>
+    <div className="w-full">
+      <div className="max-w-5xl mx-auto">
+            {/* Header */}
+            <div className="mb-6 flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Team Workspace</h1>
+                <p className="text-gray-600 dark:text-gray-400">Collaborate and stay connected with your team</p>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chat Section */}
-          <Card className="lg:col-span-2">
+        {/* Top 5 Leaderboard */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">
+                  🏆 {showAllLeaderboard ? 'PAL Network Leaderboard' : `${currentUserLocation} Team Leaderboard`}
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  {showAllLeaderboard 
+                    ? 'Top performers across all Pop-A-Lock locations'
+                    : 'Top performers in your franchise this month'
+                  }
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAllLeaderboard(!showAllLeaderboard)}
+              >
+                {showAllLeaderboard ? 'Show My Team' : 'Show PAL Network'}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {(showAllLeaderboard 
+                ? allUsersRanked // Show all PAL network users
+                : localTeamRanked.slice(0, 5) // Show top 5 local team members
+              )
+                .map((user, index) => (
+                <div key={user.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-full overflow-hidden">
+                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                    </div>
+                    {user.isOnline && (
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></div>
+                    )}
+                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">
+                      {index + 1}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-gray-900 dark:text-gray-100 truncate">{user.name}</span>
+                      <Badge variant="secondary" className="text-xs">L{user.stats.level}</Badge>
+                      {user.location === currentUserLocation && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                          Team
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {user.stats.totalJobs} jobs • {user.stats.streak} streak
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-primary font-medium">
+                        {Math.round((user.stats.approvedPics / user.stats.totalJobs) * 100)}% approved
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {showAllLeaderboard ? (
+                          // PAL Network view - show location for non-local users
+                          user.location !== currentUserLocation && (
+                            <div className="text-xs text-gray-400">
+                              {user.location}
+                            </div>
+                          )
+                        ) : (
+                          // Local team view - show local rank
+                          <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                            #{getUserLocalRank(user.id)} Team
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Enhanced Team Chat - Full Width */}
+        <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Team Chat</CardTitle>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    💬 Team Workspace
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    Collaborate, share updates, and stay connected • {onlineUsers.filter(u => u.isOnline).length} members online
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex -space-x-1">
+                    {onlineUsers.filter(u => u.isOnline).slice(0, 4).map(user => (
+                      <div key={user.id} className="w-6 h-6 rounded-full border-2 border-white dark:border-gray-900 overflow-hidden">
+                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                    {onlineUsers.filter(u => u.isOnline).length > 4 && (
+                      <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-900 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
+                        +{onlineUsers.filter(u => u.isOnline).length - 4}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1005,72 +1130,111 @@ export default function TechHub() {
                 
                 <TabsContent value="group" className="mt-4">
                   <div className="space-y-4">
-                    {/* Messages */}
-                    <div className="h-64 overflow-y-auto space-y-3 p-3 bg-white dark:bg-gray-800 border rounded-lg">
-                      {messages.map((message) => (
-                        <div key={message.id} className={`flex gap-3 ${
-                          message.type === 'job_completion' ? 'p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg' : ''
-                        }`}>
-                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                            {message.userId === 999 ? (
-                              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600">
-                                🤖
-                              </div>
-                            ) : (
-                              <img
-                                src={message.userAvatar}
-                                alt={message.userName}
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {message.userName}
-                              </span>
-                              {message.type === 'job_completion' && (
-                                <Badge variant="secondary" className="text-xs">
-                                  ✅ Job Complete
-                                </Badge>
+                    {/* Flowbite-style Team Chat */}
+                    <div className="h-96 overflow-y-auto p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      {messages.map((message) => {
+                        const user = onlineUsers.find(u => u.id === message.userId);
+                        const isCurrentUser = message.userId === currentUser.id;
+                        return (
+                        <div key={message.id} className={`flex items-start gap-2.5 mb-4 ${isCurrentUser ? 'justify-end' : ''}`}>
+                          {!isCurrentUser && (
+                            <img className="w-8 h-8 rounded-full" src={message.userAvatar} alt={message.userName} />
+                          )}
+                          <div className={`flex flex-col w-full max-w-[320px] ${isCurrentUser ? 'items-end' : ''}`}>
+                            <div className={`flex items-center space-x-2 rtl:space-x-reverse mb-1 ${isCurrentUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                              <span className="text-sm font-semibold text-gray-900 dark:text-white">{message.userName}</span>
+                              {user && (
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">L{user.stats.level} • {user.title}</span>
                               )}
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatTime(message.timestamp)}
-                              </span>
+                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400">{formatTime(message.timestamp)}</span>
                             </div>
-                            <p className="text-sm text-gray-800 dark:text-gray-200">
-                              {message.message}
-                            </p>
-                            {message.type === 'job_completion' && message.jobType && (
-                              <div className="flex items-center gap-2 mt-2 text-xs text-gray-600 dark:text-gray-400">
-                                <span className="capitalize">
-                                  {message.jobType === 'commercial' && '🏢 Commercial'}
-                                  {message.jobType === 'residential' && '🏠 Residential'}
-                                  {message.jobType === 'automotive' && '🚗 Automotive'}
-                                  {message.jobType === 'roadside' && '🚨 Roadside'}
-                                </span>
-                                {message.location && <span>• 📍 {message.location}</span>}
-                              </div>
-                            )}
+                            <div className={`flex flex-col leading-1.5 p-4 border-gray-200 ${
+                              message.type === 'job_completion' 
+                                ? 'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-700'
+                                : message.type === 'system'
+                                ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700'
+                                : isCurrentUser 
+                                ? 'bg-blue-700 text-white' 
+                                : 'bg-gray-100 dark:bg-gray-700 border'
+                            } ${
+                              isCurrentUser 
+                                ? 'rounded-s-xl rounded-ee-xl' 
+                                : 'rounded-e-xl rounded-es-xl'
+                            }`}>
+                              {(message.type === 'job_completion' || message.type === 'system') && (
+                                <div className="flex items-center gap-2 mb-2">
+                                  {message.type === 'job_completion' && (
+                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full dark:bg-green-900 dark:text-green-300">
+                                      🎯 Job Complete
+                                    </span>
+                                  )}
+                                  {message.type === 'system' && (
+                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-300">
+                                      📢 System
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <p className={`text-sm font-normal ${
+                                isCurrentUser ? 'text-white' : 'text-gray-900 dark:text-white'
+                              }`}>
+                                {message.message}
+                              </p>
+                              {message.type === 'job_completion' && message.jobType && (
+                                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200/50 dark:border-gray-600/50">
+                                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                    {message.jobType === 'commercial' && '🏢 Commercial'}
+                                    {message.jobType === 'residential' && '🏠 Residential'}  
+                                    {message.jobType === 'automotive' && '🚗 Automotive'}
+                                    {message.jobType === 'roadside' && '🚨 Roadside'}
+                                  </span>
+                                  {message.location && (
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      📍 {message.location}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
+                          {isCurrentUser && (
+                            <img className="w-8 h-8 rounded-full" src={message.userAvatar} alt={message.userName} />
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                       <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Message Input */}
-                    <div className="flex gap-2">
+                    {/* Flowbite-style Message Input */}
+                    <div className="flex items-center px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700">
+                      <button
+                        type="button"
+                        onClick={simulateJobCompletion}
+                        className="inline-flex justify-center p-2 text-gray-500 rounded-lg cursor-pointer hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-600"
+                      >
+                        <span className="sr-only">Share job completion</span>
+                        🎯
+                      </button>
                       <input
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="Type a message..."
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                        placeholder="Message the team..."
+                        className="block mx-4 p-2.5 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                       />
-                      <Button onClick={sendMessage} disabled={!newMessage.trim()}>
-                        Send
-                      </Button>
+                      <button
+                        type="button"
+                        onClick={sendMessage}
+                        disabled={!newMessage.trim()}
+                        className="inline-flex justify-center p-2 text-blue-600 rounded-full cursor-pointer hover:bg-blue-100 dark:text-blue-500 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <svg className="w-5 h-5 rotate-90 rtl:-rotate-90" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 20">
+                          <path d="m17.914 18.594-8-18a1 1 0 0 0-1.828 0l-8 18a1 1 0 0 0 1.157 1.376L8 18.281V9a1 1 0 0 1 2 0v9.281l6.758 1.689a1 1 0 0 0 1.156-1.376Z"/>
+                        </svg>
+                        <span className="sr-only">Send message</span>
+                      </button>
                     </div>
                   </div>
                 </TabsContent>
@@ -1080,22 +1244,62 @@ export default function TechHub() {
                     {!selectedPrivateUser ? (
                       <div className="text-center py-8">
                         <p className="text-gray-500 dark:text-gray-400 mb-4">Select someone to start a private conversation</p>
-                        <div className="space-y-2">
-                          {onlineUsers.filter(u => u.id !== currentUser.id && u.isOnline).map(user => (
-                            <button
-                              key={user.id}
-                              onClick={() => setSelectedPrivateUser(user)}
-                              className="flex items-center gap-3 w-full p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                            >
-                              <div className="w-8 h-8 rounded-full overflow-hidden">
-                                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                        <div className="space-y-4">
+                          {/* Local Team Members */}
+                          {localTeamMembers.filter(u => u.isOnline).length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">My Team - {currentUserLocation}</h4>
+                              <div className="space-y-2">
+                                {localTeamMembers.filter(u => u.isOnline).map(user => (
+                                  <button
+                                    key={user.id}
+                                    onClick={() => setSelectedPrivateUser(user)}
+                                    className="flex items-center gap-3 w-full p-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-100 dark:border-blue-800"
+                                  >
+                                    <div className="w-8 h-8 rounded-full overflow-hidden">
+                                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="text-left flex-1">
+                                      <div className="font-medium text-gray-900 dark:text-gray-100">{user.name}</div>
+                                      <div className="text-sm text-gray-500 dark:text-gray-400">{user.title} • Level {user.stats.level}</div>
+                                    </div>
+                                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+                                      Team
+                                    </Badge>
+                                  </button>
+                                ))}
                               </div>
-                              <div className="text-left">
-                                <div className="font-medium text-gray-900 dark:text-gray-100">{user.name}</div>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">{user.title}</div>
+                            </div>
+                          )}
+
+                          {/* Other Locations */}
+                          {otherLocationMembers.filter(u => u.isOnline).length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Other Locations</h4>
+                              <div className="space-y-2">
+                                {otherLocationMembers
+                                  .filter(u => u.isOnline)
+                                  .sort((a, b) => b.stats.level - a.stats.level)
+                                  .map(user => (
+                                    <button
+                                      key={user.id}
+                                      onClick={() => setSelectedPrivateUser(user)}
+                                      className="flex items-center gap-3 w-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                    >
+                                      <div className="w-6 h-6 rounded-full overflow-hidden">
+                                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                                      </div>
+                                      <div className="text-left flex-1">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                          {user.name} <span className="text-gray-500 dark:text-gray-400 font-normal">• {user.location}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">{user.title} • Level {user.stats.level}</div>
+                                      </div>
+                                    </button>
+                                  ))}
                               </div>
-                            </button>
-                          ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -1176,59 +1380,6 @@ export default function TechHub() {
               </Tabs>
             </CardContent>
           </Card>
-
-          {/* Compact Leaderboard */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Leaderboard</CardTitle>
-              <CardDescription className="text-sm">{onlineUsers.length} technicians</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {onlineUsers
-                  .sort((a, b) => b.stats.level - a.stats.level || b.stats.xp - a.stats.xp)
-                  .map((user, index) => (
-                  <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    {/* Rank */}
-                    <div className="w-6 text-center">
-                      {index === 0 && <span className="text-lg">🥇</span>}
-                      {index === 1 && <span className="text-lg">🥈</span>}
-                      {index === 2 && <span className="text-lg">🥉</span>}
-                      {index > 2 && <span className="text-sm font-bold text-gray-500">#{index + 1}</span>}
-                    </div>
-
-                    {/* Avatar */}
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-full overflow-hidden">
-                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                      </div>
-                      {user.isOnline && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></div>
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900 dark:text-gray-100 truncate">{user.name}</span>
-                        <Badge variant="secondary" className="text-xs">L{user.stats.level}</Badge>
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {user.stats.totalJobs} jobs • {Math.round((user.stats.approvedPics / user.stats.totalJobs) * 100)}% approved
-                      </div>
-                      {user.stats.badges.length > 0 && (
-                        <div className="text-xs mt-1">
-                          {user.stats.badges.slice(0, 2).join(' ')}
-                          {user.stats.badges.length > 2 && ` +${user.stats.badges.length - 2}`}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

@@ -43,7 +43,7 @@ const currentTech: TechProfile = {
   avatar: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
   title: 'Senior Locksmith',
   location: 'Dallas, TX',
-  loginCode: generateLoginCode(),
+  loginCode: 'A3X9M2', // Synchronized from franchisee system
   stats: {
     level: 15,
     totalJobs: 156,
@@ -105,12 +105,34 @@ export default function TechProfile() {
   const [profile, setProfile] = useState<TechProfile>(currentTech);
   const [showPreview, setShowPreview] = useState(false);
 
-  const refreshLoginCode = () => {
-    const newCode = generateLoginCode();
-    setProfile(prev => ({
-      ...prev,
-      loginCode: newCode
-    }));
+  // Sync login code from franchisee system on load
+  useEffect(() => {
+    const syncLoginCode = async () => {
+      try {
+        const response = await fetch(`/api/tech-profile/sync?techId=${profile.id}`);
+        const data = await response.json();
+        
+        if (data.success && data.profile.loginCode) {
+          setProfile(prev => ({
+            ...prev,
+            loginCode: data.profile.loginCode
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to sync login code:', error);
+      }
+    };
+
+    syncLoginCode();
+  }, [profile.id]);
+
+  const requestNewCode = () => {
+    // Instead of generating a new code directly, show request message
+    alert('New login code request sent to your franchisee. You will receive a new code shortly via team chat or email.');
+    
+    // TODO: In real implementation, this would send a request to the franchisee
+    // via API call to notify them that the tech needs a new login code
+    console.log('Code request sent for tech:', profile.name);
   };
 
   const copyLoginCode = () => {
@@ -118,16 +140,8 @@ export default function TechProfile() {
     alert('Login code copied to clipboard!');
   };
 
-  // Auto-refresh login code every 24 hours if enabled
-  useEffect(() => {
-    if (!profile.settings.autoLoginEnabled) return;
-
-    const interval = setInterval(() => {
-      refreshLoginCode();
-    }, 24 * 60 * 60 * 1000); // 24 hours in milliseconds
-
-    return () => clearInterval(interval);
-  }, [profile.settings.autoLoginEnabled]);
+  // Note: Auto-refresh removed - codes are now managed by franchisee
+  // Login codes are synchronized from the franchisee system
 
   const updateSetting = (key: string, value: any) => {
     setProfile(prev => ({
@@ -192,13 +206,6 @@ export default function TechProfile() {
             <p className="text-gray-600 dark:text-gray-400">Manage your profile and sharing preferences</p>
           </div>
           <div className="flex gap-3">
-            <Button 
-              onClick={() => window.open('/tech-hub', '_blank')}
-              variant="outline"
-              size="sm"
-            >
-              💬 Tech Hub
-            </Button>
             <Button 
               onClick={() => window.history.back()}
               variant="default"
@@ -297,18 +304,18 @@ export default function TechProfile() {
                           Copy
                         </Button>
                         <Button
-                          onClick={refreshLoginCode}
+                          onClick={requestNewCode}
                           variant="outline"
                           size="sm"
                           className="text-xs"
                         >
-                          New
+                          Request New Code
                         </Button>
                       </div>
                     </div>
                     
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      💡 Code expires every 24 hours for security. Click "New" to generate a fresh code anytime.
+                      💡 Login codes are managed by your franchisee for security. Use "Request New Code" if you need access.
                     </div>
                   </div>
                 )}

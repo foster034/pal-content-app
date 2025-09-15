@@ -90,15 +90,15 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="backdrop-blur-sm border-border/40 hover:bg-muted/50">
+            <Button variant="outline" size="sm" className="backdrop-blur-sm border-gray-100 dark:border-gray-800 hover:bg-muted/50">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button variant="outline" size="sm" className="backdrop-blur-sm border-border/40 hover:bg-muted/50">
+            <Button variant="outline" size="sm" className="backdrop-blur-sm border-gray-100 dark:border-gray-800 hover:bg-muted/50">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button size="sm" className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg">
+            <Button size="sm" className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-sm">
               <Plus className="h-4 w-4 mr-2" />
               Add New
             </Button>
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
           const Icon = stat.icon;
           return (
             <BlurFade key={stat.title} delay={0.2 + index * 0.1}>
-              <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-500 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm group">
+              <Card className="relative overflow-hidden border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl transition-all duration-500 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm group">
                 <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity duration-500" 
                      style={{backgroundImage: `linear-gradient(135deg, ${stat.color.split(' ')[1]}, ${stat.color.split(' ')[3]})`}} />
                 <Meteors number={5} />
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
       {/* Performance Dashboard */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <BlurFade delay={0.8}>
-          <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
+          <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5" />
             <CardHeader className="relative">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -230,8 +230,8 @@ export default function AdminDashboard() {
                     image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
                   }
                 ].map((tech, index) => (
-                  <Link key={tech.name} href={`/tech/${tech.id}`} className="block transition-all duration-200 hover:scale-102 hover:shadow-lg">
-                    <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20 hover:from-background/70 hover:to-background/40 cursor-pointer">
+                  <Link key={tech.name} href={`/tech/${tech.id}`} className="block transition-all duration-200 hover:scale-102 hover:shadow-sm">
+                    <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800 hover:from-background/70 hover:to-background/40 cursor-pointer">
                       <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-bold shrink-0">
                         #{tech.rank}
                       </div>
@@ -269,8 +269,8 @@ export default function AdminDashboard() {
                   </Link>
                 ))}
               </div>
-              <div className="mt-4 pt-3 border-t border-border/20">
-                <Button variant="outline" size="sm" className="w-full bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm border-border/40">
+              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <Button variant="outline" size="sm" className="w-full bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm border-gray-100 dark:border-gray-800">
                   View All Technicians
                 </Button>
               </div>
@@ -279,7 +279,7 @@ export default function AdminDashboard() {
         </BlurFade>
 
         <BlurFade delay={0.85}>
-          <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
+          <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-purple-500/5" />
             <CardHeader className="relative">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -292,35 +292,35 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="relative">
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
                   <div className="w-2 h-2 rounded-full bg-green-500 shrink-0"></div>
                   <div className="flex-1">
                     <p className="text-sm text-foreground">New photo submission approved</p>
                     <p className="text-xs text-muted-foreground">Alex Rodriguez • Dallas Downtown • 2 min ago</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
                   <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></div>
                   <div className="flex-1">
                     <p className="text-sm text-foreground">Magic link sent to technician</p>
                     <p className="text-xs text-muted-foreground">Sofia Martinez • Austin Central • 5 min ago</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
                   <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0"></div>
                   <div className="flex-1">
                     <p className="text-sm text-foreground">New franchisee registered</p>
                     <p className="text-xs text-muted-foreground">Fort Worth East • 15 min ago</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
                   <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></div>
                   <div className="flex-1">
                     <p className="text-sm text-foreground">Marketing report generated</p>
                     <p className="text-xs text-muted-foreground">Houston West • 22 min ago</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border border-border/20">
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
                   <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
                   <div className="flex-1">
                     <p className="text-sm text-foreground">Photo submission denied</p>
@@ -328,8 +328,8 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/20">
-                <Button variant="outline" size="sm" className="w-full bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm border-border/40">
+              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <Button variant="outline" size="sm" className="w-full bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm border-gray-100 dark:border-gray-800">
                   View Activity Log
                 </Button>
               </div>
@@ -341,7 +341,7 @@ export default function AdminDashboard() {
       {/* System Status */}
       <BlurFade delay={0.9}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500/10 to-teal-500/5 backdrop-blur-sm">
+          <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-emerald-500/10 to-teal-500/5 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">System Health</CardTitle>
               <Zap className="h-4 w-4 text-emerald-600" />
@@ -352,7 +352,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-500/10 to-cyan-500/5 backdrop-blur-sm">
+          <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-blue-500/10 to-cyan-500/5 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">Global Reach</CardTitle>
               <Globe className="h-4 w-4 text-blue-600" />
@@ -363,7 +363,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-md bg-gradient-to-br from-purple-500/10 to-pink-500/5 backdrop-blur-sm">
+          <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-purple-500/10 to-pink-500/5 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-400">Success Rate</CardTitle>
               <Target className="h-4 w-4 text-purple-600" />
@@ -378,7 +378,7 @@ export default function AdminDashboard() {
 
       {/* Quick Actions */}
       <BlurFade delay={1.0}>
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
           <CardHeader className="relative">
             <CardTitle className="text-xl">Quick Actions</CardTitle>
@@ -394,7 +394,7 @@ export default function AdminDashboard() {
                   <Button
                     key={action.title}
                     variant="outline"
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm border-border/40 hover:shadow-lg transition-all duration-300 group"
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm border-gray-100 dark:border-gray-800 hover:shadow-sm transition-all duration-300 group"
                   >
                     <div className={`p-2 rounded-full bg-gradient-to-br ${action.color} opacity-80 group-hover:opacity-100 transition-opacity`}>
                       <Icon className="h-5 w-5 text-white" />

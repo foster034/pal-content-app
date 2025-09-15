@@ -153,6 +153,13 @@ interface MarketingContent {
   customerQuote?: string;
   jobComplexity?: 'Simple' | 'Standard' | 'Complex' | 'Emergency';
   photoTypes?: { [photoId: string]: 'before' | 'after' | 'process' | 'result' | 'tools' };
+  // Client contact information for outreach
+  clientName?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  clientConsentToContact?: boolean;
+  clientConsentToShare?: boolean;
+  preferredContactMethod?: 'phone' | 'email' | 'sms';
 }
 
 export default function TechDashboard() {
@@ -183,7 +190,14 @@ export default function TechDashboard() {
     customerSatisfaction: undefined as number | undefined,
     customerQuote: '',
     jobComplexity: '' as MarketingContent['jobComplexity'] | '',
-    photoTypes: {} as { [photoId: string]: 'before' | 'after' | 'process' | 'result' | 'tools' }
+    photoTypes: {} as { [photoId: string]: 'before' | 'after' | 'process' | 'result' | 'tools' },
+    // Client contact information
+    clientName: '',
+    clientPhone: '',
+    clientEmail: '',
+    clientConsentToContact: false,
+    clientConsentToShare: false,
+    preferredContactMethod: 'phone' as 'phone' | 'email' | 'sms'
   });
 
   // Detect device type
@@ -207,6 +221,13 @@ export default function TechDashboard() {
       }
     };
   }, [cameraStream, photoCameraStream]);
+
+  // Auto-detect location when form opens
+  useEffect(() => {
+    if (showContentForm && !contentForm.location) {
+      getCurrentLocation();
+    }
+  }, [showContentForm]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -233,7 +254,7 @@ export default function TechDashboard() {
     return serviceCategories[contentForm.category] || [];
   };
 
-  const handleSubmitContent = (e: React.FormEvent) => {
+  const handleSubmitContent = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!contentForm.category || !contentForm.service) {
@@ -259,8 +280,36 @@ export default function TechDashboard() {
       customerSatisfaction: contentForm.customerSatisfaction,
       customerQuote: contentForm.customerQuote || undefined,
       jobComplexity: contentForm.jobComplexity || undefined,
-      photoTypes: contentForm.photoTypes
+      photoTypes: contentForm.photoTypes,
+      // Include client contact information
+      clientName: contentForm.clientName || undefined,
+      clientPhone: contentForm.clientPhone || undefined,
+      clientEmail: contentForm.clientEmail || undefined,
+      clientConsentToContact: contentForm.clientConsentToContact,
+      clientConsentToShare: contentForm.clientConsentToShare,
+      preferredContactMethod: contentForm.preferredContactMethod
     };
+
+    // Record consent for audit trail
+    if (contentForm.clientName && (contentForm.clientConsentToContact || contentForm.clientConsentToShare)) {
+      try {
+        await fetch('/api/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientName: contentForm.clientName,
+            clientPhone: contentForm.clientPhone,
+            clientEmail: contentForm.clientEmail,
+            consentToContact: contentForm.clientConsentToContact,
+            consentToShare: contentForm.clientConsentToShare,
+            jobId: newContent.id.toString(),
+            franchiseeId: 1 // Replace with actual franchisee ID
+          })
+        });
+      } catch (error) {
+        console.error('Error recording consent:', error);
+      }
+    }
 
     alert('Content submitted successfully!');
     
@@ -278,7 +327,14 @@ export default function TechDashboard() {
       customerSatisfaction: undefined,
       customerQuote: '',
       jobComplexity: '',
-      photoTypes: {}
+      photoTypes: {},
+      // Reset client contact fields
+      clientName: '',
+      clientPhone: '',
+      clientEmail: '',
+      clientConsentToContact: false,
+      clientConsentToShare: false,
+      preferredContactMethod: 'phone'
     });
     setVin('');
     setShowContentForm(false);
@@ -847,86 +903,229 @@ export default function TechDashboard() {
 
       {/* Submit Content Modal */}
       <Dialog open={showContentForm} onOpenChange={setShowContentForm}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">📸 Submit Marketing Content</DialogTitle>
-            <DialogDescription>
-              Submit photos and details of your work for marketing approval
-            </DialogDescription>
-          </DialogHeader>
-          
-          <form onSubmit={handleSubmitContent} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="block text-sm font-medium mb-2">Service Category *</Label>
-                <select
-                  value={contentForm.category}
-                  onChange={(e) => {
-                    setContentForm(prev => ({ ...prev, category: e.target.value as MarketingContent['category'], service: '' }));
-                  }}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  required
-                >
-                  <option value="">Select category...</option>
-                  <option value="Residential">🏠 Residential</option>
-                  <option value="Automotive">🚗 Automotive</option>
-                  <option value="Commercial">🏢 Commercial</option>
-                  <option value="Roadside">🛣️ Roadside</option>
-                </select>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-950 border-0 shadow-xl">
+          <div className="overflow-y-auto max-h-[calc(90vh-2rem)]">
+            <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pb-6 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">
+                    Submit Content
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-gray-500 dark:text-gray-400 max-w-lg">
+                    Share photos and details of your completed work for marketing review
+                  </DialogDescription>
+                </div>
+                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
               </div>
-              <div>
-                <Label className="block text-sm font-medium mb-2">Service Type *</Label>
-                <select
-                  value={contentForm.service}
-                  onChange={(e) => setContentForm(prev => ({ ...prev, service: e.target.value }))}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  required
-                  disabled={!contentForm.category}
-                >
-                  <option value="">Select service...</option>
-                  {getAvailableServices().map(service => (
-                    <option key={service} value={service}>{service}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            </DialogHeader>
             
-            <div>
-              <Label className="block text-sm font-medium mb-2">Location *</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  value={contentForm.location}
-                  onChange={(e) => setContentForm(prev => ({ ...prev, location: e.target.value }))}
-                  className="flex-1"
-                  placeholder="e.g., Downtown Mall, Main Street, Customer's Home"
-                  required
-                />
-                <Button
-                  type="button"
-                  onClick={getCurrentLocation}
-                  disabled={locationLoading}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 transition-colors flex items-center gap-1 whitespace-nowrap"
-                  title="Get current location"
-                >
-                  {locationLoading ? (
-                    <>
-                      <span className="animate-spin">⏳</span>
-                      <span className="text-xs">Getting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>📍</span>
-                      <span className="text-xs">Use Location</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Click "Use Location" to automatically fill with your current location
+            <div className="px-6 pb-6">
+              <form onSubmit={handleSubmitContent} className="space-y-8 pt-6">
+                {/* Service Information */}
+                <div className="space-y-6">
+                  <div>
+                    <div className="mb-6">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">Service Details</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Select the type of work you completed</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category *</Label>
+                        <select
+                          value={contentForm.category}
+                          onChange={(e) => {
+                            setContentForm(prev => ({ ...prev, category: e.target.value as MarketingContent['category'], service: '' }));
+                          }}
+                          className="w-full h-11 border border-gray-200 dark:border-gray-700 rounded-lg px-3 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          required
+                        >
+                          <option value="">Choose category</option>
+                          <option value="Residential">Residential</option>
+                          <option value="Automotive">Automotive</option>
+                          <option value="Commercial">Commercial</option>
+                          <option value="Roadside">Roadside</option>
+                        </select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Service Type *</Label>
+                        <select
+                          value={contentForm.service}
+                          onChange={(e) => setContentForm(prev => ({ ...prev, service: e.target.value }))}
+                          className="w-full h-11 border border-gray-200 dark:border-gray-700 rounded-lg px-3 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          required
+                          disabled={!contentForm.category}
+                        >
+                          <option value="">{!contentForm.category ? 'Select category first' : 'Choose service'}</option>
+                          {getAvailableServices().map(service => (
+                            <option key={service} value={service}>{service}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+            
+                  {/* Location */}
+                  <div>
+                    <div className="mb-4">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">Job Location</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Where did you complete this service?</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Address *</Label>
+                      <div className="relative">
+                        <Input
+                          type="text"
+                          value={contentForm.location}
+                          onChange={(e) => setContentForm(prev => ({ ...prev, location: e.target.value }))}
+                          className="h-11 pr-20 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter job location"
+                          required
+                        />
+                        <Button
+                          type="button"
+                          onClick={getCurrentLocation}
+                          disabled={locationLoading}
+                          className="absolute right-1 top-1 h-9 px-3 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-md text-xs font-medium transition-colors"
+                          title="Auto-detect location"
+                        >
+                          {locationLoading ? (
+                            <span className="animate-spin text-sm">⏳</span>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span>GPS</span>
+                            </div>
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Use GPS button to auto-detect your current location
+                      </p>
+                    </div>
+                  </div>
+                </div>
+            
+            {/* Client Contact Information */}
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-lg border border-emerald-200 dark:border-emerald-800">
+              <h4 className="text-sm font-semibold text-emerald-800 dark:text-emerald-200 mb-1">👤 Client Contact Information</h4>
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-4">
+                Capture client details to enable follow-up reviews and customer outreach
               </p>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Client Name</Label>
+                    <Input
+                      type="text"
+                      value={contentForm.clientName}
+                      onChange={(e) => setContentForm(prev => ({ ...prev, clientName: e.target.value }))}
+                      className="border-emerald-200 dark:border-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      placeholder="Enter client's full name"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Phone Number</Label>
+                    <Input
+                      type="tel"
+                      value={contentForm.clientPhone}
+                      onChange={(e) => setContentForm(prev => ({ ...prev, clientPhone: e.target.value }))}
+                      className="border-emerald-200 dark:border-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Email Address</Label>
+                  <Input
+                    type="email"
+                    value={contentForm.clientEmail}
+                    onChange={(e) => setContentForm(prev => ({ ...prev, clientEmail: e.target.value }))}
+                    className="border-emerald-200 dark:border-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="client@example.com"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Preferred Contact Method</Label>
+                  <select
+                    value={contentForm.preferredContactMethod}
+                    onChange={(e) => setContentForm(prev => ({ ...prev, preferredContactMethod: e.target.value as 'phone' | 'email' | 'sms' }))}
+                    className="w-full h-11 border border-emerald-200 dark:border-emerald-700 rounded-lg px-3 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  >
+                    <option value="phone">Phone Call</option>
+                    <option value="sms">Text Message (SMS)</option>
+                    <option value="email">Email</option>
+                  </select>
+                </div>
+                
+                {/* Consent Checkboxes */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      id="clientConsentToContact"
+                      checked={contentForm.clientConsentToContact}
+                      onChange={(e) => setContentForm(prev => ({ ...prev, clientConsentToContact: e.target.checked }))}
+                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 dark:focus:ring-emerald-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600 mt-0.5"
+                    />
+                    <label htmlFor="clientConsentToContact" className="text-sm text-emerald-700 dark:text-emerald-300">
+                      <span className="font-medium">Client consents to follow-up contact</span>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        Client has given permission to be contacted for review requests and follow-up communications
+                      </p>
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      id="clientConsentToShare"
+                      checked={contentForm.clientConsentToShare}
+                      onChange={(e) => setContentForm(prev => ({ ...prev, clientConsentToShare: e.target.checked }))}
+                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 dark:focus:ring-emerald-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600 mt-0.5"
+                    />
+                    <label htmlFor="clientConsentToShare" className="text-sm text-emerald-700 dark:text-emerald-300">
+                      <span className="font-medium">Client consents to social media sharing</span>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        Client has given permission for their job photos/content to be shared on social media and marketing materials
+                      </p>
+                    </label>
+                  </div>
+                </div>
+                
+                <div className="bg-emerald-100 dark:bg-emerald-800/30 p-3 rounded-md">
+                  <p className="text-xs text-emerald-800 dark:text-emerald-200">
+                    <strong>📝 Note:</strong> This information enables automated review requests and professional job completion reports to be sent to clients, increasing your Google My Business reviews and customer satisfaction.
+                  </p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-2">
+                    <strong>🔒 Privacy:</strong> All client data is collected and processed according to our{' '}
+                    <a 
+                      href="/api/privacy-policy" 
+                      target="_blank" 
+                      className="underline hover:text-emerald-600 dark:hover:text-emerald-200"
+                    >
+                      Privacy Policy
+                    </a>
+                    {' '}and with explicit client consent.
+                  </p>
+                </div>
+              </div>
             </div>
-            
+
             {/* Vehicle Information - Show only for Automotive and Roadside categories */}
             {(contentForm.category === 'Automotive' || contentForm.category === 'Roadside') && (
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -1015,154 +1214,205 @@ export default function TechDashboard() {
               </div>
             )}
 
-            <div>
-              <Label className="block text-sm font-medium mb-2">Photos *</Label>
+                {/* Photos */}
+                <div className="space-y-6">
+                  <div>
+                    <div className="mb-6">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">Job Photos</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Upload clear photos showing your completed work</p>
+                    </div>
+                    
+                    {/* Social Media Format Selection */}
+                    <div className="mb-6">
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 block">Output Format</Label>
+                      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                        <Button
+                          type="button"
+                          onClick={() => setSocialMediaFormat('auto')}
+                          className={`flex-1 px-3 py-2 text-xs rounded-md transition-all ${
+                            socialMediaFormat === 'auto' 
+                              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' 
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                        >
+                          Auto-detect
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => setSocialMediaFormat('instagram')}
+                          className={`flex-1 px-3 py-2 text-xs rounded-md transition-all ${
+                            socialMediaFormat === 'instagram' 
+                              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' 
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                        >
+                          Instagram
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => setSocialMediaFormat('facebook')}
+                          className={`flex-1 px-3 py-2 text-xs rounded-md transition-all ${
+                            socialMediaFormat === 'facebook' 
+                              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' 
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                        >
+                          Facebook
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        {socialMediaFormat === 'auto' && 'Smart cropping based on image content'}
+                        {socialMediaFormat === 'instagram' && 'Square format (1080×1080)'}
+                        {socialMediaFormat === 'facebook' && 'Landscape format (1200×630)'}
+                      </p>
+                    </div>
               
-              {/* Social Media Format Selection */}
-              <div className="mb-4">
-                <Label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Social Media Format</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    type="button"
-                    onClick={() => setSocialMediaFormat('auto')}
-                    className={`px-3 py-2 text-xs rounded-md border transition-colors ${
-                      socialMediaFormat === 'auto' 
-                        ? 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/50 dark:text-purple-200' 
-                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600'
-                    }`}
-                  >
-                    🤖 Auto-detect
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => setSocialMediaFormat('instagram')}
-                    className={`px-3 py-2 text-xs rounded-md border transition-colors ${
-                      socialMediaFormat === 'instagram' 
-                        ? 'bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900/50 dark:text-pink-200' 
-                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600'
-                    }`}
-                  >
-                    🟦 Instagram (1:1)
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => setSocialMediaFormat('facebook')}
-                    className={`px-3 py-2 text-xs rounded-md border transition-colors ${
-                      socialMediaFormat === 'facebook' 
-                        ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/50 dark:text-blue-200' 
-                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600'
-                    }`}
-                  >
-                    📘 Facebook (16:9)
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {socialMediaFormat === 'auto' && 'Automatically detects orientation and crops for optimal social media format'}
-                  {socialMediaFormat === 'instagram' && 'Square format with smart cropping for Instagram (1080x1080)'}
-                  {socialMediaFormat === 'facebook' && 'Landscape format with smart cropping for Facebook (1200x630)'}
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <Button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShowCameraGuide(true);
-                  }}
-                  className="flex flex-col items-center justify-center px-6 py-6 border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 transition-colors bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:border-green-700 min-h-[120px]"
-                >
-                  <span className="text-3xl mb-3 block">📱</span>
-                  <span className="text-base font-semibold text-green-700 dark:text-green-300 mb-1">Camera Guide</span>
-                  <p className="text-sm text-green-600 dark:text-green-400 text-center leading-tight">See positioning tips & best practices</p>
-                </Button>
-                
-                <Button
-                  type="button"
-                  onClick={handleCameraCapture}
-                  className="flex flex-col items-center justify-center px-6 py-6 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 transition-colors bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-700 min-h-[120px]"
-                >
-                  <span className="text-3xl mb-3 block">📸</span>
-                  <span className="text-base font-semibold text-blue-700 dark:text-blue-300 mb-1">Take Photo</span>
-                  <p className="text-sm text-blue-600 dark:text-blue-400 text-center leading-tight">
-                    {socialMediaFormat === 'instagram' && 'Square format (1:1)'}
-                    {socialMediaFormat === 'facebook' && 'Landscape format (16:9)'}
-                    {socialMediaFormat === 'auto' && 'Smart auto-detect format'}
-                  </p>
-                </Button>
-              </div>
-              
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handlePhotoUpload}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Upload photos of your work (before/after shots work great!)</p>
-              
-              {contentForm.photos.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-3">
-                  {contentForm.photos.map((photo, index) => (
-                    <div key={index} className="relative inline-block">
-                      <img 
-                        src={photo} 
-                        alt={`Upload ${index + 1}`} 
-                        className="max-w-24 max-h-24 object-cover rounded border bg-gray-50 cursor-pointer hover:opacity-80 transition-opacity shadow-sm"
-                        onClick={() => setSelectedPhoto(photo)}
-                      />
+                    {/* Photo Actions */}
+                    <div className="flex gap-3">
                       <Button
                         type="button"
-                        onClick={() => removePhoto(index)}
-                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 p-0 min-w-0"
+                        onClick={handleCameraCapture}
+                        className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                       >
-                        <X className="w-3 h-3" />
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Take Photo
+                      </Button>
+                      
+                      <Button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowCameraGuide(true);
+                        }}
+                        className="w-12 h-12 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-center"
+                        title="View camera tips"
+                      >
+                        <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                       </Button>
                     </div>
-                  ))}
+                    
+                    {/* File Upload */}
+                    <div className="mt-4">
+                      <Label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Or upload from device</Label>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handlePhotoUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <div className="flex items-center justify-center h-20 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors bg-gray-50 dark:bg-gray-800/50">
+                          <div className="text-center">
+                            <svg className="w-6 h-6 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <span className="font-medium text-blue-600 dark:text-blue-400">Click to browse</span> or drag files here
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">PNG, JPG up to 10MB each</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+              
+                    {/* Photo Preview */}
+                    {contentForm.photos.length > 0 && (
+                      <div className="mt-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Uploaded Photos ({contentForm.photos.length})
+                          </Label>
+                        </div>
+                        <div className="grid grid-cols-4 gap-3">
+                          {contentForm.photos.map((photo, index) => (
+                            <div key={index} className="relative group aspect-square">
+                              <img 
+                                src={photo} 
+                                alt={`Photo ${index + 1}`} 
+                                className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => setSelectedPhoto(photo)}
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => removePhoto(index)}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label className="block text-sm font-medium">Description *</Label>
-                <Button
-                  type="button"
-                  onClick={generateAISummary}
-                  disabled={aiGenerating || !contentForm.service || !contentForm.category}
-                  className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-400 transition-colors flex items-center gap-1 text-xs"
-                  title="Generate AI marketing summary using form data"
-                >
-                  {aiGenerating ? (
-                    <>
-                      <span className="animate-spin">⏳</span>
-                      <span>Generating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>🤖</span>
-                      <span>AI Generate</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-              <Textarea
-                value={contentForm.description}
-                onChange={(e) => setContentForm(prev => ({ ...prev, description: e.target.value }))}
-                rows={4}
-                className="w-full"
-                placeholder="Describe the service provided, challenges encountered, work performed, tools used, resolution details, or any technical notes..."
-                required
-              />
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Add your technical notes - AI will help format into a professional service report</p>
-                {!aiGenerating && (contentForm.service && contentForm.category) && (
-                  <p className="text-xs text-purple-600 dark:text-purple-400">💡 Click "AI Generate" to format your notes into a professional service report</p>
-                )}
-              </div>
-            </div>
+                {/* Description */}
+                <div className="space-y-4">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">Job Description</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Describe the work you completed for this customer</p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Service Summary *</Label>
+                      <Button
+                        type="button"
+                        onClick={generateAISummary}
+                        disabled={aiGenerating || !contentForm.service || !contentForm.category}
+                        className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 disabled:text-gray-500 text-white rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium"
+                        title="Generate AI marketing summary using form data"
+                      >
+                        {aiGenerating ? (
+                          <>
+                            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            AI Generate
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    <Textarea
+                      value={contentForm.description}
+                      onChange={(e) => setContentForm(prev => ({ ...prev, description: e.target.value }))}
+                      rows={5}
+                      className="w-full border-gray-200 dark:border-gray-700 rounded-lg px-3 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      placeholder="Describe the service provided, challenges encountered, work performed, tools used, resolution details, or any technical notes..."
+                      required
+                    />
+                    
+                    {!aiGenerating && (contentForm.service && contentForm.category) && (
+                      <div className="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800/30 rounded-lg p-3">
+                        <div className="flex gap-2">
+                          <svg className="w-4 h-4 text-violet-600 dark:text-violet-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="text-xs text-violet-700 dark:text-violet-300">
+                            Add your technical notes above, then click "AI Generate" to create a professional service report for marketing use.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
             {/* Job Performance Section */}
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
@@ -1247,23 +1497,29 @@ export default function TechDashboard() {
               <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">Required: Always get customer consent before submitting content</p>
             </div>
 
-            <div className="flex space-x-4 pt-4">
-              <Button
-                type="submit"
-                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                📸 Submit Content
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setShowContentForm(false)}
-                variant="outline"
-                className="flex-1 py-2 rounded-lg transition-colors"
-              >
-                Cancel
-              </Button>
+                {/* Form Actions */}
+                <div className="flex gap-3 pt-8 border-t border-gray-100 dark:border-gray-800">
+                  <Button
+                    type="button"
+                    onClick={() => setShowContentForm(false)}
+                    variant="outline"
+                    className="flex-1 h-11 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg transition-colors font-medium"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Submit Content
+                  </Button>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1287,7 +1543,12 @@ export default function TechDashboard() {
                 ref={(video) => {
                   if (video && photoCameraStream) {
                     video.srcObject = photoCameraStream;
-                    video.play();
+                    video.play().catch((error) => {
+                      // Ignore AbortError which happens when play() is interrupted
+                      if (error.name !== 'AbortError') {
+                        console.error('Video play error:', error);
+                      }
+                    });
                   }
                 }}
                 className="w-full aspect-square object-cover"
@@ -1342,6 +1603,7 @@ export default function TechDashboard() {
                   </Button>
                   
                   <Button
+                    type="button"
                     onClick={capturePhoto}
                     className="w-16 h-16 bg-white hover:bg-gray-200 text-black rounded-full flex items-center justify-center transition-colors border-4 border-gray-400"
                     title="Take Photo"
@@ -1374,6 +1636,142 @@ export default function TechDashboard() {
         </div>
       )}
 
+      {/* Camera Guide Modal */}
+      <Dialog open={showCameraGuide} onOpenChange={setShowCameraGuide}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-950 border-0 shadow-xl">
+          <div className="overflow-y-auto max-h-[calc(90vh-2rem)]">
+            <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pb-4 border-b border-gray-100 dark:border-gray-800">
+              <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0118.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                Photo Guide
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
+                Use grid lines and focus points for professional job photos
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="px-6 pb-6">
+              <div className="space-y-6 py-4">
+            {/* Grid Composition Guide */}
+            <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Grid & Focus Guide</h3>
+              <div className="relative bg-black rounded-lg p-3" style={{aspectRatio: '4/3'}}>
+                <svg viewBox="0 0 240 180" className="w-full h-full">
+                  {/* Camera viewfinder background */}
+                  <rect x="10" y="10" width="220" height="160" fill="#1a1a1a" rx="4"/>
+                  
+                  {/* Grid lines (rule of thirds) */}
+                  <line x1="83" y1="10" x2="83" y2="170" stroke="#ffffff" strokeWidth="1" opacity="0.4"/>
+                  <line x1="157" y1="10" x2="157" y2="170" stroke="#ffffff" strokeWidth="1" opacity="0.4"/>
+                  <line x1="10" y1="63" x2="230" y2="63" stroke="#ffffff" strokeWidth="1" opacity="0.4"/>
+                  <line x1="10" y1="117" x2="230" y2="117" stroke="#ffffff" strokeWidth="1" opacity="0.4"/>
+                  
+                  {/* Center focus point + */}
+                  <g transform="translate(120,90)">
+                    <line x1="-8" y1="0" x2="8" y2="0" stroke="#00ff00" strokeWidth="2"/>
+                    <line x1="0" y1="-8" x2="0" y2="8" stroke="#00ff00" strokeWidth="2"/>
+                    <circle cx="0" cy="0" r="10" fill="none" stroke="#00ff00" strokeWidth="1" opacity="0.6"/>
+                  </g>
+                  
+                  {/* Subject positioning dots */}
+                  <circle cx="83" cy="63" r="3" fill="#ff6b6b" opacity="0.7"/>
+                  <circle cx="157" cy="63" r="3" fill="#ff6b6b" opacity="0.7"/>
+                  <circle cx="83" cy="117" r="3" fill="#ff6b6b" opacity="0.7"/>
+                  <circle cx="157" cy="117" r="3" fill="#ff6b6b" opacity="0.7"/>
+                  
+                  {/* Example lock at focus point */}
+                  <rect x="145" y="55" width="24" height="16" fill="#4ade80" rx="2"/>
+                  
+                  {/* Viewfinder corners */}
+                  <path d="M15 15 L25 15 L25 25" stroke="#ffffff" strokeWidth="1.5" fill="none" opacity="0.6"/>
+                  <path d="M215 15 L225 15 L225 25" stroke="#ffffff" strokeWidth="1.5" fill="none" opacity="0.6"/>
+                  <path d="M15 155 L25 155 L25 165" stroke="#ffffff" strokeWidth="1.5" fill="none" opacity="0.6"/>
+                  <path d="M215 155 L225 155 L225 165" stroke="#ffffff" strokeWidth="1.5" fill="none" opacity="0.6"/>
+                </svg>
+              </div>
+              <div className="mt-3 space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-gray-700 dark:text-gray-300">Green + = Tap to focus on your subject</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                  <span className="text-gray-700 dark:text-gray-300">Red dots = Best placement points</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Camera Settings */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* iOS Settings */}
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                  </svg>
+                  iOS Settings
+                </h4>
+                <div className="space-y-2 text-sm text-blue-700 dark:text-blue-300">
+                  <div><strong>Grid:</strong> Settings → Camera → Grid: ON</div>
+                  <div><strong>Quality:</strong> Settings → Camera → Formats → High Efficiency</div>
+                  <div><strong>Focus:</strong> Tap screen to focus, hold to lock</div>
+                </div>
+              </div>
+
+              {/* Android Settings */}
+              <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg">
+                <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993.9993.4482.9993.9993-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993.9993.4482.9993.9993-.4482.9997-.9993.9997"/>
+                  </svg>
+                  Android Settings
+                </h4>
+                <div className="space-y-2 text-sm text-green-700 dark:text-green-300">
+                  <div><strong>Grid:</strong> Camera → Settings → Grid Lines: ON</div>
+                  <div><strong>Quality:</strong> Picture Size: Highest Available</div>
+                  <div><strong>Focus:</strong> Tap screen, long press to lock</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Aspect Ratios */}
+            <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-lg">
+              <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-3">Recommended Aspect Ratios</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <div className="text-amber-700 dark:text-amber-300">
+                  <div className="font-medium">Instagram: 1:1 (Square)</div>
+                  <div className="text-xs opacity-75">Perfect for feed posts</div>
+                </div>
+                <div className="text-amber-700 dark:text-amber-300">
+                  <div className="font-medium">Facebook: 16:9 (Wide)</div>
+                  <div className="text-xs opacity-75">Best for timeline</div>
+                </div>
+                <div className="text-amber-700 dark:text-amber-300">
+                  <div className="font-medium">LinkedIn: 4:3 (Standard)</div>
+                  <div className="text-xs opacity-75">Professional posts</div>
+                </div>
+              </div>
+            </div>
+            
+                <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
+                  <Button
+                    onClick={() => setShowCameraGuide(false)}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    Got it!
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Photo Viewer Modal */}
       {selectedPhoto && (
         <div 
@@ -1389,12 +1787,6 @@ export default function TechDashboard() {
               alt="Full size photo" 
               className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
             />
-            <Button
-              onClick={() => setSelectedPhoto(null)}
-              className="absolute top-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl font-bold transition-all backdrop-blur-sm"
-            >
-              ×
-            </Button>
           </div>
         </div>
       )}
@@ -1402,3 +1794,4 @@ export default function TechDashboard() {
     </div>
   );
 }
+

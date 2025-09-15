@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import ImageUploader from "@/components/ImageUploader";
+import { Mail, Phone, Bell } from "lucide-react";
 
 interface Owner {
   id: number;
@@ -210,7 +211,6 @@ export default function FranchiseesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingFranchisee, setEditingFranchisee] = useState<Franchisee | null>(null);
   const [sendingMagicLink, setSendingMagicLink] = useState<number | null>(null);
-  const [sendingSMS, setSendingSMS] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -221,7 +221,6 @@ export default function FranchiseesPage() {
     status: 'Active' as 'Active' | 'Inactive' | 'Pending',
     image: '',
     owners: [] as Owner[],
-    notificationPreferences: { ...defaultNotificationPreferences },
   });
 
   const [currentOwner, setCurrentOwner] = useState({
@@ -274,18 +273,6 @@ export default function FranchiseesPage() {
     }));
   };
 
-  const updateNotificationPreference = (category: keyof NotificationPreferences, method: 'email' | 'sms' | 'app', value: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      notificationPreferences: {
-        ...prev.notificationPreferences,
-        [category]: {
-          ...prev.notificationPreferences[category],
-          [method]: value
-        }
-      }
-    }));
-  };
 
   const getPrimaryContact = (franchisee: Franchisee) => {
     const primaryOwner = franchisee.owners.find(owner => owner.isPrimary);
@@ -306,6 +293,7 @@ export default function FranchiseesPage() {
         id: Math.max(...franchisees.map(f => f.id)) + 1,
         ...formData,
         joinDate: new Date().toISOString().split('T')[0],
+        notificationPreferences: { ...defaultNotificationPreferences },
         owners: formData.owners.map((owner, index) => ({
           ...owner,
           id: Date.now() + index
@@ -313,7 +301,7 @@ export default function FranchiseesPage() {
       };
       setFranchisees(prev => [...prev, newFranchisee]);
     }
-    setFormData({ name: '', username: '', email: '', phone: '', territory: '', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [], notificationPreferences: { ...defaultNotificationPreferences } });
+    setFormData({ name: '', username: '', email: '', phone: '', territory: '', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [] });
     setCurrentOwner({ name: '', email: '', phone: '', image: '', isPrimary: false });
     setShowCreateForm(false);
   };
@@ -329,7 +317,6 @@ export default function FranchiseesPage() {
       status: franchisee.status,
       image: franchisee.image,
       owners: franchisee.owners,
-      notificationPreferences: franchisee.notificationPreferences,
     });
     setShowCreateForm(true);
   };
@@ -436,24 +423,6 @@ export default function FranchiseesPage() {
           <p className="text-muted-foreground">Manage your Pop-A-Lock franchise network</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            onClick={async () => {
-              const confirmed = confirm(`Send magic links to all ${franchisees.length} franchisees?`);
-              if (confirmed) {
-                for (const franchisee of franchisees) {
-                  const primaryContact = getPrimaryContact(franchisee);
-                  if (primaryContact) {
-                    await sendMagicLink(franchisee);
-                    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between requests
-                  }
-                }
-                alert(`Magic links sent to all franchisees!`);
-              }
-            }}
-            variant="outline"
-          >
-            Send All Links
-          </Button>
           <Button onClick={() => setShowCreateForm(true)}>
             Add Franchisee
           </Button>
@@ -660,120 +629,6 @@ export default function FranchiseesPage() {
                 )}
               </div>
 
-              {/* Notification Preferences Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Notification Preferences</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Configure how this franchisee prefers to receive different types of notifications.</p>
-                
-                <div className="space-y-6">
-                  {Object.entries(formData.notificationPreferences).map(([category, methods]) => (
-                    <div key={category} className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-3 capitalize">
-                        {category.replace(/([A-Z])/g, ' $1').trim()}
-                      </h4>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`${category}-email`}
-                            checked={methods.email}
-                            onChange={(e) => updateNotificationPreference(category as keyof NotificationPreferences, 'email', e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <label htmlFor={`${category}-email`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            📧 Email
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`${category}-sms`}
-                            checked={methods.sms}
-                            onChange={(e) => updateNotificationPreference(category as keyof NotificationPreferences, 'sms', e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <label htmlFor={`${category}-sms`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            📱 SMS
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`${category}-app`}
-                            checked={methods.app}
-                            onChange={(e) => updateNotificationPreference(category as keyof NotificationPreferences, 'app', e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <label htmlFor={`${category}-app`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            🔔 App Push
-                          </label>
-                        </div>
-                      </div>
-                      
-                      {/* Category descriptions */}
-                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        {category === 'newTechSubmissions' && 'Notifications when technicians submit new photos or content for approval'}
-                        {category === 'mediaArchival' && 'Updates when media is archived or organized in your franchise database'}
-                        {category === 'systemUpdates' && 'Important system changes, maintenance, and new feature announcements'}
-                        {category === 'marketingReports' && 'Weekly and monthly marketing performance reports and analytics'}
-                        {category === 'emergencyAlerts' && 'Critical alerts requiring immediate attention (lockouts, security issues)'}
-                        {category === 'weeklyDigest' && 'Summary of franchise activity, performance metrics, and highlights'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Quick Actions for Notification Preferences */}
-                <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const allEnabled = Object.fromEntries(
-                        Object.keys(formData.notificationPreferences).map(key => [
-                          key,
-                          { email: true, sms: false, app: true }
-                        ])
-                      );
-                      setFormData(prev => ({ ...prev, notificationPreferences: allEnabled as NotificationPreferences }));
-                    }}
-                    className="text-green-600 border-green-600 hover:bg-green-50"
-                  >
-                    Enable All Email + App
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const emergencyOnly = Object.fromEntries(
-                        Object.keys(formData.notificationPreferences).map(key => [
-                          key,
-                          key === 'emergencyAlerts' 
-                            ? { email: true, sms: true, app: true }
-                            : { email: false, sms: false, app: false }
-                        ])
-                      );
-                      setFormData(prev => ({ ...prev, notificationPreferences: emergencyOnly as NotificationPreferences }));
-                    }}
-                    className="text-orange-600 border-orange-600 hover:bg-orange-50"
-                  >
-                    Emergency Only
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, notificationPreferences: { ...defaultNotificationPreferences } }));
-                    }}
-                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                  >
-                    Reset to Defaults
-                  </Button>
-                </div>
-              </div>
 
               <div className="flex space-x-4">
                 <button
@@ -787,7 +642,7 @@ export default function FranchiseesPage() {
                   onClick={() => {
                     setShowCreateForm(false);
                     setEditingFranchisee(null);
-                    setFormData({ name: '', username: '', email: '', phone: '', territory: '', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [], notificationPreferences: { ...defaultNotificationPreferences } });
+                    setFormData({ name: '', username: '', email: '', phone: '', territory: '', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [] });
                     setCurrentOwner({ name: '', email: '', phone: '', image: '', isPrimary: false });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
@@ -800,13 +655,13 @@ export default function FranchiseesPage() {
         </div>
       )}
 
-      <Card>
+      <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
           <CardTitle>Franchise Partners</CardTitle>
           <CardDescription>A list of active and pending franchise partners in your network.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="border-0">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Name</TableHead>
@@ -822,7 +677,7 @@ export default function FranchiseesPage() {
               {franchisees.map((franchisee) => {
                 const primaryContact = getPrimaryContact(franchisee);
                 return (
-                <TableRow key={franchisee.id}>
+                <TableRow key={franchisee.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <img
@@ -835,7 +690,7 @@ export default function FranchiseesPage() {
                       <div>
                         <div className="font-medium">{primaryContact?.name || franchisee.name}</div>
                         <div className="text-muted-foreground mt-0.5 text-xs">
-                          Primary Contact • {franchisee.territory}
+                          Primary Contact
                         </div>
                       </div>
                     </div>
@@ -871,21 +726,15 @@ export default function FranchiseesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex gap-2 items-center">
                       {Object.values(franchisee.notificationPreferences).some(methods => methods.email) && (
-                        <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full" title="Email notifications enabled">
-                          📧
-                        </span>
+                        <Mail className="h-4 w-4 text-neutral-600 dark:text-neutral-400" title="Email notifications enabled" />
                       )}
                       {Object.values(franchisee.notificationPreferences).some(methods => methods.sms) && (
-                        <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded-full" title="SMS notifications enabled">
-                          📱
-                        </span>
+                        <Phone className="h-4 w-4 text-neutral-600 dark:text-neutral-400" title="SMS notifications enabled" />
                       )}
                       {Object.values(franchisee.notificationPreferences).some(methods => methods.app) && (
-                        <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full" title="App push notifications enabled">
-                          🔔
-                        </span>
+                        <Bell className="h-4 w-4 text-neutral-600 dark:text-neutral-400" title="App push notifications enabled" />
                       )}
                     </div>
                   </TableCell>
@@ -899,16 +748,6 @@ export default function FranchiseesPage() {
                         className="text-blue-600 hover:text-blue-700"
                       >
                         {sendingMagicLink === franchisee.id ? 'Sending...' : 'Send Link'}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => sendSMS(franchisee)}
-                        disabled={sendingSMS === franchisee.id}
-                        className="text-green-600 hover:text-green-700"
-                        title="Send SMS"
-                      >
-                        {sendingSMS === franchisee.id ? 'Sending...' : '📱 SMS'}
                       </Button>
                       <Button
                         variant="ghost"

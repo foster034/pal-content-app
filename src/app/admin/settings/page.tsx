@@ -31,8 +31,53 @@ export default function SettingsPage() {
     testMessage: 'Test message from Pop-A-Lock Management Portal',
     isSending: false,
   });
+
+  const [consentRecords, setConsentRecords] = useState([]);
+  const [loadingConsent, setLoadingConsent] = useState(false);
+
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load existing Twilio configuration on component mount
+  useEffect(() => {
+    const loadTwilioConfig = async () => {
+      try {
+        const response = await fetch('/api/twilio/config');
+        const data = await response.json();
+        
+        if (data.success && data.config) {
+          setTwilioSettings(prev => ({
+            ...prev,
+            enabled: data.config.enabled,
+            testMode: data.config.testMode,
+            phoneNumber: data.config.phoneNumber,
+            accountSid: data.config.accountSid,
+            // Don't load auth token for security
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading Twilio config:', error);
+      }
+    };
+
+    loadTwilioConfig();
+  }, []);
+
+  const loadConsentRecords = async () => {
+    setLoadingConsent(true);
+    try {
+      const response = await fetch('/api/consent');
+      const data = await response.json();
+      
+      if (data.success) {
+        setConsentRecords(data.records);
+      }
+    } catch (error) {
+      console.error('Error loading consent records:', error);
+    } finally {
+      setLoadingConsent(false);
+    }
+  };
 
   const handleChange = (key: string, value: string | boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -45,6 +90,7 @@ export default function SettingsPage() {
   const handleTwilioTestChange = (key: string, value: string | boolean) => {
     setTwilioTesting(prev => ({ ...prev, [key]: value }));
   };
+
 
   const testTwilioConnection = async () => {
     if (!twilioSettings.accountSid || !twilioSettings.authToken || !twilioSettings.phoneNumber) {
@@ -105,6 +151,7 @@ export default function SettingsPage() {
       alert('❌ Error saving Twilio settings.');
     }
   };
+
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -502,6 +549,107 @@ export default function SettingsPage() {
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               💡 Tip: Get your credentials from the Twilio Console at console.twilio.com
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Consent Management Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Privacy & Consent Management</h3>
+          <button
+            onClick={loadConsentRecords}
+            disabled={loadingConsent}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
+          >
+            {loadingConsent ? 'Loading...' : '🔄 Refresh Records'}
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {consentRecords.length}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total Records</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {consentRecords.filter((record: any) => record.consentToContact).length}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Contact Consent</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {consentRecords.filter((record: any) => record.consentToShare).length}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Sharing Consent</div>
+            </div>
+          </div>
+
+          {consentRecords.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-gray-700 dark:text-gray-300">
+                <thead className="bg-gray-100 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Client</th>
+                    <th className="px-4 py-2 text-left">Contact</th>
+                    <th className="px-4 py-2 text-center">Consents</th>
+                    <th className="px-4 py-2 text-left">Date</th>
+                    <th className="px-4 py-2 text-left">Job ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {consentRecords.slice(0, 10).map((record: any) => (
+                    <tr key={record.id} className="border-b border-gray-200 dark:border-gray-600">
+                      <td className="px-4 py-2 font-medium">{record.clientName}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {record.clientEmail && <div>{record.clientEmail}</div>}
+                        {record.clientPhone && <div>{record.clientPhone}</div>}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <div className="flex justify-center space-x-1">
+                          {record.consentToContact && (
+                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded" title="Contact Consent">📞</span>
+                          )}
+                          {record.consentToShare && (
+                            <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded" title="Sharing Consent">📤</span>
+                          )}
+                          {record.consentToMarketing && (
+                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="Marketing Consent">📧</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-xs">{new Date(record.timestamp).toLocaleDateString()}</td>
+                      <td className="px-4 py-2 text-xs">{record.jobId || 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {consentRecords.length > 10 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                  Showing first 10 of {consentRecords.length} records
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              No consent records found. Records will appear here when clients submit jobs with consent.
+            </div>
+          )}
+
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between items-center">
+            <a 
+              href="/privacy-policy" 
+              target="_blank"
+              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm underline"
+            >
+              📋 View Privacy Policy
+            </a>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              All consent records are stored securely and can be deleted upon client request for GDPR compliance.
             </p>
           </div>
         </div>

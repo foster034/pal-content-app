@@ -14,29 +14,50 @@ const recentPhotoSubmissions = [
 ];
 
 const techLeaderboard = [
-  { 
-    name: 'Alex Rodriguez', 
-    photoSubmissions: 18, 
-    approved: 15, 
-    marketingScore: 96, 
+  {
+    name: 'Alex Rodriguez',
+    photoSubmissions: 18,
+    approved: 15,
+    marketingScore: 96,
     recentJobs: 'Master Key Installation, Roadside Assistance',
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg'
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
+    reviews: {
+      generated: 12,
+      completed: 10,
+      conversionRate: 83.3,
+      averageRating: 4.8,
+      aiUsageRate: 75
+    }
   },
-  { 
-    name: 'Sarah Wilson', 
-    photoSubmissions: 16, 
-    approved: 14, 
-    marketingScore: 92, 
+  {
+    name: 'Sarah Wilson',
+    photoSubmissions: 16,
+    approved: 14,
+    marketingScore: 92,
     recentJobs: 'Home Rekey, Smart Lock Installation',
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg'
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg',
+    reviews: {
+      generated: 9,
+      completed: 8,
+      conversionRate: 88.9,
+      averageRating: 4.9,
+      aiUsageRate: 55
+    }
   },
-  { 
-    name: 'Mike Johnson', 
-    photoSubmissions: 13, 
-    approved: 10, 
-    marketingScore: 85, 
+  {
+    name: 'Mike Johnson',
+    photoSubmissions: 13,
+    approved: 10,
+    marketingScore: 85,
     recentJobs: 'Car Lockout, Emergency Services',
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg',
+    reviews: {
+      generated: 7,
+      completed: 5,
+      conversionRate: 71.4,
+      averageRating: 4.6,
+      aiUsageRate: 85
+    }
   },
 ];
 
@@ -66,6 +87,7 @@ export default function FranchiseeDashboard() {
   const [gmbLoading, setGmbLoading] = useState(false);
   const [gmbError, setGmbError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [showReviewMetrics, setShowReviewMetrics] = useState(false);
 
   // Load GMB posts on component mount
   useEffect(() => {
@@ -123,28 +145,28 @@ export default function FranchiseeDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">47</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Total Photo Submissions</div>
             <div className="text-xs text-green-600 dark:text-green-400">+12% from last month</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">8</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Pending Review</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Needs attention</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">35</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Approved for Marketing</div>
             <div className="text-xs text-green-600 dark:text-green-400">+8% approval rate</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{gmbPosts.length}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">GMB Posts Live</div>
@@ -156,7 +178,7 @@ export default function FranchiseeDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardHeader>
             <CardTitle>Recent Photo Submissions</CardTitle>
             <CardDescription>Latest marketing photos from your technicians</CardDescription>
@@ -165,7 +187,7 @@ export default function FranchiseeDashboard() {
             <div className="space-y-4">
               {recentPhotoSubmissions.map((submission) => (
                 <div key={submission.id} className="flex items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                  <div className="w-12 h-10 relative rounded overflow-hidden shrink-0">
+                  <div className="w-12 h-12 relative rounded-full overflow-hidden shrink-0">
                     <img
                       src={submission.image}
                       alt={submission.service}
@@ -210,10 +232,28 @@ export default function FranchiseeDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardHeader>
             <CardTitle>Technician Leaderboard</CardTitle>
-            <CardDescription>Top performers in marketing content creation</CardDescription>
+            <CardDescription>
+              Top performers in marketing content creation and review generation
+            </CardDescription>
+            <div className="flex gap-2 mt-3">
+              <Button
+                variant={!showReviewMetrics ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowReviewMetrics(false)}
+              >
+                📸 Photo Metrics
+              </Button>
+              <Button
+                variant={showReviewMetrics ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowReviewMetrics(true)}
+              >
+                ⭐ Review Metrics
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -235,15 +275,45 @@ export default function FranchiseeDashboard() {
                         {tech.name}
                       </p>
                       <Badge variant="outline" className="text-xs">
-                        Score: {tech.marketingScore}
+                        {showReviewMetrics ? `${tech.reviews.averageRating}⭐` : `Score: ${tech.marketingScore}`}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                      <span>{tech.photoSubmissions} submissions</span>
-                      <span>{tech.approved} approved</span>
-                      <span>{Math.round((tech.approved / tech.photoSubmissions) * 100)}% rate</span>
-                    </div>
+                    {!showReviewMetrics ? (
+                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                        <span>{tech.photoSubmissions} submissions</span>
+                        <span>{tech.approved} approved</span>
+                        <span>{Math.round((tech.approved / tech.photoSubmissions) * 100)}% rate</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1">
+                            📝 {tech.reviews.completed} reviews
+                          </span>
+                          <span className="flex items-center gap-1">
+                            📈 {tech.reviews.conversionRate}% conversion
+                          </span>
+                          <span className="flex items-center gap-1">
+                            🤖 {tech.reviews.aiUsageRate}% AI help
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-green-500 h-1.5 rounded-full transition-all duration-300"
+                            style={{ width: `${tech.reviews.conversionRate}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  {showReviewMetrics && (
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-green-600">
+                        {tech.reviews.completed}
+                      </div>
+                      <div className="text-xs text-gray-500">reviews</div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -259,7 +329,7 @@ export default function FranchiseeDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
@@ -277,7 +347,7 @@ export default function FranchiseeDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardHeader>
             <CardTitle>Marketing Insights</CardTitle>
           </CardHeader>
@@ -303,7 +373,7 @@ export default function FranchiseeDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -370,7 +440,7 @@ export default function FranchiseeDashboard() {
                   <div key={post.name} className="border-b border-gray-100 dark:border-gray-800 pb-4 last:border-b-0">
                     <div className="flex gap-3">
                       {post.media && post.media[0] && (
-                        <div className="w-12 h-10 relative rounded overflow-hidden shrink-0">
+                        <div className="w-12 h-12 relative rounded-full overflow-hidden shrink-0">
                           <img
                             src={post.media[0].sourceUrl}
                             alt="Post media"

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,10 +13,46 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { 
+  MoreHorizontal, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Key, 
+  Copy, 
+  RefreshCw,
+  MessageCircle,
+  Eye,
+  Settings,
+  UserPlus,
+  Shield,
+  Clock
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-interface Tech {
+interface Technician {
   id: number;
   name: string;
+  username: string;
   email: string;
   phone: string;
   specialties: string[];
@@ -24,152 +61,341 @@ interface Tech {
   rating: number;
   completedJobs: number;
   image: string;
+  loginCode: string;
+  autoLoginEnabled: boolean;
+  lastCodeGenerated: string;
 }
 
-interface LoginCode {
-  code: string;
-  email: string;
-  expiresAt: Date;
-  used: boolean;
-}
-
-interface GeneratedAuth {
-  email: string;
-  code: string;
-  magicLink: string;
-  expiresAt: Date;
-}
-
-// Sample data for the current franchisee (John Smith - Downtown)
-const initialTechs: Tech[] = [
-  { 
-    id: 1, 
-    name: 'Alex Rodriguez', 
-    email: 'alex@popalock.com', 
-    phone: '(555) 111-2222', 
-    specialties: ['Automotive Locksmith', 'Roadside Assistance'], 
-    status: 'Active', 
-    hireDate: '2024-01-20', 
+const mockTechnicians: Technician[] = [
+  {
+    id: 1,
+    name: 'Alex Rodriguez',
+    username: 'alexrodriguez',
+    email: 'alex@popalock.com',
+    phone: '(555) 111-2222',
+    specialties: ['Automotive Locksmith', 'Roadside Assistance'],
+    status: 'Active',
+    hireDate: '2024-01-19',
     rating: 4.8,
     completedJobs: 156,
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg'
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
+    loginCode: 'A3X9M2',
+    autoLoginEnabled: true,
+    lastCodeGenerated: '2024-01-15'
   },
-  { 
-    id: 3, 
-    name: 'David Chen', 
-    email: 'david@popalock.com', 
-    phone: '(555) 333-4444', 
-    specialties: ['Residential Locksmith', 'Key Programming'], 
-    status: 'On Leave', 
-    hireDate: '2024-03-01', 
-    rating: 4.5,
+  {
+    id: 2,
+    name: 'David Chen',
+    username: 'davidchen',
+    email: 'david@popalock.com',
+    phone: '(555) 333-4444',
+    specialties: ['Residential Locksmith', 'Key Programming'],
+    status: 'On Leave',
+    hireDate: '2024-02-29',
+    rating: 4.6,
     completedJobs: 89,
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
-  },
+    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-04_s7fyto.jpg',
+    loginCode: 'D7K2P9',
+    autoLoginEnabled: false,
+    lastCodeGenerated: '2024-01-10'
+  }
 ];
 
-const specialtyOptions = ['Automotive Locksmith', 'Commercial Locksmith', 'Residential Locksmith', 'Roadside Assistance', 'Key Programming', 'Safe Services', 'Access Control', 'Emergency Services'];
-
-// Simulated database of active codes
-let activeCodes: LoginCode[] = [];
+const specialtyOptions = [
+  'Residential Locksmith',
+  'Commercial Locksmith', 
+  'Automotive Locksmith',
+  'Safe Services',
+  'Key Programming',
+  'Emergency Services',
+  'Roadside Assistance',
+  'Access Control'
+];
 
 export default function FranchiseeTechsPage() {
-  const [techs, setTechs] = useState<Tech[]>(initialTechs);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingTech, setEditingTech] = useState<Tech | null>(null);
-  const [sendingMagicLink, setSendingMagicLink] = useState<number | null>(null);
-
+  const [technicians, setTechnicians] = useState<Technician[]>(mockTechnicians);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
     phone: '',
     specialties: [] as string[],
-    status: 'Active' as const,
-    image: '',
+    status: 'Active' as 'Active' | 'Inactive' | 'On Leave'
   });
+  const { toast } = useToast();
 
-  const sendMagicLink = async (tech: Tech) => {
-    setSendingMagicLink(tech.id);
+  const generateLoginCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  const handleCreateTech = () => {
+    if (!formData.name || !formData.email || !formData.username) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newTech: Technician = {
+      id: technicians.length + 1,
+      ...formData,
+      hireDate: new Date().toISOString().split('T')[0],
+      rating: 0,
+      completedJobs: 0,
+      image: `https://i.pravatar.cc/150?u=${formData.username}`,
+      loginCode: generateLoginCode(),
+      autoLoginEnabled: true,
+      lastCodeGenerated: new Date().toISOString().split('T')[0]
+    };
+
+    setTechnicians([...technicians, newTech]);
+    setShowCreateDialog(false);
+    resetForm();
+    
+    toast({
+      title: "Technician Created",
+      description: `${newTech.name} has been added to your team. Login code: ${newTech.loginCode}`
+    });
+
+    // Simulate API call to update tech profile
+    updateTechProfile(newTech);
+  };
+
+  const handleEditTech = () => {
+    if (!selectedTech || !formData.name || !formData.email || !formData.username) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const updatedTech = {
+      ...selectedTech,
+      ...formData
+    };
+
+    setTechnicians(technicians.map(tech => 
+      tech.id === selectedTech.id ? updatedTech : tech
+    ));
+
+    setShowEditDialog(false);
+    setSelectedTech(null);
+    resetForm();
+
+    toast({
+      title: "Technician Updated",
+      description: `${updatedTech.name}'s profile has been updated`
+    });
+
+    // Simulate API call to update tech profile
+    updateTechProfile(updatedTech);
+  };
+
+  const handleDeleteTech = () => {
+    if (!selectedTech) return;
+
+    setTechnicians(technicians.filter(tech => tech.id !== selectedTech.id));
+    setShowDeleteDialog(false);
+    setSelectedTech(null);
+
+    toast({
+      title: "Technician Removed",
+      description: `${selectedTech.name} has been removed from your team`
+    });
+  };
+
+  const handleGenerateNewCode = async (tech: Technician) => {
+    const newCode = generateLoginCode();
+    const updatedTech = {
+      ...tech,
+      loginCode: newCode,
+      lastCodeGenerated: new Date().toISOString().split('T')[0]
+    };
+
     try {
-      const response = await fetch('/api/magic-links', {
+      // Update locally first
+      setTechnicians(technicians.map(t => 
+        t.id === tech.id ? updatedTech : t
+      ));
+
+      // Sync the login code change specifically with tech profile
+      await updateTechProfile(updatedTech, {
+        loginCode: newCode,
+        lastCodeGenerated: updatedTech.lastCodeGenerated
+      });
+
+      toast({
+        title: "Login Code Updated",
+        description: `New code for ${tech.name}: ${newCode} (synced with tech profile)`
+      });
+
+      // Auto-copy to clipboard
+      navigator.clipboard.writeText(newCode);
+      
+    } catch (error) {
+      // Still show success for local update, but warn about sync
+      toast({
+        title: "New Login Code Generated",
+        description: `New code for ${tech.name}: ${newCode} (sync pending)`
+      });
+      
+      // Auto-copy to clipboard anyway
+      navigator.clipboard.writeText(newCode);
+    }
+  };
+
+  const handleGenerateAllCodes = async () => {
+    let successCount = 0;
+    let failCount = 0;
+    
+    // Process each technician
+    for (const tech of technicians) {
+      const newCode = generateLoginCode();
+      const updatedTech = {
+        ...tech,
+        loginCode: newCode,
+        lastCodeGenerated: new Date().toISOString().split('T')[0]
+      };
+
+      try {
+        // Update locally first
+        setTechnicians(prev => prev.map(t => 
+          t.id === tech.id ? updatedTech : t
+        ));
+
+        // Sync with tech profile system
+        await updateTechProfile(updatedTech, {
+          loginCode: newCode,
+          lastCodeGenerated: updatedTech.lastCodeGenerated
+        });
+        
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to sync code for ${tech.name}:`, error);
+        failCount++;
+      }
+    }
+
+    // Show summary notification
+    if (failCount === 0) {
+      toast({
+        title: "Bulk Codes Generated",
+        description: `New login codes generated and synced for all ${successCount} technicians`
+      });
+    } else if (successCount === 0) {
+      toast({
+        title: "Sync Failed",
+        description: `Failed to sync codes for all technicians. Codes updated locally.`,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Partially Synced",
+        description: `${successCount} codes synced successfully, ${failCount} failed. Check individual tech profiles.`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const updateTechProfile = async (tech: Technician, specificUpdates?: any) => {
+    try {
+      // Real API call to sync with tech profile system
+      const response = await fetch('/api/tech-profile/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: tech.email,
-          userType: 'technician',
-          userId: tech.id,
-          name: tech.name,
-        }),
+          techId: tech.id,
+          updates: specificUpdates || {
+            name: tech.name,
+            username: tech.username,
+            email: tech.email,
+            phone: tech.phone,
+            specialties: tech.specialties,
+            status: tech.status,
+            loginCode: tech.loginCode,
+            autoLoginEnabled: tech.autoLoginEnabled
+          }
+        })
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(`Magic link sent successfully to ${tech.email}!`);
-      } else {
-        alert(`Failed to send magic link: ${data.error}`);
+      if (!response.ok) {
+        throw new Error('Failed to sync tech profile');
       }
+
+      const result = await response.json();
+      console.log('Tech profile sync successful:', result);
+      
+      return result;
     } catch (error) {
-      alert('Failed to send magic link. Please try again.');
-    } finally {
-      setSendingMagicLink(null);
+      console.error('Failed to update tech profile:', error);
+      toast({
+        title: "Sync Warning",
+        description: "Changes saved locally but may not be synced with tech profile. Please try again.",
+        variant: "destructive"
+      });
+      throw error;
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (editingTech) {
-      setTechs(prev => prev.map(t => 
-        t.id === editingTech.id 
-          ? { ...t, ...formData }
-          : t
-      ));
-      setEditingTech(null);
-    } else {
-      const newTech: Tech = {
-        id: Math.max(...techs.map(t => t.id), 0) + 1,
-        ...formData,
-        hireDate: new Date().toISOString().split('T')[0],
-        rating: 0,
-        completedJobs: 0,
-      };
-      setTechs(prev => [...prev, newTech]);
-    }
-    setFormData({ name: '', email: '', phone: '', specialties: [], status: 'Active', image: '' });
-    setShowCreateForm(false);
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      username: '',
+      email: '',
+      phone: '',
+      specialties: [],
+      status: 'Active'
+    });
   };
 
-  const handleEdit = (tech: Tech) => {
-    setEditingTech(tech);
+  const openEditDialog = (tech: Technician) => {
+    setSelectedTech(tech);
     setFormData({
       name: tech.name,
+      username: tech.username,
       email: tech.email,
       phone: tech.phone,
       specialties: tech.specialties,
-      status: tech.status,
-      image: tech.image,
+      status: tech.status
     });
-    setShowCreateForm(true);
+    setShowEditDialog(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm('Are you sure you want to remove this technician?')) {
-      setTechs(prev => prev.filter(t => t.id !== id));
-    }
+  const openDeleteDialog = (tech: Technician) => {
+    setSelectedTech(tech);
+    setShowDeleteDialog(true);
   };
 
   const handleSpecialtyChange = (specialty: string, checked: boolean) => {
     if (checked) {
-      setFormData(prev => ({ ...prev, specialties: [...prev.specialties, specialty] }));
+      setFormData(prev => ({
+        ...prev,
+        specialties: [...prev.specialties, specialty]
+      }));
     } else {
-      setFormData(prev => ({ ...prev, specialties: prev.specialties.filter(s => s !== specialty) }));
+      setFormData(prev => ({
+        ...prev,
+        specialties: prev.specialties.filter(s => s !== specialty)
+      }));
     }
   };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  const getStatusVariant = (status: string) => {
     switch (status) {
       case 'Active': return 'default';
       case 'Inactive': return 'destructive';
@@ -183,229 +409,410 @@ export default function FranchiseeTechsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white min-h-screen p-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">My Technicians</h1>
+          <h1 className="text-3xl font-bold tracking-tight">My Technicians</h1>
           <p className="text-muted-foreground">Manage your team of technicians and generate login codes</p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)}>
+        <Button onClick={() => setShowCreateDialog(true)} className="bg-primary hover:bg-primary/90">
+          <UserPlus className="w-4 h-4 mr-2" />
           Add New Technician
         </Button>
       </div>
 
-      {showCreateForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-              {editingTech ? 'Edit Technician' : 'Add New Technician'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email *</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone *</label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="(555) 123-4567"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profile Image URL</label>
-                <input
-                  type="url"
-                  value={formData.image}
-                  onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://example.com/avatar.jpg"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Specialties</label>
-                <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-3">
-                  {specialtyOptions.map(specialty => (
-                    <label key={specialty} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.specialties.includes(specialty)}
-                        onChange={(e) => handleSpecialtyChange(specialty, e.target.checked)}
-                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{specialty}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'Active' | 'Inactive' | 'On Leave' }))}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                  <option value="On Leave">On Leave</option>
-                </select>
-              </div>
-              <div className="flex space-x-4 pt-4">
-                <Button type="submit" className="flex-1">
-                  {editingTech ? 'Update Technician' : 'Add Technician'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setEditingTech(null);
-                    setFormData({ name: '', email: '', phone: '', specialties: [], status: 'Active', image: '' });
-                  }}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
+      {/* Technician Table */}
       <Card>
         <CardHeader>
           <CardTitle>Your Technician Team</CardTitle>
-          <CardDescription>Manage and coordinate with your skilled locksmith technicians.</CardDescription>
+          <CardDescription>
+            Manage and coordinate with your skilled locksmith technicians.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-hidden">
-            <div className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-200/50 dark:border-gray-700/50">
-              <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm font-medium text-gray-600 dark:text-gray-400">
-                <div className="col-span-3">Technician</div>
-                <div className="col-span-2">Contact</div>
-                <div className="col-span-2">Specialties</div>
-                <div className="col-span-1">Status</div>
-                <div className="col-span-2">Performance</div>
-                <div className="col-span-2 text-right">Actions</div>
-              </div>
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {techs.length === 0 ? (
-                <div className="px-6 py-12 text-center">
-                  <div className="text-gray-400 text-6xl mb-4">🔧</div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No technicians yet</h3>
-                  <p className="text-muted-foreground mb-6">Get started by adding your first technician to your team.</p>
-                  <Button onClick={() => setShowCreateForm(true)}>
-                    Add Your First Technician
-                  </Button>
-                </div>
-              ) : (
-                techs.map((tech) => (
-                  <div key={tech.id} className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors duration-150">
-                    <div className="col-span-3">
-                      <div className="flex items-center gap-3">
-                        <img
-                          className="rounded-full ring-2 ring-gray-100 dark:ring-gray-700"
-                          src={tech.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(tech.name)}&background=0ea5e9&color=fff`}
-                          width={40}
-                          height={40}
-                          alt={tech.name}
-                        />
-                        <div>
-                          <div className="font-medium text-gray-900 dark:text-gray-100">{tech.name}</div>
-                          <span className="text-muted-foreground text-xs">
-                            Hired {new Date(tech.hireDate).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-span-2">
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Technician</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Specialties</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Performance</TableHead>
+                <TableHead>Login Code</TableHead>
+                <TableHead>Tech Login</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {technicians.map((tech) => (
+                <TableRow key={tech.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <img 
+                        src={tech.image} 
+                        alt={tech.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-gray-100">{tech.email}</div>
-                        <div className="text-muted-foreground text-xs">{tech.phone}</div>
+                        <div className="font-medium">{tech.name}</div>
+                        <div className="text-sm text-muted-foreground">@{tech.username}</div>
+                        <div className="text-xs text-muted-foreground">Hired {tech.hireDate}</div>
                       </div>
                     </div>
-                    <div className="col-span-2">
-                      <div className="flex flex-wrap gap-1">
-                        {tech.specialties.slice(0, 2).map(specialty => (
-                          <Badge key={specialty} variant="outline" className="text-xs border-gray-200 dark:border-gray-700">
-                            {specialty}
-                          </Badge>
-                        ))}
-                        {tech.specialties.length > 2 && (
-                          <Badge variant="secondary" className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                            +{tech.specialties.length - 2}
-                          </Badge>
-                        )}
-                      </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div>{tech.email}</div>
+                      <div className="text-muted-foreground">{tech.phone}</div>
                     </div>
-                    <div className="col-span-1">
-                      <Badge variant={getStatusVariant(tech.status)} className="shadow-sm">
-                        {tech.status}
-                      </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {tech.specialties.slice(0, 2).map((specialty, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {specialty}
+                        </Badge>
+                      ))}
+                      {tech.specialties.length > 2 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{tech.specialties.length - 2}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="col-span-2">
-                      <div>
-                        <div className="text-yellow-500 text-sm">{renderStars(tech.rating)}</div>
-                        <div className="text-xs text-muted-foreground">{tech.completedJobs} jobs</div>
-                      </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(tech.status)}>
+                      {tech.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="text-yellow-500">{renderStars(tech.rating)}</div>
+                      <div className="text-xs text-muted-foreground">{tech.completedJobs} jobs</div>
                     </div>
-                    <div className="col-span-2">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => sendMagicLink(tech)}
-                          disabled={sendingMagicLink === tech.id}
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 h-8 px-2 text-xs"
-                        >
-                          {sendingMagicLink === tech.id ? 'Sending...' : 'Generate Login'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-mono text-sm font-bold bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-2">
+                      {tech.loginCode}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        onClick={() => {
+                          navigator.clipboard.writeText(tech.loginCode);
+                          toast({
+                            title: "Copied to clipboard",
+                            description: `Login code ${tech.loginCode} copied`
+                          });
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {tech.autoLoginEnabled ? (
+                        <span className="text-green-600">Auto-login enabled</span>
+                      ) : (
+                        <span className="text-gray-500">Manual login only</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Link 
+                      href="/tech/login"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        🔐 Tech Login
+                      </Button>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(tech)}
-                          className="hover:bg-gray-100 dark:hover:bg-gray-700 h-8 px-2 text-xs"
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-64 bg-white border shadow-lg">
+                        <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        
+                        <DropdownMenuItem
+                          onClick={() => window.open('/tech-hub', '_blank')}
+                          className="cursor-pointer"
                         >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(tech.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 h-8 px-2 text-xs"
+                          <MessageCircle className="mr-2 h-4 w-4 text-indigo-600" />
+                          <span>View in Tech Hub</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem
+                          onClick={() => window.open('/tech/dashboard', '_blank')}
+                          className="cursor-pointer"
                         >
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+                          <Eye className="mr-2 h-4 w-4 text-green-600" />
+                          <span>View as Technician</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem
+                          onClick={() => window.open('/tech/profile', '_blank')}
+                          className="cursor-pointer"
+                        >
+                          <Settings className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>Tech Profile Settings</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Credential Management</DropdownMenuLabel>
+                        
+                        <DropdownMenuItem
+                          onClick={() => handleGenerateNewCode(tech)}
+                          className="cursor-pointer"
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
+                          <span>Generate New Login Code</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem
+                          onClick={() => {
+                            navigator.clipboard.writeText(`Login Code for ${tech.name}: ${tech.loginCode}`);
+                            toast({
+                              title: "Credentials copied",
+                              description: `${tech.name}'s login information copied to clipboard`
+                            });
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Copy className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>Copy Login Details</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuSeparator />
+                        
+                        <DropdownMenuItem
+                          onClick={() => openEditDialog(tech)}
+                          className="cursor-pointer"
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          <span>Edit Details</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem
+                          onClick={() => openDeleteDialog(tech)}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Remove Technician</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
+
+      {/* Create Technician Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Technician</DialogTitle>
+            <DialogDescription>
+              Create a new technician profile. A login code will be automatically generated.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Alex Rodriguez"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username *</Label>
+              <Input
+                id="username"
+                value={formData.username}
+                onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                placeholder="alexrodriguez"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="alex@popalock.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="(555) 123-4567"
+              />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label>Specialties</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-3 border rounded-lg">
+                {specialtyOptions.map(specialty => (
+                  <label key={specialty} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.specialties.includes(specialty)}
+                      onChange={(e) => handleSpecialtyChange(specialty, e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{specialty}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <select
+                id="status"
+                value={formData.status}
+                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                className="w-full border rounded-lg px-3 py-2"
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTech}>
+              Create Technician
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Technician Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Technician</DialogTitle>
+            <DialogDescription>
+              Update {selectedTech?.name}'s profile information.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Full Name *</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-username">Username *</Label>
+              <Input
+                id="edit-username"
+                value={formData.username}
+                onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email *</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input
+                id="edit-phone"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label>Specialties</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-3 border rounded-lg">
+                {specialtyOptions.map(specialty => (
+                  <label key={specialty} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.specialties.includes(specialty)}
+                      onChange={(e) => handleSpecialtyChange(specialty, e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{specialty}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-status">Status</Label>
+              <select
+                id="edit-status"
+                value={formData.status}
+                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                className="w-full border rounded-lg px-3 py-2"
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditTech}>
+              Update Technician
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Technician</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove {selectedTech?.name} from your team? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteTech}>
+              Remove Technician
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

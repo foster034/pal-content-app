@@ -122,3 +122,32 @@ body {
     --sidebar-ring: oklch(0.646 0.222 41.116);
   }
 }
+
+/* Hide any avatar fallback elements or floating "N" circles */
+@layer utilities {
+  /* Hide common avatar fallback patterns */
+  [data-avatar-fallback],
+  [class*="avatar-fallback"],
+  [data-testid*="avatar-fallback"],
+  [id*="avatar-fallback"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+  
+  /* Hide elements with common single-letter avatar patterns */
+  .rounded-full.bg-gray-800:is([class*="w-7"], [class*="w-8"], [class*="h-7"], [class*="h-8"]),
+  .rounded-full.bg-neutral-800:is([class*="w-7"], [class*="w-8"], [class*="h-7"], [class*="h-8"]),
+  .rounded-full.bg-slate-800:is([class*="w-7"], [class*="w-8"], [class*="h-7"], [class*="h-8"]),
+  .rounded-full.bg-zinc-800:is([class*="w-7"], [class*="w-8"], [class*="h-7"], [class*="h-8"]) {
+    display: none !important;
+  }
+  
+  /* Hide small circular elements that are likely avatar fallbacks */
+  div[style*="width: 28px"][style*="height: 28px"][style*="border-radius"],
+  div[style*="width: 32px"][style*="height: 32px"][style*="border-radius"],
+  span[style*="width: 28px"][style*="height: 28px"][style*="border-radius"],
+  span[style*="width: 32px"][style*="height: 32px"][style*="border-radius"] {
+    display: none !important;
+  }
+}
