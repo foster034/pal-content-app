@@ -12,10 +12,18 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const technicianId = searchParams.get('technicianId');
     const jobSubmissionId = searchParams.get('jobSubmissionId');
+    const franchiseeId = searchParams.get('franchiseeId');
 
     let query = supabase
       .from('franchisee_photos')
-      .select('*')
+      .select(`
+        *,
+        technicians (
+          name,
+          image_url,
+          rating
+        )
+      `)
       .order('created_at', { ascending: false });
 
     // Filter by technician if provided
@@ -28,6 +36,11 @@ export async function GET(request: NextRequest) {
       query = query.eq('job_submission_id', jobSubmissionId);
     }
 
+    // Filter by franchisee if provided
+    if (franchiseeId) {
+      query = query.eq('franchisee_id', franchiseeId);
+    }
+
     const { data, error } = await query;
 
     if (error) {
@@ -38,7 +51,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(data || []);
+    // Transform the data to match the expected format
+    const transformedData = data?.map(photo => ({
+      ...photo,
+      technician: photo.technicians ? {
+        name: photo.technicians.name,
+        image_url: photo.technicians.image_url,
+        rating: photo.technicians.rating
+      } : null
+    })) || [];
+
+    return NextResponse.json(transformedData);
 
   } catch (error) {
     console.error('Error in franchisee photos API:', error);
