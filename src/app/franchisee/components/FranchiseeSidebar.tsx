@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
   IconDashboard,
@@ -20,7 +20,7 @@ import Image from "next/image";
 import { useLogo } from "@/contexts/logo-context";
 import LogoutButton from "@/components/auth/LogoutButton";
 
-export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
+function SidebarContent({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const pathname = usePathname();
@@ -112,6 +112,14 @@ export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     </div>
+  );
+}
+
+export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+      <SidebarContent>{children}</SidebarContent>
+    </Suspense>
   );
 }
 
