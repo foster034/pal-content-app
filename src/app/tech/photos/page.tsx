@@ -153,7 +153,7 @@ export default function TechPhotosPage() {
               const statusData = photoStatusMap[photoKey];
 
               transformedPhotos.push({
-                id: `${job.id}-${index}`,
+                id: `${job.id}__${index}`,
                 photoUrl: photo.url,
                 jobType: job.service.category as TechPhoto['jobType'],
                 jobDescription: job.service.description || `${job.service.type} - ${job.service.category}`,
@@ -196,8 +196,8 @@ export default function TechPhotosPage() {
 
   const deletePhoto = async (photoId: string) => {
     try {
-      // Extract job ID from photo ID (format: jobId-photoIndex)
-      const jobId = photoId.split('-')[0];
+      // Extract job ID from photo ID (format: jobId__photoIndex)
+      const jobId = photoId.split('__')[0];
 
       // Show confirmation dialog
       if (!confirm('Are you sure you want to delete this job submission? This will remove all photos associated with this job.')) {
@@ -214,7 +214,7 @@ export default function TechPhotosPage() {
       }
 
       // Remove all photos for this job from local state
-      setPhotos(prev => prev.filter(photo => !photo.id.startsWith(jobId)));
+      setPhotos(prev => prev.filter(photo => !photo.id.startsWith(jobId + '__')));
 
       alert('Job submission deleted successfully');
     } catch (error) {
