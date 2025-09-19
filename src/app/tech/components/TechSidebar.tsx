@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
   IconBrandTabler,
@@ -16,10 +16,32 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import LogoutButton from "@/components/auth/LogoutButton";
+import TechLogoutButton from "@/components/auth/TechLogoutButton";
+import { getTechSession } from "@/lib/tech-auth";
 
 export function TechSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = () => {
+      const techSession = getTechSession();
+      setIsAuthenticated(!!techSession);
+    };
+
+    checkAuth();
+
+    // Re-check on storage changes
+    const handleStorageChange = () => checkAuth();
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   // Extract techId from pathname if available
   const techId = pathname.split('/tech/')[1]?.split('/')[0];
@@ -40,14 +62,6 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
         <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
-    {
-      label: "Tech Hub",
-      href: "/tech-hub",
-      icon: (
-        <IconMessageCircle className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-      ),
-      external: true,
-    },
     ...(isOnTechForm ? [{
       label: "Submit Content",
       href: `/tech/${techId}`,
@@ -55,20 +69,13 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
         <IconFileText className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     }] : []),
-    {
-      label: "Profile",
+    ...(isAuthenticated ? [{
+      label: "Profile & Settings",
       href: "/tech/profile",
-      icon: (
-        <IconUser className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-      ),
-    },
-    {
-      label: "Settings",
-      href: "/tech/settings",
       icon: (
         <IconSettings className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
-    },
+    }] : []),
   ];
 
   return (
@@ -113,6 +120,13 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
                 );
               })}
             </div>
+          </div>
+          <div className="mt-auto">
+            {isAuthenticated ? (
+              <TechLogoutButton variant="ghost" className="w-full justify-start" />
+            ) : (
+              <LogoutButton variant="ghost" className="w-full justify-start" />
+            )}
           </div>
         </SidebarBody>
       </Sidebar>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, MessageCircle, Eye, Send, Edit, Trash2, Settings } from "lucide-react";
+import ImageUploader from "@/components/ImageUploader";
+import ImageModal from "@/components/ImageModal";
+import { DetailModal } from "@/components/DetailModal";
+import '../../../styles/animations.css';
 
 interface Tech {
   id: number;
@@ -28,7 +32,7 @@ interface Tech {
   username: string;
   email: string;
   phone: string;
-  franchiseeId: number;
+  franchiseeId: string;
   franchiseeName: string;
   specialties: string[];
   status: 'Active' | 'Inactive' | 'On Leave';
@@ -38,133 +42,165 @@ interface Tech {
   image: string;
 }
 
-const initialTechs: Tech[] = [
-  { 
-    id: 1, 
-    name: 'Alex Rodriguez', 
-    username: '@alexrodriguez',
-    email: 'alex.rodriguez@popalock.com', 
-    phone: '(555) 111-2222', 
-    franchiseeId: 1,
-    franchiseeName: 'Dallas Downtown',
-    specialties: ['Automotive Locksmith', 'Roadside Assistance'], 
-    status: 'Active', 
-    hireDate: '2024-01-20', 
-    rating: 4.8,
-    completedJobs: 156,
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg'
-  },
-  { 
-    id: 2, 
-    name: 'Sofia Martinez', 
-    username: '@sofiamartinez',
-    email: 'sofia.martinez@popalock.com', 
-    phone: '(555) 222-3333', 
-    franchiseeId: 2,
-    franchiseeName: 'Austin Central',
-    specialties: ['Commercial Locksmith', 'Access Control'], 
-    status: 'Active', 
-    hireDate: '2024-02-15', 
-    rating: 4.9,
-    completedJobs: 203,
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg'
-  },
-  { 
-    id: 3, 
-    name: 'David Chen', 
-    username: '@davidchen',
-    email: 'david.chen@popalock.com', 
-    phone: '(555) 333-4444', 
-    franchiseeId: 3,
-    franchiseeName: 'Houston West',
-    specialties: ['Residential Locksmith', 'Key Programming'], 
-    status: 'On Leave', 
-    hireDate: '2024-03-01', 
-    rating: 4.5,
-    completedJobs: 89,
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
-  },
-  { 
-    id: 4, 
-    name: 'Jennifer Walsh', 
-    username: '@jenwalsh',
-    email: 'jennifer.walsh@popalock.com', 
-    phone: '(555) 444-5555', 
-    franchiseeId: 4,
-    franchiseeName: 'San Antonio North',
-    specialties: ['Safe Services', 'Emergency Services'], 
-    status: 'Active', 
-    hireDate: '2024-04-10', 
-    rating: 4.7,
-    completedJobs: 124,
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_dkeufx.jpg'
-  },
-];
+interface Franchisee {
+  id: string;
+  business_name: string;
+  email: string;
+}
 
-const franchisees = [
-  { id: 1, name: 'Dallas Downtown' },
-  { id: 2, name: 'Austin Central' },
-  { id: 3, name: 'Houston West' },
-  { id: 4, name: 'San Antonio North' },
-];
+const initialTechs: Tech[] = [];
 
 const specialtyOptions = ['Automotive Locksmith', 'Commercial Locksmith', 'Residential Locksmith', 'Roadside Assistance', 'Key Programming', 'Safe Services', 'Access Control', 'Emergency Services'];
 
 export default function TechsPage() {
   const [techs, setTechs] = useState<Tech[]>(initialTechs);
+  const [franchisees, setFranchisees] = useState<Franchisee[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTech, setEditingTech] = useState<Tech | null>(null);
   const [sendingMagicLink, setSendingMagicLink] = useState<number | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
+  const [selectedTech, setSelectedTech] = useState<Tech | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     username: '',
     email: '',
     phone: '',
-    franchiseeId: 1,
+    franchiseeId: '',
     specialties: [] as string[],
     status: 'Active' as const,
     image: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchFranchisees();
+    fetchTechnicians();
+  }, []);
+
+  const fetchFranchisees = async () => {
+    try {
+      const response = await fetch('/api/franchisees');
+      if (response.ok) {
+        const data = await response.json();
+        setFranchisees(data);
+        // Set the first franchisee as default if available
+        if (data.length > 0 && !formData.franchiseeId) {
+          setFormData(prev => ({ ...prev, franchiseeId: data[0].id }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch franchisees:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTechnicians = async () => {
+    try {
+      const response = await fetch('/api/technicians');
+      if (response.ok) {
+        const data = await response.json();
+        // Transform API data to match Tech interface
+        const techsData = data.map((tech: any) => ({
+          id: tech.id,
+          name: tech.name,
+          username: tech.email.split('@')[0], // Generate username from email
+          email: tech.email,
+          phone: tech.phone || '',
+          franchiseeId: tech.franchisee_id,
+          franchiseeName: tech.franchiseeName || 'Unknown Franchise',
+          specialties: [],
+          status: 'Active' as const,
+          hireDate: tech.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          rating: tech.rating || 0,
+          completedJobs: 0,
+          image: tech.image_url || ''
+        }));
+        setTechs(techsData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch technicians:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const selectedFranchisee = franchisees.find(f => f.id === formData.franchiseeId);
-    
-    if (editingTech) {
-      setTechs(prev => prev.map(t => 
-        t.id === editingTech.id 
-          ? { 
-              ...t, 
-              ...formData,
-              franchiseeName: selectedFranchisee?.name || ''
-            }
-          : t
-      ));
-      setEditingTech(null);
-    } else {
-      const newTech: Tech = {
-        id: Math.max(...techs.map(t => t.id)) + 1,
-        ...formData,
-        franchiseeName: selectedFranchisee?.name || '',
-        hireDate: new Date().toISOString().split('T')[0],
-        rating: 0,
-        completedJobs: 0,
-      };
-      setTechs(prev => [...prev, newTech]);
+
+    try {
+      if (editingTech) {
+        // Update existing technician (if API supports it)
+        const response = await fetch('/api/technicians', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingTech.id,
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            role: 'technician',
+            image_url: formData.image
+          })
+        });
+
+        if (response.ok) {
+          await fetchTechnicians(); // Refresh the list
+        }
+        setEditingTech(null);
+      } else {
+        // Create new technician
+        const response = await fetch('/api/technicians', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            franchiseeId: formData.franchiseeId,
+            role: 'technician',
+            image: formData.image,
+            createAuth: true,
+            authMethod: 'magic_link'
+          })
+        });
+
+        if (response.ok) {
+          const newTech = await response.json();
+
+          // Show success message
+          if (newTech.authCreated) {
+            alert(`✅ Technician created successfully!\n\n📧 A magic link has been sent to ${formData.email}`);
+          } else {
+            alert('✅ Technician created successfully!');
+          }
+
+          await fetchTechnicians(); // Refresh the list
+        } else {
+          const error = await response.json();
+          alert(`Failed to create technician: ${error.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving technician:', error);
+      alert('Failed to save technician. Please try again.');
     }
-    setFormData({ name: '', username: '', email: '', phone: '', franchiseeId: 1, specialties: [], status: 'Active', image: '' });
+
+    setFormData({ name: '', username: '', email: '', phone: '', franchiseeId: '', specialties: [], status: 'Active' as const, image: '' });
     setShowCreateForm(false);
   };
 
   const handleEdit = (tech: Tech) => {
     setEditingTech(tech);
+    console.log('Editing tech:', tech, 'franchiseeId:', tech.franchiseeId);
+    console.log('Available franchisees:', franchisees);
     setFormData({
       name: tech.name,
       username: tech.username,
       email: tech.email,
       phone: tech.phone,
-      franchiseeId: tech.franchiseeId,
+      franchiseeId: tech.franchiseeId.toString(),
       specialties: tech.specialties,
       status: tech.status,
       image: tech.image,
@@ -172,8 +208,27 @@ export default function TechsPage() {
     setShowCreateForm(true);
   };
 
-  const handleDelete = (id: number) => {
-    setTechs(prev => prev.filter(t => t.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this technician?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/technicians?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        await fetchTechnicians(); // Refresh the list
+        alert('✅ Technician deleted successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete technician: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting technician:', error);
+      alert('Failed to delete technician. Please try again.');
+    }
   };
 
   const sendMagicLink = async (tech: Tech) => {
@@ -283,16 +338,26 @@ export default function TechsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Franchisee</label>
                 <select
                   value={formData.franchiseeId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, franchiseeId: parseInt(e.target.value) }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, franchiseeId: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
+                  <option value="">Select a franchisee</option>
                   {franchisees.map(franchisee => (
                     <option key={franchisee.id} value={franchisee.id}>
-                      {franchisee.name}
+                      {franchisee.business_name || franchisee.name}
                     </option>
                   ))}
                 </select>
               </div>
+
+              <ImageUploader
+                label="Technician Photo"
+                currentImage={formData.image}
+                onImageSelected={(imageDataUrl) => setFormData(prev => ({ ...prev, image: imageDataUrl }))}
+                enableCrop={true}
+                cropAspect={1}
+              />
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Specialties</label>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -333,7 +398,7 @@ export default function TechsPage() {
                   onClick={() => {
                     setShowCreateForm(false);
                     setEditingTech(null);
-                    setFormData({ name: '', username: '', email: '', phone: '', franchiseeId: 1, specialties: [], status: 'Active', image: '' });
+                    setFormData({ name: '', username: '', email: '', phone: '', franchiseeId: '', specialties: [], status: 'Active' as const, image: '' });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
                 >
@@ -364,17 +429,44 @@ export default function TechsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {techs.map((tech) => (
-                <TableRow key={tech.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="text-muted-foreground">Loading technicians...</div>
+                  </TableCell>
+                </TableRow>
+              ) : techs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="text-muted-foreground">No technicians found. Click "Add Technician" to create one.</div>
+                  </TableCell>
+                </TableRow>
+              ) : techs.map((tech) => (
+                <TableRow
+                  key={tech.id}
+                  className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 cursor-pointer"
+                  onClick={() => {
+                    setSelectedTech(tech);
+                    setShowDetailModal(true);
+                  }}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <img
-                        className="rounded-full"
-                        src={tech.image}
-                        width={40}
-                        height={40}
-                        alt={tech.name}
-                      />
+                      {tech.image ? (
+                        <img
+                          className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
+                          src={tech.image}
+                          alt={tech.name}
+                          onClick={() => setSelectedImage({ url: tech.image, name: tech.name })}
+                          title="Click to view larger"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                            {tech.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <div className="font-medium">{tech.name}</div>
                         <span className="text-muted-foreground mt-0.5 text-xs">
@@ -415,7 +507,7 @@ export default function TechsPage() {
                       <div className="text-xs text-muted-foreground">{tech.completedJobs} jobs</div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0">
@@ -426,14 +518,6 @@ export default function TechsPage() {
                       <DropdownMenuContent align="end" className="w-56 bg-white border shadow-lg">
                         <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        
-                        <DropdownMenuItem
-                          onClick={() => window.open('/tech-hub', '_blank')}
-                          className="cursor-pointer"
-                        >
-                          <MessageCircle className="mr-2 h-4 w-4 text-indigo-600" />
-                          <span>Connect to Tech Hub</span>
-                        </DropdownMenuItem>
                         
                         <DropdownMenuItem
                           onClick={() => window.open('/tech/dashboard', '_blank')}
@@ -488,6 +572,36 @@ export default function TechsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <ImageModal
+          imageUrl={selectedImage.url}
+          altText={selectedImage.name}
+          isOpen={!!selectedImage}
+          onClose={() => setSelectedImage(null)}
+        />
+      )}
+
+      {/* Detail Modal */}
+      <DetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedTech(null);
+        }}
+        type="technician"
+        data={selectedTech}
+        onEdit={(tech) => {
+          handleEdit(tech);
+        }}
+        onSendMagicLink={(tech) => {
+          sendMagicLink(tech);
+        }}
+        onViewAs={(tech) => {
+          window.open('/tech/dashboard', '_blank');
+        }}
+      />
     </div>
   );
 }

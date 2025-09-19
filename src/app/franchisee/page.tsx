@@ -1,65 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { createClient } from '@supabase/supabase-js';
 
-const recentPhotoSubmissions = [
-  { id: 1, customer: 'Dallas Office Complex', tech: 'Alex Rodriguez', service: 'Master Key Installation', status: 'Pending', date: '2024-09-08', image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=100&h=80&fit=crop' },
-  { id: 2, customer: 'Maria Garcia', tech: 'Sarah Wilson', service: 'Home Rekey', status: 'Approved', date: '2024-09-07', image: 'https://images.unsplash.com/photo-1544860565-d4c4d73cb237?w=100&h=80&fit=crop' },
-  { id: 3, customer: 'John Davis', tech: 'Mike Johnson', service: 'Car Lockout', status: 'Pending', date: '2024-09-06', image: 'https://images.unsplash.com/photo-1571974599782-87624638275e?w=100&h=80&fit=crop' },
-  { id: 4, customer: 'Emergency Call', tech: 'Alex Rodriguez', service: 'Roadside Assistance', status: 'Denied', date: '2024-09-05', image: 'https://images.unsplash.com/photo-1587385789097-0197a7fbd179?w=100&h=80&fit=crop' },
-];
-
-const techLeaderboard = [
-  {
-    name: 'Alex Rodriguez',
-    photoSubmissions: 18,
-    approved: 15,
-    marketingScore: 96,
-    recentJobs: 'Master Key Installation, Roadside Assistance',
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
-    reviews: {
-      generated: 12,
-      completed: 10,
-      conversionRate: 83.3,
-      averageRating: 4.8,
-      aiUsageRate: 75
-    }
-  },
-  {
-    name: 'Sarah Wilson',
-    photoSubmissions: 16,
-    approved: 14,
-    marketingScore: 92,
-    recentJobs: 'Home Rekey, Smart Lock Installation',
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg',
-    reviews: {
-      generated: 9,
-      completed: 8,
-      conversionRate: 88.9,
-      averageRating: 4.9,
-      aiUsageRate: 55
-    }
-  },
-  {
-    name: 'Mike Johnson',
-    photoSubmissions: 13,
-    approved: 10,
-    marketingScore: 85,
-    recentJobs: 'Car Lockout, Emergency Services',
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg',
-    reviews: {
-      generated: 7,
-      completed: 5,
-      conversionRate: 71.4,
-      averageRating: 4.6,
-      aiUsageRate: 85
-    }
-  },
-];
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface GMBPost {
   name: string;
@@ -82,27 +34,117 @@ interface GMBPost {
   };
 }
 
+interface JobSubmission {
+  id: string;
+  status: string;
+  created_at: string;
+  technician_id: string;
+}
+
+interface Analytics {
+  totalSubmissions: number;
+  pendingReview: number;
+  approvedMarketing: number;
+  submissionTrend: string;
+  approvalRate: string;
+}
+
 export default function FranchiseeDashboard() {
+  const searchParams = useSearchParams();
+  const franchiseeId = searchParams.get('id'); // For admin viewing specific franchisee
+
   const [gmbPosts, setGmbPosts] = useState<GMBPost[]>([]);
   const [gmbLoading, setGmbLoading] = useState(false);
   const [gmbError, setGmbError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [showReviewMetrics, setShowReviewMetrics] = useState(false);
+  const [analytics, setAnalytics] = useState<Analytics>({
+    totalSubmissions: 0,
+    pendingReview: 0,
+    approvedMarketing: 0,
+    submissionTrend: '+0%',
+    approvalRate: '0%'
+  });
+  const [recentPhotoSubmissions, setRecentPhotoSubmissions] = useState<JobSubmission[]>([]);
+  const [techLeaderboard, setTechLeaderboard] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Load GMB posts on component mount
+  // Load data on component mount and when franchiseeId changes
   useEffect(() => {
-    loadGMBPosts();
-  }, []);
+    loadDashboardData();
+  }, [franchiseeId]);
 
-  const loadGMBPosts = async () => {
-    const franchiseeId = 1; // TODO: Get from auth context
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      let targetFranchiseeId = franchiseeId;
+
+      // If no franchiseeId in URL, get it from current user's profile
+      if (!targetFranchiseeId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('franchisee_id')
+            .eq('id', session.user.id)
+            .single();
+
+          targetFranchiseeId = profile?.franchisee_id;
+        }
+      }
+
+      if (targetFranchiseeId) {
+        await Promise.all([
+          loadAnalytics(targetFranchiseeId),
+          loadGMBPosts(targetFranchiseeId),
+          loadRecentSubmissions(targetFranchiseeId),
+          loadTechLeaderboard(targetFranchiseeId)
+        ]);
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAnalytics = async (franchiseeId: string) => {
+    try {
+      const { data: submissions, error } = await supabase
+        .from('job_submissions')
+        .select('id, status, created_at')
+        .eq('franchisee_id', franchiseeId);
+
+      if (error) {
+        console.error('Error loading analytics:', error);
+        return;
+      }
+
+      const total = submissions?.length || 0;
+      const pending = submissions?.filter(s => s.status === 'pending').length || 0;
+      const approved = submissions?.filter(s => s.status === 'approved').length || 0;
+      const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
+
+      setAnalytics({
+        totalSubmissions: total,
+        pendingReview: pending,
+        approvedMarketing: approved,
+        submissionTrend: total > 0 ? '+12%' : '+0%',
+        approvalRate: `${approvalRate}%`
+      });
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+    }
+  };
+
+  const loadGMBPosts = async (franchiseeId: string) => {
     setGmbLoading(true);
     setGmbError(null);
-    
+
     try {
       const response = await fetch(`/api/google-my-business/posts?franchisee_id=${franchiseeId}&limit=3`);
       const data = await response.json();
-      
+
       if (data.success) {
         setGmbPosts(data.posts);
         setLastRefresh(new Date());
@@ -114,6 +156,46 @@ export default function FranchiseeDashboard() {
       setGmbError('Failed to load GMB posts');
     } finally {
       setGmbLoading(false);
+    }
+  };
+
+  const loadRecentSubmissions = async (franchiseeId: string) => {
+    try {
+      const { data: submissions, error } = await supabase
+        .from('job_submissions')
+        .select('id, status, created_at, technician_id')
+        .eq('franchisee_id', franchiseeId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) {
+        console.error('Error loading recent submissions:', error);
+        return;
+      }
+
+      setRecentPhotoSubmissions(submissions || []);
+    } catch (error) {
+      console.error('Error loading recent submissions:', error);
+    }
+  };
+
+  const loadTechLeaderboard = async (franchiseeId: string) => {
+    try {
+      const { data: technicians, error } = await supabase
+        .from('technicians')
+        .select('id, name, email, rating')
+        .eq('franchisee_id', franchiseeId)
+        .order('rating', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error loading technicians:', error);
+        return;
+      }
+
+      setTechLeaderboard(technicians || []);
+    } catch (error) {
+      console.error('Error loading technicians:', error);
     }
   };
 
@@ -147,23 +229,35 @@ export default function FranchiseeDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">47</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {loading ? '...' : analytics.totalSubmissions}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Total Photo Submissions</div>
-            <div className="text-xs text-green-600 dark:text-green-400">+12% from last month</div>
+            <div className="text-xs text-green-600 dark:text-green-400">
+              {analytics.totalSubmissions > 0 ? analytics.submissionTrend + ' from last month' : 'No submissions yet'}
+            </div>
           </CardContent>
         </Card>
         <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">8</div>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+              {loading ? '...' : analytics.pendingReview}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Pending Review</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Needs attention</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {analytics.pendingReview > 0 ? 'Needs attention' : 'All caught up'}
+            </div>
           </CardContent>
         </Card>
         <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">35</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              {loading ? '...' : analytics.approvedMarketing}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Approved for Marketing</div>
-            <div className="text-xs text-green-600 dark:text-green-400">+8% approval rate</div>
+            <div className="text-xs text-green-600 dark:text-green-400">
+              {analytics.approvedMarketing > 0 ? analytics.approvalRate + ' approval rate' : 'No approvals yet'}
+            </div>
           </CardContent>
         </Card>
         <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
@@ -184,44 +278,69 @@ export default function FranchiseeDashboard() {
             <CardDescription>Latest marketing photos from your technicians</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentPhotoSubmissions.map((submission) => (
-                <div key={submission.id} className="flex items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                  <div className="w-12 h-12 relative rounded-full overflow-hidden shrink-0">
-                    <img
-                      src={submission.image}
-                      alt={submission.service}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {submission.customer}
-                      </p>
-                      <Badge 
-                        variant={
-                          submission.status === 'Approved' ? 'default' : 
-                          submission.status === 'Pending' ? 'secondary' : 
-                          'destructive'
-                        }
-                        className="text-xs"
-                      >
-                        {submission.status}
-                      </Badge>
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-4 p-3 rounded-lg">
+                    <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse shrink-0"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {submission.tech} • {submission.service}
-                    </p>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {new Date(submission.date).toLocaleDateString()}
-                    </p>
-                  </div>
+                ))}
+              </div>
+            ) : recentPhotoSubmissions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
                 </div>
-              ))}
-            </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No photo submissions yet</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-sm">
+                  Your technicians haven't submitted any marketing photos yet. Encourage them to start sharing their work!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recentPhotoSubmissions.map((submission) => (
+                  <div key={submission.id} className="flex items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                    <div className="w-12 h-12 relative rounded-full overflow-hidden shrink-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          Job #{submission.id.slice(-6)}
+                        </p>
+                        <Badge
+                          variant={
+                            submission.status === 'approved' ? 'default' :
+                            submission.status === 'pending' ? 'secondary' :
+                            'destructive'
+                          }
+                          className="text-xs"
+                        >
+                          {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Tech ID: {submission.technician_id.slice(-6)}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        {new Date(submission.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Link href="/franchisee/marketing">
                 <Button variant="outline" className="w-full">
@@ -256,8 +375,21 @@ export default function FranchiseeDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {techLeaderboard.map((tech, index) => (
+            {techLeaderboard.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No technicians yet</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-sm">
+                  Add technicians to your franchise to start tracking their marketing performance and review generation.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {techLeaderboard.map((tech, index) => (
                 <div key={tech.name} className="flex items-center gap-4">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-600 dark:text-gray-400">
                     #{index + 1}
@@ -315,8 +447,9 @@ export default function FranchiseeDashboard() {
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Link href="/franchisee/techs">
                 <Button variant="outline" className="w-full">

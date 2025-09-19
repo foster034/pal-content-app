@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { Send, Camera } from 'lucide-react';
 
 interface Tech {
   id: string;
@@ -28,9 +29,6 @@ interface MarketingContent {
   vehicleMake?: string;
   vehicleModel?: string;
   jobDuration?: number; // in minutes
-  customerSatisfaction?: number; // 1-5 stars
-  customerQuote?: string;
-  jobComplexity?: 'Simple' | 'Standard' | 'Complex' | 'Emergency';
   photoTypes?: { [photoId: string]: 'before' | 'after' | 'process' | 'result' | 'tools' };
 }
 
@@ -135,9 +133,6 @@ export default function TechMarketingDashboard() {
     vehicleMake: '',
     vehicleModel: '',
     jobDuration: undefined as number | undefined,
-    customerSatisfaction: undefined as number | undefined,
-    customerQuote: '',
-    jobComplexity: '' as MarketingContent['jobComplexity'] | '',
     photoTypes: {} as { [photoId: string]: 'before' | 'after' | 'process' | 'result' | 'tools' }
   });
 
@@ -205,9 +200,6 @@ export default function TechMarketingDashboard() {
       vehicleMake: contentForm.vehicleMake || undefined,
       vehicleModel: contentForm.vehicleModel || undefined,
       jobDuration: contentForm.jobDuration,
-      customerSatisfaction: contentForm.customerSatisfaction,
-      customerQuote: contentForm.customerQuote || undefined,
-      jobComplexity: contentForm.jobComplexity || undefined,
       photoTypes: contentForm.photoTypes
     };
 
@@ -223,9 +215,6 @@ export default function TechMarketingDashboard() {
       vehicleMake: '',
       vehicleModel: '',
       jobDuration: undefined,
-      customerSatisfaction: undefined,
-      customerQuote: '',
-      jobComplexity: '',
       photoTypes: {}
     });
     setVin('');
@@ -678,9 +667,6 @@ export default function TechMarketingDashboard() {
         service: contentForm.service,
         location: contentForm.location,
         description: contentForm.description, // The tech's description/comments to enhance
-        jobComplexity: contentForm.jobComplexity,
-        customerSatisfaction: contentForm.customerSatisfaction,
-        customerQuote: contentForm.customerQuote,
         jobDuration: contentForm.jobDuration,
         vehicle: contentForm.vehicleYear && contentForm.vehicleMake && contentForm.vehicleModel ? 
           `${contentForm.vehicleYear} ${contentForm.vehicleMake} ${contentForm.vehicleModel}` : null,
@@ -793,9 +779,10 @@ export default function TechMarketingDashboard() {
               </div>
               <button
                 onClick={() => setShowContentForm(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               >
-                📸 Submit Content
+                <Send className="h-4 w-4" />
+                Submit Content
               </button>
             </div>
           </div>
@@ -1346,7 +1333,10 @@ export default function TechMarketingDashboard() {
         {showContentForm && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold mb-4">📸 Submit Marketing Content</h2>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Send className="h-5 w-5" />
+                Submit Marketing Content
+              </h2>
               <form onSubmit={handleSubmitContent} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1686,74 +1676,6 @@ export default function TechMarketingDashboard() {
                   </div>
                 </div>
 
-                {/* Job Performance Section */}
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <h4 className="text-sm font-semibold text-green-800 mb-3">📊 Job Performance & Marketing Details</h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-
-                    {/* Job Complexity */}
-                    <div>
-                      <label className="block text-sm font-medium text-green-700 mb-2">🎯 Job Complexity</label>
-                      <select
-                        value={contentForm.jobComplexity}
-                        onChange={(e) => setContentForm(prev => ({ ...prev, jobComplexity: e.target.value as MarketingContent['jobComplexity'] }))}
-                        className="w-full border border-green-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="">Select complexity...</option>
-                        <option value="Simple">🟢 Simple - Basic service</option>
-                        <option value="Standard">🟡 Standard - Regular job</option>
-                        <option value="Complex">🟠 Complex - Challenging work</option>
-                        <option value="Emergency">🔴 Emergency - Urgent situation</option>
-                      </select>
-                      <p className="text-xs text-green-600 mt-1">Showcases skill level required</p>
-                    </div>
-                  </div>
-
-                  {/* Customer Satisfaction */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-green-700 mb-2">⭐ Customer Satisfaction</label>
-                    <div className="flex items-center gap-4 mb-2">
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => setContentForm(prev => ({ ...prev, customerSatisfaction: star }))}
-                            className={`text-2xl transition-colors ${
-                              contentForm.customerSatisfaction && contentForm.customerSatisfaction >= star
-                                ? 'text-yellow-400'
-                                : 'text-gray-300 hover:text-yellow-300'
-                            }`}
-                          >
-                            ⭐
-                          </button>
-                        ))}
-                      </div>
-                      {contentForm.customerSatisfaction && (
-                        <span className="text-sm text-green-700">
-                          {contentForm.customerSatisfaction === 5 ? '🎉 Excellent!' : 
-                           contentForm.customerSatisfaction === 4 ? '😊 Great!' :
-                           contentForm.customerSatisfaction === 3 ? '👍 Good' :
-                           contentForm.customerSatisfaction === 2 ? '😐 Fair' : '😕 Poor'}
-                        </span>
-                      )}
-                    </div>
-                    
-                    <input
-                      type="text"
-                      value={contentForm.customerQuote}
-                      onChange={(e) => setContentForm(prev => ({ ...prev, customerQuote: e.target.value }))}
-                      className="w-full border border-green-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                      placeholder="Optional: Customer quote or feedback (great for marketing!)"
-                    />
-                    <p className="text-xs text-green-600 mt-1">Customer testimonials are powerful marketing content</p>
-                  </div>
-
-                  <p className="text-xs text-green-600">
-                    💡 These details help create compelling marketing content that showcases professionalism and customer satisfaction
-                  </p>
-                </div>
 
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                   <label className="flex items-center">
@@ -1774,9 +1696,10 @@ export default function TechMarketingDashboard() {
                 <div className="flex space-x-4 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors"
+                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                   >
-                    📸 Submit Content
+                    <Send className="h-4 w-4" />
+                    Submit Content
                   </button>
                   <button
                     type="button"
@@ -1810,13 +1733,16 @@ export default function TechMarketingDashboard() {
           <h2 className="text-xl font-bold text-gray-900 mb-4">My Submitted Content</h2>
           {myContent.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center">
-              <div className="text-gray-400 text-4xl mb-4">📸</div>
+              <div className="flex justify-center mb-4">
+                <Camera className="h-16 w-16 text-gray-400" />
+              </div>
               <p className="text-gray-500 mb-4">No marketing content submitted yet</p>
               <button
                 onClick={() => setShowContentForm(true)}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               >
-                📸 Submit Your First Content
+                <Send className="h-4 w-4" />
+                Submit Your First Content
               </button>
             </div>
           ) : (
@@ -1854,24 +1780,8 @@ export default function TechMarketingDashboard() {
                             ⏱️ {content.jobDuration} min
                           </span>
                         )}
-                        {content.customerSatisfaction && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
-                            ⭐ {content.customerSatisfaction}/5 stars
-                          </span>
-                        )}
-                        {content.jobComplexity && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full">
-                            🎯 {content.jobComplexity}
-                          </span>
-                        )}
                       </div>
                       
-                      {content.customerQuote && (
-                        <div className="bg-green-50 border-l-4 border-green-400 p-3 mb-3">
-                          <p className="text-sm text-green-700 italic">"{content.customerQuote}"</p>
-                          <p className="text-xs text-green-600 mt-1">- Customer Testimonial</p>
-                        </div>
-                      )}
                       
                       {content.photos.length > 0 && (
                         <div className="mb-3">

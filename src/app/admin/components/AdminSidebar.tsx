@@ -16,6 +16,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import LogoutButton from "@/components/auth/LogoutButton";
 
 export function AdminSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -27,13 +28,6 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
       href: "/admin",
       icon: (
         <IconBrandTabler className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-      ),
-    },
-    {
-      label: "Users",
-      href: "/admin/users",
-      icon: (
-        <IconUsers className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
@@ -88,6 +82,9 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </div>
+          </div>
+          <div className="mt-auto">
+            <LogoutButton variant="ghost" className="w-full justify-start" />
           </div>
         </SidebarBody>
       </Sidebar>

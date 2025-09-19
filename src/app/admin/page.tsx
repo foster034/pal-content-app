@@ -12,33 +12,33 @@ import Link from 'next/link';
 const statsData = [
   {
     title: "Total Franchisees",
-    value: 89,
-    change: "+12%",
+    value: 0,
+    change: "Getting started",
     trend: "up",
     icon: Building2,
     color: "from-blue-500 to-cyan-500"
   },
   {
-    title: "Active Technicians", 
-    value: 567,
-    change: "+8%",
+    title: "Active Technicians",
+    value: 0,
+    change: "No technicians yet",
     trend: "up",
     icon: Wrench,
     color: "from-emerald-500 to-teal-500"
   },
   {
     title: "Total Users",
-    value: 1234,
-    change: "-3%",
-    trend: "down",
+    value: 0,
+    change: "No users yet",
+    trend: "up",
     icon: Users,
     color: "from-purple-500 to-pink-500"
   },
   {
     title: "Content Submissions",
-    value: 2845,
-    change: "+15%",
-    trend: "up", 
+    value: 0,
+    change: "No submissions yet",
+    trend: "up",
     icon: Activity,
     color: "from-orange-500 to-red-500"
   }
@@ -178,58 +178,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="relative">
               <div className="space-y-3">
-                {[
-                  { 
-                    id: 'alex-rodriguez',
-                    rank: 1,
-                    name: 'Alex Rodriguez', 
-                    franchise: 'Dallas Downtown',
-                    photoSubmissions: 18, 
-                    approved: 15, 
-                    marketingScore: 96, 
-                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg'
-                  },
-                  { 
-                    id: 'sofia-martinez',
-                    rank: 2,
-                    name: 'Sofia Martinez', 
-                    franchise: 'Austin Central',
-                    photoSubmissions: 16, 
-                    approved: 14, 
-                    marketingScore: 92, 
-                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg'
-                  },
-                  { 
-                    id: 'jennifer-walsh',
-                    rank: 3,
-                    name: 'Jennifer Walsh', 
-                    franchise: 'San Antonio North',
-                    photoSubmissions: 14, 
-                    approved: 12, 
-                    marketingScore: 89, 
-                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_dkeufx.jpg'
-                  },
-                  { 
-                    id: 'mike-johnson',
-                    rank: 4,
-                    name: 'Mike Johnson', 
-                    franchise: 'Houston West',
-                    photoSubmissions: 13, 
-                    approved: 10, 
-                    marketingScore: 85, 
-                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
-                  },
-                  { 
-                    id: 'david-chen',
-                    rank: 5,
-                    name: 'David Chen', 
-                    franchise: 'Dallas Downtown',
-                    photoSubmissions: 12, 
-                    approved: 9, 
-                    marketingScore: 82, 
-                    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
-                  }
-                ].map((tech, index) => (
+                {[].map((tech, index) => (
                   <Link key={tech.name} href={`/tech/${tech.id}`} className="block transition-all duration-200 hover:scale-102 hover:shadow-sm">
                     <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800 hover:from-background/70 hover:to-background/40 cursor-pointer">
                       <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-bold shrink-0">

@@ -1,0 +1,71 @@
+/* Custom styles for react-image-crop circular cropping */
+
+/* Ensure circular crop appears as a perfect circle */
+.react-crop-circular .ReactCrop__crop-selection {
+  border-radius: 50% !important;
+}
+
+/* Fix the dotted border to be solid for better visibility */
+.ReactCrop--circular .ReactCrop__crop-selection {
+  border: 2px solid #fff !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Ensure the crop area maintains aspect ratio */
+.ReactCrop--fixed-aspect .ReactCrop__crop-selection {
+  /* Maintain aspect ratio */
+}
+
+/* Style the drag handles for circular crop */
+.ReactCrop--circular .ReactCrop__drag-handle {
+  width: 12px !important;
+  height: 12px !important;
+  border: 2px solid #fff !important;
+  background-color: #3b82f6 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Corner handles positioning for circular crop */
+.ReactCrop--circular .ReactCrop__drag-handle.ord-nw {
+  top: -6px !important;
+  left: -6px !important;
+}
+
+.ReactCrop--circular .ReactCrop__drag-handle.ord-ne {
+  top: -6px !important;
+  right: -6px !important;
+}
+
+.ReactCrop--circular .ReactCrop__drag-handle.ord-se {
+  bottom: -6px !important;
+  right: -6px !important;
+}
+
+.ReactCrop--circular .ReactCrop__drag-handle.ord-sw {
+  bottom: -6px !important;
+  left: -6px !important;
+}
+
+/* Edge handles for circular crop */
+.ReactCrop--circular .ReactCrop__drag-handle.ord-n,
+.ReactCrop--circular .ReactCrop__drag-handle.ord-e,
+.ReactCrop--circular .ReactCrop__drag-handle.ord-s,
+.ReactCrop--circular .ReactCrop__drag-handle.ord-w {
+  display: none !important; /* Hide edge handles for circular crop */
+}
+
+/* Ensure the crop overlay is properly styled */
+.ReactCrop__image {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Dark mode support */
+.dark .ReactCrop--circular .ReactCrop__crop-selection {
+  border-color: #fff !important;
+}
+
+.dark .ReactCrop--circular .ReactCrop__drag-handle {
+  border-color: #fff !important;
+  background-color: #3b82f6 !important;
+}

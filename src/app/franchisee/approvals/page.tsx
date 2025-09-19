@@ -72,80 +72,26 @@ export default function JobApprovalsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
 
-  // Mock data - replace with API call
+  // Fetch job submissions from API
   useEffect(() => {
-    const mockJobs: JobSubmission[] = [
-      {
-        id: 'JOB-001',
-        technician: {
-          name: 'Alex Rodriguez',
-          image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
-          rating: 4.8
-        },
-        client: {
-          name: 'John Smith',
-          phone: '+1 (705) 555-0123',
-          email: 'john.smith@email.com',
-          preferredContactMethod: 'sms',
-          consentToContact: true,
-          consentToShare: true
-        },
-        service: {
-          category: 'Automotive',
-          type: 'Car Key Replacement',
-          location: '123 Main St, Barrie, ON L4M 1A1',
-          date: '2025-09-13',
-          duration: 45,
-          satisfaction: 5,
-          description: 'Successfully cut and programmed new key fob for 2018 Ford F-150. Verified all functions including remote start, door locks, and trunk access. Customer very satisfied with prompt service.'
-        },
-        media: {
-          beforePhotos: ['https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=300&fit=crop'],
-          afterPhotos: ['https://images.unsplash.com/photo-1544860565-d4c4d73cb237?w=400&h=300&fit=crop'],
-          processPhotos: [
-            'https://images.unsplash.com/photo-1571974599782-87624638275e?w=300&h=200&fit=crop',
-            'https://images.unsplash.com/photo-1587385789097-0197a7fbd179?w=300&h=200&fit=crop'
-          ]
-        },
-        status: 'pending',
-        submittedAt: '2025-09-13T10:30:00Z'
-      },
-      {
-        id: 'JOB-002',
-        technician: {
-          name: 'Sarah Wilson',
-          image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg',
-          rating: 4.9
-        },
-        client: {
-          name: 'Mary Johnson',
-          phone: '+1 (705) 555-0156',
-          email: 'mary.johnson@email.com',
-          preferredContactMethod: 'email',
-          consentToContact: true,
-          consentToShare: false
-        },
-        service: {
-          category: 'Residential',
-          type: 'Smart Lock Installation',
-          location: '456 Oak Ave, Orillia, ON L3V 2K1',
-          date: '2025-09-13',
-          duration: 60,
-          satisfaction: 5,
-          description: 'Installed Yale smart lock with keypad entry. Configured mobile app access and tested all functions. Customer trained on operation and very pleased with upgrade.'
-        },
-        media: {
-          beforePhotos: ['https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=300&fit=crop'],
-          afterPhotos: ['https://images.unsplash.com/photo-1544860565-d4c4d73cb237?w=400&h=300&fit=crop'],
-          processPhotos: ['https://images.unsplash.com/photo-1571974599782-87624638275e?w=300&h=200&fit=crop']
-        },
-        status: 'approved',
-        submittedAt: '2025-09-12T14:15:00Z',
-        reportId: 'RPT-12345',
-        reportUrl: '/job-report/RPT-12345'
+    const fetchJobSubmissions = async () => {
+      try {
+        const franchiseeId = '5acc982b-b06c-4a78-9417-29265e88b1cf'; // Use actual franchisee ID from database
+        const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setJobSubmissions(data);
+        } else {
+          console.error('Failed to fetch job submissions');
+          setJobSubmissions([]);
+        }
+      } catch (error) {
+        console.error('Error fetching job submissions:', error);
+        setJobSubmissions([]);
       }
-    ];
-    setJobSubmissions(mockJobs);
+    };
+
+    fetchJobSubmissions();
   }, []);
 
 
@@ -169,7 +115,7 @@ export default function JobApprovalsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             jobSubmissionId: selectedJob.id,
-            franchiseeId: 1 // Replace with actual franchisee ID
+            franchiseeId: '5acc982b-b06c-4a78-9417-29265e88b1cf' // Use actual franchisee ID
           })
         });
 
@@ -295,7 +241,7 @@ export default function JobApprovalsPage() {
       </div>
 
       {/* Pending Jobs */}
-      {pendingJobs.length > 0 && (
+      {pendingJobs.length > 0 ? (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Clock className="w-5 h-5 text-amber-500" />

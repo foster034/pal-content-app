@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerComponentClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createServerComponentClient();
+
+    // Check authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { jobSubmissionId, franchiseeId } = body;
 
@@ -16,86 +25,118 @@ export async function POST(request: NextRequest) {
     // Generate unique report ID
     const reportId = `RPT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-    // In a real implementation, you would:
-    // 1. Fetch job submission data from database
-    // 2. Fetch franchisee info (business name, Google review URL, etc.)
-    // 3. Generate report record in database
-    // 4. Create shareable link
+    // Fetch job submission data with related technician and franchisee info
+    const { data: jobData, error: jobError } = await supabase
+      .from('job_submissions')
+      .select(`
+        *,
+        technicians (
+          name,
+          role,
+          image_url
+        ),
+        franchisees (
+          business_name,
+          phone,
+          website,
+          google_review_url
+        )
+      `)
+      .eq('id', jobSubmissionId)
+      .eq('franchisee_id', franchiseeId)
+      .single();
 
-    // Mock job data (replace with database query)
-    const mockJobData = {
-      id: jobSubmissionId,
+    if (jobError || !jobData) {
+      return NextResponse.json(
+        { error: 'Job submission not found' },
+        { status: 404 }
+      );
+    }
+
+    // Transform data to match the expected format
+    const transformedJobData = {
+      id: jobData.id,
       technician: {
-        name: "Alex Rodriguez",
-        role: "Senior Locksmith Technician",
-        image: "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg"
+        name: jobData.technicians.name,
+        role: jobData.technicians.role || "Senior Locksmith Technician",
+        image: jobData.technicians.image_url
       },
       client: {
-        name: "John Smith",
-        phone: "+1 (705) 555-0123",
-        email: "john.smith@email.com",
-        preferredContactMethod: "sms"
+        name: jobData.client_name,
+        phone: jobData.client_phone,
+        email: jobData.client_email,
+        preferredContactMethod: jobData.client_preferred_contact
       },
       service: {
-        category: "Automotive",
-        type: "Car Key Replacement",
-        location: "123 Main St, Barrie, ON L4M 1A1",
-        date: new Date().toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
+        category: jobData.service_category,
+        type: jobData.service_type,
+        location: jobData.service_location,
+        date: new Date(jobData.service_date).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
         }),
-        duration: "45 minutes",
-        satisfaction: 5,
-        description: "Successfully cut and programmed new key fob for 2018 Ford F-150. Verified all functions including remote start, door locks, and trunk access. Customer very satisfied with prompt service."
+        duration: `${jobData.service_duration} minutes`,
+        satisfaction: jobData.satisfaction_rating,
+        description: jobData.description
       },
       media: {
-        beforePhotos: [
-          "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=300&fit=crop"
-        ],
-        afterPhotos: [
-          "https://images.unsplash.com/photo-1544860565-d4c4d73cb237?w=400&h=300&fit=crop"
-        ],
-        processPhotos: [
-          "https://images.unsplash.com/photo-1571974599782-87624638275e?w=300&h=200&fit=crop",
-          "https://images.unsplash.com/photo-1587385789097-0197a7fbd179?w=300&h=200&fit=crop"
-        ]
+        beforePhotos: jobData.before_photos || [],
+        afterPhotos: jobData.after_photos || [],
+        processPhotos: jobData.process_photos || []
       }
     };
 
-    // Mock franchisee data (replace with database query)
-    const mockFranchiseeData = {
-      businessName: "Pop-A-Lock Simcoe County",
-      googleReviewUrl: "https://maps.google.com/place/Pop-A-Lock-Simcoe-County/reviews",
-      phone: "(705) 555-0123",
-      website: "www.popalocksimcoe.com"
+    const franchiseeData = {
+      businessName: jobData.franchisees.business_name,
+      googleReviewUrl: jobData.franchisees.google_review_url,
+      phone: jobData.franchisees.phone,
+      website: jobData.franchisees.website
     };
 
-    // Create report record
-    const reportRecord = {
-      id: reportId,
-      jobSubmissionId,
-      franchiseeId,
-      jobData: mockJobData,
-      franchiseeData: mockFranchiseeData,
-      status: 'generated',
-      createdAt: new Date().toISOString(),
-      shareableUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/job-report/${reportId}`
-    };
+    const shareableUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/job-report/${reportId}`;
 
-    console.log('Job report generated:', reportRecord);
+    // Create report record in database
+    const { data: reportRecord, error: reportError } = await supabase
+      .from('job_reports')
+      .insert({
+        job_submission_id: jobSubmissionId,
+        report_id: reportId,
+        shareable_url: shareableUrl,
+        sent_to_client: false
+      })
+      .select()
+      .single();
 
-    // In a real implementation:
-    // 1. Save report to database
-    // 2. Update job submission status to 'approved'
-    // 3. Log activity for audit trail
+    if (reportError) {
+      console.error('Error creating report record:', reportError);
+      return NextResponse.json(
+        { error: 'Failed to create report record' },
+        { status: 500 }
+      );
+    }
+
+    // Update job submission with report info
+    const { error: updateError } = await supabase
+      .from('job_submissions')
+      .update({
+        report_id: reportId,
+        report_url: shareableUrl,
+        status: 'approved'
+      })
+      .eq('id', jobSubmissionId);
+
+    if (updateError) {
+      console.error('Error updating job submission:', updateError);
+      // Continue anyway as report was created successfully
+    }
 
     return NextResponse.json(
-      { 
+      {
         success: true,
         reportId,
-        shareableUrl: reportRecord.shareableUrl,
-        clientInfo: mockJobData.client,
+        shareableUrl,
+        clientInfo: transformedJobData.client,
         message: 'Job report generated successfully'
       },
       { status: 200 }

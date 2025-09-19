@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +12,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import ImageUploader from "@/components/ImageUploader";
-import { Mail, Phone, Bell } from "lucide-react";
+import ImageModal from "@/components/ImageModal";
+import { DetailModal } from "@/components/DetailModal";
+import { Mail, Phone, Bell, MoreHorizontal, Eye, Send, Edit, Trash2, Settings } from "lucide-react";
+import '../../../styles/animations.css';
 
 interface Owner {
   id: number;
@@ -64,6 +75,7 @@ interface Franchisee {
   email: string;
   phone: string;
   territory: string;
+  country: string;
   status: 'Active' | 'Inactive' | 'Pending';
   joinDate: string;
   image: string;
@@ -80,137 +92,52 @@ const defaultNotificationPreferences: NotificationPreferences = {
   weeklyDigest: { email: true, sms: false, app: false },
 };
 
-const initialFranchisees: Franchisee[] = [
-  { 
-    id: 1, 
-    name: 'Alex Thompson', 
-    username: '@alexthompson',
-    email: 'alex.thompson@popalock.com', 
-    phone: '(555) 123-4567', 
-    territory: 'Dallas Downtown', 
-    status: 'Active', 
-    joinDate: '2024-01-15', 
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
-    notificationPreferences: {
-      newTechSubmissions: { email: true, sms: true, app: true },
-      mediaArchival: { email: true, sms: false, app: true },
-      systemUpdates: { email: true, sms: false, app: true },
-      marketingReports: { email: true, sms: false, app: false },
-      emergencyAlerts: { email: true, sms: true, app: true },
-      weeklyDigest: { email: true, sms: false, app: false },
-    },
-    owners: [
-      {
-        id: 1,
-        name: 'Alex Thompson',
-        email: 'alex.thompson@popalock.com',
-        phone: '(555) 123-4567',
-        image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
-        isPrimary: true
-      },
-      {
-        id: 2,
-        name: 'Jennifer Thompson',
-        email: 'jennifer.thompson@popalock.com',
-        phone: '(555) 123-4568',
-        image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg'
-      }
-    ]
-  },
-  { 
-    id: 2, 
-    name: 'Sarah Chen', 
-    username: '@sarahchen',
-    email: 'sarah.chen@popalock.com', 
-    phone: '(555) 234-5678', 
-    territory: 'Austin Central', 
-    status: 'Active', 
-    joinDate: '2024-02-20', 
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg',
-    notificationPreferences: { ...defaultNotificationPreferences },
-    owners: [
-      {
-        id: 3,
-        name: 'Sarah Chen',
-        email: 'sarah.chen@popalock.com',
-        phone: '(555) 234-5678',
-        image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_ij9v7j.jpg',
-        isPrimary: true
-      }
-    ]
-  },
-  { 
-    id: 3, 
-    name: 'Maria Garcia', 
-    username: '@mariagarcia',
-    email: 'maria.garcia@popalock.com', 
-    phone: '(555) 345-6789', 
-    territory: 'Houston West', 
-    status: 'Active', 
-    joinDate: '2024-03-10', 
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_dkeufx.jpg',
-    notificationPreferences: {
-      newTechSubmissions: { email: true, sms: false, app: true },
-      mediaArchival: { email: false, sms: false, app: true },
-      systemUpdates: { email: true, sms: false, app: true },
-      marketingReports: { email: false, sms: false, app: false },
-      emergencyAlerts: { email: true, sms: true, app: true },
-      weeklyDigest: { email: false, sms: false, app: false },
-    },
-    owners: [
-      {
-        id: 4,
-        name: 'Maria Garcia',
-        email: 'maria.garcia@popalock.com',
-        phone: '(555) 345-6789',
-        image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_dkeufx.jpg',
-        isPrimary: true
-      },
-      {
-        id: 5,
-        name: 'Carlos Garcia',
-        email: 'carlos.garcia@popalock.com',
-        phone: '(555) 345-6790',
-        image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg'
-      },
-      {
-        id: 6,
-        name: 'Isabella Garcia',
-        email: 'isabella.garcia@popalock.com',
-        phone: '(555) 345-6791',
-        image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-04_h0gxqy.jpg'
-      }
-    ]
-  },
-  { 
-    id: 4, 
-    name: 'David Kim', 
-    username: '@davidkim',
-    email: 'david.kim@popalock.com', 
-    phone: '(555) 456-7890', 
-    territory: 'San Antonio North', 
-    status: 'Pending', 
-    joinDate: '2024-04-05', 
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg',
-    notificationPreferences: { ...defaultNotificationPreferences },
-    owners: [
-      {
-        id: 7,
-        name: 'David Kim',
-        email: 'david.kim@popalock.com',
-        phone: '(555) 456-7890',
-        image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-05_cmz0mg.jpg',
-        isPrimary: true
-      }
-    ]
-  },
-];
+const initialFranchisees: Franchisee[] = [];
 
 export default function FranchiseesPage() {
   const [franchisees, setFranchisees] = useState<Franchisee[]>(initialFranchisees);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingFranchisee, setEditingFranchisee] = useState<Franchisee | null>(null);
   const [sendingMagicLink, setSendingMagicLink] = useState<number | null>(null);
+  const [sendingSMS, setSendingSMS] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
+  const [selectedFranchisee, setSelectedFranchisee] = useState<Franchisee | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // Fetch franchisees from database on component mount
+  useEffect(() => {
+    fetchFranchisees();
+  }, []);
+
+  const fetchFranchisees = async () => {
+    try {
+      const response = await fetch('/api/franchisees');
+      if (response.ok) {
+        const data = await response.json();
+        // Map database fields to frontend format
+        const mappedData = data.map((f: any) => ({
+          id: f.id,
+          name: f.business_name,
+          username: f.username,
+          email: f.email,
+          phone: f.phone,
+          territory: f.territory,
+          country: f.country || 'United States',
+          status: f.status,
+          joinDate: f.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          image: f.image || '',
+          owners: f.owners || [],
+          notificationPreferences: f.notification_preferences || defaultNotificationPreferences
+        }));
+        setFranchisees(mappedData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch franchisees:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -218,9 +145,14 @@ export default function FranchiseesPage() {
     email: '',
     phone: '',
     territory: '',
+    country: 'United States',
     status: 'Active' as 'Active' | 'Inactive' | 'Pending',
     image: '',
     owners: [] as Owner[],
+    createAuth: true,
+    authMethod: 'magic_link' as 'magic_link' | 'temp_password',
+    tempPassword: '',
+    ownerName: '',
   });
 
   const [currentOwner, setCurrentOwner] = useState({
@@ -279,31 +211,107 @@ export default function FranchiseesPage() {
     return primaryOwner || franchisee.owners[0] || null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingFranchisee) {
-      setFranchisees(prev => prev.map(f => 
-        f.id === editingFranchisee.id 
-          ? { ...f, ...formData }
-          : f
-      ));
-      setEditingFranchisee(null);
-    } else {
-      const newFranchisee: Franchisee = {
-        id: Math.max(...franchisees.map(f => f.id)) + 1,
-        ...formData,
-        joinDate: new Date().toISOString().split('T')[0],
-        notificationPreferences: { ...defaultNotificationPreferences },
-        owners: formData.owners.map((owner, index) => ({
-          ...owner,
-          id: Date.now() + index
-        })),
-      };
-      setFranchisees(prev => [...prev, newFranchisee]);
+
+    try {
+      if (editingFranchisee) {
+        // Update existing franchisee in database
+        const response = await fetch('/api/franchisees', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingFranchisee.id,
+            ...formData
+          })
+        });
+
+        if (response.ok) {
+          const updatedData = await response.json();
+          // Update local state
+          setFranchisees(prev => prev.map(f =>
+            f.id === editingFranchisee.id
+              ? {
+                  ...f,
+                  ...formData,
+                  id: updatedData.id
+                }
+              : f
+          ));
+        } else {
+          const error = await response.json();
+          alert(`Failed to update franchisee: ${error.error}`);
+        }
+        setEditingFranchisee(null);
+      } else {
+        // Create new franchisee in database
+        const response = await fetch('/api/franchisees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            owners: formData.owners.map((owner, index) => ({
+              ...owner,
+              id: Date.now() + index
+            }))
+          })
+        });
+
+        if (response.ok) {
+          const newData = await response.json();
+          // Add to local state with database ID
+          const newFranchisee: Franchisee = {
+            id: newData.id,
+            name: newData.business_name,
+            username: newData.username,
+            email: newData.email,
+            phone: newData.phone,
+            territory: newData.territory,
+            country: newData.country || 'United States',
+            status: newData.status,
+            joinDate: newData.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+            image: newData.image || '',
+            owners: newData.owners || [],
+            notificationPreferences: newData.notification_preferences || defaultNotificationPreferences
+          };
+          setFranchisees(prev => [...prev, newFranchisee]);
+
+          // Show success message with auth info
+          if (newData.authCreated) {
+            let authMessage = '';
+
+            if (newData.authMethod === 'magic_link') {
+              if (newData.emailSent) {
+                authMessage = '📧 A magic link has been sent to their email address.';
+              } else if (newData.magicLinkUrl) {
+                // In development, show the link
+                authMessage = `🔗 Magic link generated (email may not be configured).\n\nShare this link with the franchisee:\n${newData.magicLinkUrl}`;
+                console.log('Magic Link URL:', newData.magicLinkUrl);
+              } else {
+                authMessage = 'Authentication user created. They can request a password reset to access their account.';
+              }
+            } else {
+              authMessage = '🔑 They can log in with the temporary password you provided.';
+            }
+
+            alert(`✅ Franchisee created successfully!\n\n${authMessage}`);
+          } else {
+            alert('✅ Franchisee created successfully!');
+          }
+        } else {
+          const error = await response.json();
+          alert(`Failed to create franchisee: ${error.error}`);
+        }
+      }
+
+      // Reset form
+      setFormData({ name: '', username: '', email: '', phone: '', territory: '', country: 'United States', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [], createAuth: true, authMethod: 'magic_link' as 'magic_link' | 'temp_password', tempPassword: '', ownerName: '' });
+      setCurrentOwner({ name: '', email: '', phone: '', image: '', isPrimary: false });
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Error saving franchisee:', error);
+      alert('Failed to save franchisee. Please try again.');
     }
-    setFormData({ name: '', username: '', email: '', phone: '', territory: '', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [] });
-    setCurrentOwner({ name: '', email: '', phone: '', image: '', isPrimary: false });
-    setShowCreateForm(false);
   };
 
   const handleEdit = (franchisee: Franchisee) => {
@@ -314,6 +322,7 @@ export default function FranchiseesPage() {
       email: franchisee.email,
       phone: franchisee.phone,
       territory: franchisee.territory,
+      country: franchisee.country || 'United States',
       status: franchisee.status,
       image: franchisee.image,
       owners: franchisee.owners,
@@ -321,8 +330,27 @@ export default function FranchiseesPage() {
     setShowCreateForm(true);
   };
 
-  const handleDelete = (id: number) => {
-    setFranchisees(prev => prev.filter(f => f.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this franchisee?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/franchisees?id=${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Remove from local state
+        setFranchisees(prev => prev.filter(f => f.id !== id));
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete franchisee: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting franchisee:', error);
+      alert('Failed to delete franchisee. Please try again.');
+    }
   };
 
   const sendMagicLink = async (franchisee: Franchisee) => {
@@ -332,27 +360,32 @@ export default function FranchiseesPage() {
       const contactEmail = primaryContact?.email || franchisee.email;
       const contactName = primaryContact?.name || franchisee.name;
 
-      const response = await fetch('/api/magic-links', {
+      const response = await fetch('/api/franchisees/resend-magic-link', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           email: contactEmail,
-          userType: 'franchisee',
-          userId: franchisee.id,
-          name: contactName,
-          franchiseName: franchisee.name,
-          territory: franchisee.territory,
+          franchiseeName: contactName,
         }),
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
-        alert(`Magic link sent successfully to ${contactName} (${contactEmail})!`);
+        if (data.emailSent) {
+          alert(`✅ Magic link sent successfully to ${contactName} (${contactEmail})!`);
+        } else if (data.magicLinkUrl) {
+          // In development, show the link
+          const message = `🔗 Magic link generated (email may not be configured).\n\nShare this link with ${contactName}:\n${data.magicLinkUrl}`;
+          alert(message);
+          console.log('Magic Link URL:', data.magicLinkUrl);
+        } else {
+          alert(`Magic link processed for ${contactEmail}`);
+        }
       } else {
-        alert(`Failed to send magic link: ${data.error}`);
+        alert(`Failed to send magic link: ${data.error || data.details || 'Unknown error'}`);
       }
     } catch (error) {
       alert('Failed to send magic link. Please try again.');
@@ -416,7 +449,7 @@ export default function FranchiseesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white min-h-screen">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Franchisees</h1>
@@ -488,6 +521,45 @@ export default function FranchiseesPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Country</label>
+                  <select
+                    value={formData.country}
+                    onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                    required
+                  >
+                    <option value="United States">🇺🇸 United States</option>
+                    <option value="Canada">🇨🇦 Canada</option>
+                    <option value="United Kingdom">🇬🇧 United Kingdom</option>
+                    <option value="Australia">🇦🇺 Australia</option>
+                    <option value="Germany">🇩🇪 Germany</option>
+                    <option value="France">🇫🇷 France</option>
+                    <option value="Spain">🇪🇸 Spain</option>
+                    <option value="Italy">🇮🇹 Italy</option>
+                    <option value="Netherlands">🇳🇱 Netherlands</option>
+                    <option value="Sweden">🇸🇪 Sweden</option>
+                    <option value="Norway">🇳🇴 Norway</option>
+                    <option value="Denmark">🇩🇰 Denmark</option>
+                    <option value="Finland">🇫🇮 Finland</option>
+                    <option value="Switzerland">🇨🇭 Switzerland</option>
+                    <option value="Austria">🇦🇹 Austria</option>
+                    <option value="Belgium">🇧🇪 Belgium</option>
+                    <option value="Ireland">🇮🇪 Ireland</option>
+                    <option value="New Zealand">🇳🇿 New Zealand</option>
+                    <option value="Japan">🇯🇵 Japan</option>
+                    <option value="South Korea">🇰🇷 South Korea</option>
+                    <option value="Singapore">🇸🇬 Singapore</option>
+                    <option value="Mexico">🇲🇽 Mexico</option>
+                    <option value="Brazil">🇧🇷 Brazil</option>
+                    <option value="Argentina">🇦🇷 Argentina</option>
+                    <option value="Chile">🇨🇱 Chile</option>
+                    <option value="South Africa">🇿🇦 South Africa</option>
+                    <option value="United Arab Emirates">🇦🇪 United Arab Emirates</option>
+                    <option value="Israel">🇮🇱 Israel</option>
+                    <option value="Other">🌍 Other</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
                   <select
                     value={formData.status}
@@ -505,8 +577,97 @@ export default function FranchiseesPage() {
                 label="Main Franchise Image"
                 currentImage={formData.image}
                 onImageSelected={(imageDataUrl) => setFormData(prev => ({ ...prev, image: imageDataUrl }))}
-                cropAspect={1}
+                enableCrop={false}
               />
+
+              {/* Auth User Creation Section */}
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-lg font-semibold">User Account Creation</h3>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="createAuth"
+                    checked={formData.createAuth}
+                    onChange={(e) => setFormData(prev => ({ ...prev, createAuth: e.target.checked }))}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="createAuth" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Create Supabase Auth User for this Franchisee
+                  </label>
+                </div>
+
+                {formData.createAuth && (
+                  <div className="space-y-4 pl-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Owner Full Name (for auth account)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.ownerName}
+                        onChange={(e) => setFormData(prev => ({ ...prev, ownerName: e.target.value }))}
+                        placeholder="Enter franchisee owner's full name"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Authentication Method
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            value="magic_link"
+                            checked={formData.authMethod === 'magic_link'}
+                            onChange={(e) => setFormData(prev => ({ ...prev, authMethod: e.target.value as 'magic_link' | 'temp_password' }))}
+                            className="mr-2 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm">Send Magic Link (passwordless login via email)</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            value="temp_password"
+                            checked={formData.authMethod === 'temp_password'}
+                            onChange={(e) => setFormData(prev => ({ ...prev, authMethod: e.target.value as 'magic_link' | 'temp_password' }))}
+                            className="mr-2 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm">Create with Temporary Password</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {formData.authMethod === 'temp_password' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Temporary Password
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.tempPassword}
+                          onChange={(e) => setFormData(prev => ({ ...prev, tempPassword: e.target.value }))}
+                          placeholder="Enter temporary password (min 6 characters)"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          The franchisee will need to change this password on first login.
+                        </p>
+                      </div>
+                    )}
+
+                    {formData.authMethod === 'magic_link' && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          ℹ️ A magic link will be sent to the franchisee's email address. They can use it to log in without a password.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Franchise Owners</h3>
@@ -579,12 +740,16 @@ export default function FranchiseesPage() {
                     {formData.owners.map((owner) => (
                       <div key={owner.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
                         <div className="flex items-center gap-3">
-                          {owner.image && (
+                          {owner.image ? (
                             <img
                               src={owner.image}
                               alt={owner.name}
                               className="w-10 h-10 rounded-full object-cover"
                             />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm font-medium">
+                              {owner.name?.charAt(0)?.toUpperCase()}
+                            </div>
                           )}
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
@@ -642,7 +807,7 @@ export default function FranchiseesPage() {
                   onClick={() => {
                     setShowCreateForm(false);
                     setEditingFranchisee(null);
-                    setFormData({ name: '', username: '', email: '', phone: '', territory: '', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [] });
+                    setFormData({ name: '', username: '', email: '', phone: '', territory: '', country: 'United States', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [] });
                     setCurrentOwner({ name: '', email: '', phone: '', image: '', isPrimary: false });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
@@ -658,14 +823,14 @@ export default function FranchiseesPage() {
       <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
           <CardTitle>Franchise Partners</CardTitle>
-          <CardDescription>A list of active and pending franchise partners in your network.</CardDescription>
+          <CardDescription>Professional franchise partners across your locksmith network.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table className="border-0">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Contact</TableHead>
                 <TableHead>Territory</TableHead>
                 <TableHead>Owners</TableHead>
                 <TableHead>Status</TableHead>
@@ -674,19 +839,46 @@ export default function FranchiseesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {franchisees.map((franchisee) => {
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="text-muted-foreground">Loading franchisees...</div>
+                  </TableCell>
+                </TableRow>
+              ) : franchisees.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="text-muted-foreground">No franchisees found. Click "Add Franchisee" to create one.</div>
+                  </TableCell>
+                </TableRow>
+              ) : franchisees.map((franchisee) => {
                 const primaryContact = getPrimaryContact(franchisee);
                 return (
-                <TableRow key={franchisee.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
+                <TableRow
+                  key={franchisee.id}
+                  className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 cursor-pointer"
+                  onClick={() => {
+                    setSelectedFranchisee(franchisee);
+                    setShowDetailModal(true);
+                  }}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <img
-                        className="rounded-full"
-                        src={primaryContact?.image || franchisee.image}
-                        width={40}
-                        height={40}
-                        alt={primaryContact?.name || franchisee.name}
-                      />
+                      {(primaryContact?.image || franchisee.image) ? (
+                        <img
+                          className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
+                          src={primaryContact?.image || franchisee.image}
+                          alt={primaryContact?.name || franchisee.name}
+                          onClick={() => setSelectedImage({ url: primaryContact?.image || franchisee.image, name: primaryContact?.name || franchisee.name })}
+                          title="Click to view larger"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                            {(primaryContact?.name || franchisee.name)?.charAt(0)?.toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <div className="font-medium">{primaryContact?.name || franchisee.name}</div>
                         <div className="text-muted-foreground mt-0.5 text-xs">
@@ -701,21 +893,41 @@ export default function FranchiseesPage() {
                       <div className="text-muted-foreground text-xs">{primaryContact?.phone || franchisee.phone}</div>
                     </div>
                   </TableCell>
-                  <TableCell>{franchisee.territory}</TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{franchisee.territory}</div>
+                      <div className="text-muted-foreground text-xs">{franchisee.country || 'United States'}</div>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex -space-x-2">
-                      {franchisee.owners.slice(0, 3).map((owner) => (
-                        <img
-                          key={owner.id}
-                          src={owner.image}
-                          alt={owner.name}
-                          className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover"
-                          title={`${owner.name} (${owner.email})`}
-                        />
-                      ))}
+                      {franchisee.owners.slice(0, 3).map((owner) =>
+                        owner.image ? (
+                          <img
+                            key={owner.id}
+                            src={owner.image}
+                            alt={owner.name}
+                            className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                            title={`${owner.name} (${owner.email}) - Click to view larger`}
+                            onClick={() => setSelectedImage({ url: owner.image, name: `${owner.name} (${owner.email})` })}
+                          />
+                        ) : (
+                          <div
+                            key={owner.id}
+                            className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-700 flex items-center justify-center"
+                            title={`${owner.name} (${owner.email})`}
+                          >
+                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                              {owner.name?.charAt(0)?.toUpperCase()}
+                            </span>
+                          </div>
+                        )
+                      )}
                       {franchisee.owners.length > 3 && (
-                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center text-xs font-medium">
-                          +{franchisee.owners.length - 3}
+                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                          <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            +{franchisee.owners.length - 3}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -738,33 +950,64 @@ export default function FranchiseesPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => sendMagicLink(franchisee)}
-                        disabled={sendingMagicLink === franchisee.id}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        {sendingMagicLink === franchisee.id ? 'Sending...' : 'Send Link'}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(franchisee)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(franchisee.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        Delete
-                      </Button>
-                    </div>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 bg-white border shadow-lg">
+                        <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuItem
+                          onClick={() => window.open(`/franchisee?id=${franchisee.id}`, '_blank')}
+                          className="cursor-pointer"
+                        >
+                          <Eye className="mr-2 h-4 w-4 text-green-600" />
+                          <span>View as Franchisee</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={() => window.open(`/franchisee/profile?id=${franchisee.id}`, '_blank')}
+                          className="cursor-pointer"
+                        >
+                          <Settings className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>Profile Settings</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuItem
+                          onClick={() => sendMagicLink(franchisee)}
+                          disabled={sendingMagicLink === franchisee.id}
+                          className="cursor-pointer"
+                        >
+                          <Send className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>{sendingMagicLink === franchisee.id ? 'Sending Magic Link...' : 'Send Magic Link'}</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuItem
+                          onClick={() => handleEdit(franchisee)}
+                          className="cursor-pointer"
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          <span>Edit Details</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(franchisee.id)}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Delete Franchisee</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
                 );
@@ -773,6 +1016,36 @@ export default function FranchiseesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <ImageModal
+          imageUrl={selectedImage.url}
+          altText={selectedImage.name}
+          isOpen={!!selectedImage}
+          onClose={() => setSelectedImage(null)}
+        />
+      )}
+
+      {/* Detail Modal */}
+      <DetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedFranchisee(null);
+        }}
+        type="franchisee"
+        data={selectedFranchisee}
+        onEdit={(franchisee) => {
+          handleEdit(franchisee);
+        }}
+        onSendMagicLink={(franchisee) => {
+          sendMagicLink(franchisee);
+        }}
+        onViewAs={(franchisee) => {
+          window.open(`/franchisee?id=${franchisee.id}`, '_blank');
+        }}
+      />
     </div>
   );
 }

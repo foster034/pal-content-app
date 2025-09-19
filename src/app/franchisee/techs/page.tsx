@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { createClientComponentClient } from '@/lib/supabase-client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,8 +39,8 @@ import {
   Plus, 
   Edit, 
   Trash2, 
-  Key, 
-  Copy, 
+  Key,
+  Copy,
   RefreshCw,
   MessageCircle,
   Eye,
@@ -48,9 +50,10 @@ import {
   Clock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import TechQuickAdd from "@/components/TechQuickAdd";
 
 interface Technician {
-  id: number;
+  id: string; // Changed from number to string to match UUID from database
   name: string;
   username: string;
   email: string;
@@ -66,40 +69,6 @@ interface Technician {
   lastCodeGenerated: string;
 }
 
-const mockTechnicians: Technician[] = [
-  {
-    id: 1,
-    name: 'Alex Rodriguez',
-    username: 'alexrodriguez',
-    email: 'alex@popalock.com',
-    phone: '(555) 111-2222',
-    specialties: ['Automotive Locksmith', 'Roadside Assistance'],
-    status: 'Active',
-    hireDate: '2024-01-19',
-    rating: 4.8,
-    completedJobs: 156,
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
-    loginCode: 'A3X9M2',
-    autoLoginEnabled: true,
-    lastCodeGenerated: '2024-01-15'
-  },
-  {
-    id: 2,
-    name: 'David Chen',
-    username: 'davidchen',
-    email: 'david@popalock.com',
-    phone: '(555) 333-4444',
-    specialties: ['Residential Locksmith', 'Key Programming'],
-    status: 'On Leave',
-    hireDate: '2024-02-29',
-    rating: 4.6,
-    completedJobs: 89,
-    image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-04_s7fyto.jpg',
-    loginCode: 'D7K2P9',
-    autoLoginEnabled: false,
-    lastCodeGenerated: '2024-01-10'
-  }
-];
 
 const specialtyOptions = [
   'Residential Locksmith',
@@ -113,11 +82,16 @@ const specialtyOptions = [
 ];
 
 export default function FranchiseeTechsPage() {
-  const [technicians, setTechnicians] = useState<Technician[]>(mockTechnicians);
+  const searchParams = useSearchParams();
+  const urlFranchiseeId = searchParams.get('id');
+  const [franchiseeId, setFranchiseeId] = useState<string | null>(urlFranchiseeId);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
+  const [isLoadingFranchiseeId, setIsLoadingFranchiseeId] = useState(!urlFranchiseeId);
   const [formData, setFormData] = useState({
     name: '',
     username: '',
@@ -127,6 +101,127 @@ export default function FranchiseeTechsPage() {
     status: 'Active' as 'Active' | 'Inactive' | 'On Leave'
   });
   const { toast } = useToast();
+  const supabase = createClientComponentClient();
+
+  // Fetch current user's franchisee_id if not provided in URL
+  useEffect(() => {
+    const fetchCurrentUserFranchiseeId = async () => {
+      if (urlFranchiseeId) {
+        // URL has franchisee ID, no need to fetch
+        setIsLoadingFranchiseeId(false);
+        return;
+      }
+
+      try {
+        // Get current user session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          toast({
+            title: "Error",
+            description: "No user session found",
+            variant: "destructive"
+          });
+          setIsLoadingFranchiseeId(false);
+          return;
+        }
+
+        // Get user profile to find franchisee_id
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('franchisee_id')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching user profile:', error);
+          toast({
+            title: "Error",
+            description: `Unable to determine your franchise: ${error.message || 'Unknown error'}`,
+            variant: "destructive"
+          });
+          setIsLoadingFranchiseeId(false);
+          return;
+        }
+
+        if (!profile) {
+          console.error('No profile found for user:', session.user.id);
+          toast({
+            title: "Error",
+            description: "User profile not found",
+            variant: "destructive"
+          });
+          setIsLoadingFranchiseeId(false);
+          return;
+        }
+
+        if (profile?.franchisee_id) {
+          setFranchiseeId(profile.franchisee_id);
+        } else {
+          toast({
+            title: "Error",
+            description: "Your account is not linked to a franchise",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error('Error in fetchCurrentUserFranchiseeId:', error);
+        toast({
+          title: "Error",
+          description: "Failed to determine franchise information",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingFranchiseeId(false);
+      }
+    };
+
+    fetchCurrentUserFranchiseeId();
+  }, [urlFranchiseeId, supabase, toast]);
+
+  // Fetch technicians from API
+  useEffect(() => {
+    const fetchTechnicians = async () => {
+      // Don't fetch if we're still loading franchiseeId or don't have one
+      if (isLoadingFranchiseeId || !franchiseeId) {
+        return;
+      }
+
+      try {
+        // Build the API URL with franchiseeId
+        const url = `/api/technicians?franchiseeId=${franchiseeId}`;
+
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          // Map the API response to the frontend interface
+          const mappedTechnicians = data.map((tech: any) => ({
+            id: tech.id,
+            name: tech.name,
+            username: tech.email?.split('@')[0] || '', // Generate username from email
+            email: tech.email,
+            phone: tech.phone || '',
+            specialties: [], // This would need to be stored separately or in tech data
+            status: 'Active' as const, // Default status
+            hireDate: new Date(tech.created_at).toISOString().split('T')[0],
+            rating: tech.rating || 0,
+            completedJobs: 0, // This would come from job submissions
+            image: tech.image_url || `https://i.pravatar.cc/150?u=${tech.email}`,
+            loginCode: tech.login_code || 'TEMP01', // Use actual login code from API
+            autoLoginEnabled: true,
+            lastCodeGenerated: new Date().toISOString().split('T')[0]
+          }));
+          setTechnicians(mappedTechnicians);
+        } else {
+          setTechnicians([]);
+        }
+      } catch (error) {
+        console.error('Error fetching technicians:', error);
+        setTechnicians([]);
+      }
+    };
+
+    fetchTechnicians();
+  }, [franchiseeId, isLoadingFranchiseeId]);
 
   const generateLoginCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -137,7 +232,7 @@ export default function FranchiseeTechsPage() {
     return result;
   };
 
-  const handleCreateTech = () => {
+  const handleCreateTech = async () => {
     if (!formData.name || !formData.email || !formData.username) {
       toast({
         title: "Error",
@@ -147,29 +242,102 @@ export default function FranchiseeTechsPage() {
       return;
     }
 
-    const newTech: Technician = {
-      id: technicians.length + 1,
-      ...formData,
-      hireDate: new Date().toISOString().split('T')[0],
-      rating: 0,
-      completedJobs: 0,
-      image: `https://i.pravatar.cc/150?u=${formData.username}`,
-      loginCode: generateLoginCode(),
-      autoLoginEnabled: true,
-      lastCodeGenerated: new Date().toISOString().split('T')[0]
-    };
+    // Get the franchisee ID - either from URL params or current user
+    let targetFranchiseeId = franchiseeId;
 
-    setTechnicians([...technicians, newTech]);
-    setShowCreateDialog(false);
-    resetForm();
-    
-    toast({
-      title: "Technician Created",
-      description: `${newTech.name} has been added to your team. Login code: ${newTech.loginCode}`
-    });
+    if (!targetFranchiseeId) {
+      toast({
+        title: "Error",
+        description: "Unable to determine franchisee ID",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    // Simulate API call to update tech profile
-    updateTechProfile(newTech);
+    try {
+      const response = await fetch('/api/technicians', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          franchiseeId: targetFranchiseeId,
+          role: 'technician',
+          image: `https://i.pravatar.cc/150?u=${formData.email}`,
+          createAuth: false, // For now, don't create auth - can be added later
+          authMethod: 'magic_link'
+        })
+      });
+
+      if (response.ok) {
+        const newTech = await response.json();
+
+        // Map the response to the frontend interface and add to local state
+        const mappedTech: Technician = {
+          id: newTech.id,
+          name: newTech.name,
+          username: formData.username,
+          email: newTech.email,
+          phone: newTech.phone || '',
+          specialties: formData.specialties,
+          status: formData.status,
+          hireDate: new Date(newTech.created_at).toISOString().split('T')[0],
+          rating: newTech.rating || 0,
+          completedJobs: 0,
+          image: newTech.image_url || `https://i.pravatar.cc/150?u=${newTech.email}`,
+          loginCode: generateLoginCode(),
+          autoLoginEnabled: true,
+          lastCodeGenerated: new Date().toISOString().split('T')[0]
+        };
+
+        setTechnicians([...technicians, mappedTech]);
+        setShowCreateDialog(false);
+        resetForm();
+
+        toast({
+          title: "Technician Created",
+          description: `${mappedTech.name} has been successfully added to your team and saved to the database.`
+        });
+
+        // Auto-send invitation if email is provided
+        if (formData.email) {
+          setTimeout(async () => {
+            try {
+              console.log('Auto-sending invitation for newly created tech:', {
+                id: newTech.id,
+                name: mappedTech.name,
+                email: formData.email
+              });
+
+              await handleSendInvitation({
+                id: newTech.id,
+                name: mappedTech.name,
+                email: formData.email
+              } as Technician);
+            } catch (error) {
+              console.error('Auto-invitation failed:', error);
+            }
+          }, 500); // Wait 500ms to ensure database consistency
+        }
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to create technician",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error creating technician:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create technician. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleEditTech = () => {
@@ -204,17 +372,41 @@ export default function FranchiseeTechsPage() {
     updateTechProfile(updatedTech);
   };
 
-  const handleDeleteTech = () => {
+  const handleDeleteTech = async () => {
     if (!selectedTech) return;
 
-    setTechnicians(technicians.filter(tech => tech.id !== selectedTech.id));
-    setShowDeleteDialog(false);
-    setSelectedTech(null);
+    try {
+      // Call the API to delete from database
+      const response = await fetch(`/api/technicians?id=${selectedTech.id}`, {
+        method: 'DELETE',
+      });
 
-    toast({
-      title: "Technician Removed",
-      description: `${selectedTech.name} has been removed from your team`
-    });
+      if (response.ok) {
+        // Remove from local state only after successful deletion
+        setTechnicians(technicians.filter(tech => tech.id !== selectedTech.id));
+        setShowDeleteDialog(false);
+        setSelectedTech(null);
+
+        toast({
+          title: "Technician Removed",
+          description: `${selectedTech.name} has been permanently removed from your team`
+        });
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to remove technician",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting technician:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove technician. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleGenerateNewCode = async (tech: Technician) => {
@@ -231,29 +423,36 @@ export default function FranchiseeTechsPage() {
         t.id === tech.id ? updatedTech : t
       ));
 
-      // Sync the login code change specifically with tech profile
-      await updateTechProfile(updatedTech, {
-        loginCode: newCode,
-        lastCodeGenerated: updatedTech.lastCodeGenerated
+      // For now, just update locally (database sync will be added later)
+      toast({
+        title: "Login Code Generated",
+        description: `New code for ${tech.name}: ${newCode}`
       });
 
-      toast({
-        title: "Login Code Updated",
-        description: `New code for ${tech.name}: ${newCode} (synced with tech profile)`
-      });
+      console.log(`Login code generated for ${tech.name}: ${newCode}`);
+
+      // Try to sync with database in the background (non-blocking)
+      try {
+        await updateTechProfile(updatedTech, {
+          loginCode: newCode,
+          lastCodeGenerated: updatedTech.lastCodeGenerated
+        });
+        console.log('Background sync successful');
+      } catch (error) {
+        console.log('Background sync failed, but that\'s okay for now');
+      }
 
       // Auto-copy to clipboard
       navigator.clipboard.writeText(newCode);
       
     } catch (error) {
-      // Still show success for local update, but warn about sync
+      console.error('Error in handleGenerateNewCode:', error);
+      // This should not happen now, but just in case
       toast({
-        title: "New Login Code Generated",
-        description: `New code for ${tech.name}: ${newCode} (sync pending)`
+        title: "Error Generating Code",
+        description: "Please try again",
+        variant: "destructive"
       });
-      
-      // Auto-copy to clipboard anyway
-      navigator.clipboard.writeText(newCode);
     }
   };
 
@@ -312,43 +511,179 @@ export default function FranchiseeTechsPage() {
 
   const updateTechProfile = async (tech: Technician, specificUpdates?: any) => {
     try {
-      // Real API call to sync with tech profile system
-      const response = await fetch('/api/tech-profile/sync', {
+      // Update technician using the existing technicians API
+      const response = await fetch('/api/technicians', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: tech.id,
+          name: tech.name,
+          email: tech.email,
+          phone: tech.phone,
+          role: 'technician',
+          rating: tech.rating,
+          login_code: specificUpdates?.loginCode || tech.loginCode
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error Response:', response.status, errorText);
+        throw new Error(`Failed to update technician profile: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Technician profile update successful:', result);
+
+      return result;
+    } catch (error) {
+      console.error('Failed to update tech profile:', error);
+      // Log error but return success for UI - the login code generation works locally
+      console.warn('Database sync failed, but login code updated locally:', error);
+      return { success: false, error: error };
+    }
+  };
+
+  const handleSendInvitation = async (tech: Technician) => {
+    if (!tech.email) {
+      toast({
+        title: "No Email Address",
+        description: `${tech.name} doesn't have an email address on file`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Sending invitation for tech:', {
+      techId: tech.id,
+      techIdType: typeof tech.id,
+      techName: tech.name,
+      techEmail: tech.email
+    });
+
+    try {
+      const response = await fetch('/api/technicians/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          techId: tech.id,
-          updates: specificUpdates || {
-            name: tech.name,
-            username: tech.username,
-            email: tech.email,
-            phone: tech.phone,
-            specialties: tech.specialties,
-            status: tech.status,
-            loginCode: tech.loginCode,
-            autoLoginEnabled: tech.autoLoginEnabled
-          }
+          technicianId: tech.id,
+          sendEmail: true
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to sync tech profile');
-      }
+      if (response.ok) {
+        const result = await response.json();
 
-      const result = await response.json();
-      console.log('Tech profile sync successful:', result);
-      
-      return result;
+        if (result.data?.magicLinkGenerated && !result.data?.invitationSent) {
+          // Magic link generated but email failed due to rate limit
+          toast({
+            title: "Magic Link Generated! 🔗",
+            description: `Email rate limited, but magic link copied to clipboard. Share it with ${tech.name} manually.`,
+            variant: "default"
+          });
+
+          // Copy the magic link to clipboard
+          if (result.data?.setupUrl) {
+            navigator.clipboard.writeText(result.data.setupUrl);
+          }
+        } else {
+          // Normal success case
+          toast({
+            title: "Magic Link Sent! ✨",
+            description: result.data?.message || `Magic link sent to ${tech.name} at ${tech.email}. They can now login to their dashboard.`
+          });
+
+          // Copy the setup URL to clipboard if available
+          if (result.data?.setupUrl) {
+            navigator.clipboard.writeText(result.data.setupUrl);
+          }
+        }
+
+      } else {
+        const errorData = await response.json();
+
+        // Handle rate limit specifically
+        if (response.status === 429 || errorData.code === 'rate_limit') {
+          const waitTime = errorData.waitTime || 60;
+          toast({
+            title: "Rate Limit Exceeded",
+            description: `Please wait ${waitTime} seconds before sending another magic link. This prevents spam and protects the email service.`,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Error Sending Magic Link",
+            description: errorData.error || "Failed to send magic link email",
+            variant: "destructive"
+          });
+        }
+      }
     } catch (error) {
-      console.error('Failed to update tech profile:', error);
+      console.error('Error sending invitation:', error);
       toast({
-        title: "Sync Warning",
-        description: "Changes saved locally but may not be synced with tech profile. Please try again.",
+        title: "Error",
+        description: "Failed to send invitation. Please try again.",
         variant: "destructive"
       });
-      throw error;
+    }
+  };
+
+  const handleResetAccess = async (tech: Technician) => {
+    if (!tech.email) {
+      toast({
+        title: "No Email Address",
+        description: `${tech.name} doesn't have an email address on file`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Resetting access for tech:', {
+      techId: tech.id,
+      techName: tech.name,
+      techEmail: tech.email
+    });
+
+    try {
+      const response = await fetch('/api/technicians/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          technicianId: tech.id,
+          sendEmail: true,
+          forceRecreate: true // This triggers credential reset
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        toast({
+          title: "Access Reset Complete! 🔄",
+          description: `New invitation sent to ${tech.name} at ${tech.email}. Their old credentials are now invalid and they'll receive a fresh setup email.`
+        });
+
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error Resetting Access",
+          description: errorData.error || "Failed to reset technician access",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error resetting access:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reset access. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -408,6 +743,44 @@ export default function FranchiseeTechsPage() {
     return '★'.repeat(Math.floor(rating)) + '☆'.repeat(5 - Math.floor(rating));
   };
 
+  // Show loading state while determining franchisee ID
+  if (isLoadingFranchiseeId) {
+    return (
+      <div className="space-y-6 bg-white min-h-screen p-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-lg font-medium">Loading franchise information...</p>
+            <p className="text-muted-foreground">Please wait while we set up your technician dashboard</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no franchisee ID could be determined
+  if (!franchiseeId) {
+    return (
+      <div className="space-y-6 bg-white min-h-screen p-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Shield className="w-8 h-8 mx-auto mb-4 text-destructive" />
+            <p className="text-lg font-medium">Unable to access technician dashboard</p>
+            <p className="text-muted-foreground">Your account may not be linked to a franchise, or there was an error loading your information.</p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="mt-4"
+              variant="outline"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 bg-white min-h-screen p-6">
       {/* Header */}
@@ -416,11 +789,59 @@ export default function FranchiseeTechsPage() {
           <h1 className="text-3xl font-bold tracking-tight">My Technicians</h1>
           <p className="text-muted-foreground">Manage your team of technicians and generate login codes</p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} className="bg-primary hover:bg-primary/90">
-          <UserPlus className="w-4 h-4 mr-2" />
-          Add New Technician
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowQuickAdd(!showQuickAdd)}
+            className="bg-primary hover:bg-primary/90"
+            variant={showQuickAdd ? "outline" : "default"}
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            {showQuickAdd ? 'Hide Quick Add' : 'Quick Add Tech'}
+          </Button>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            variant="outline"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Advanced Add
+          </Button>
+        </div>
       </div>
+
+      {/* Quick Add Section */}
+      {showQuickAdd && (
+        <div className="flex justify-center">
+          <TechQuickAdd
+            franchiseeId={franchiseeId || undefined}
+            onTechAdded={(newTech) => {
+              // Add the new tech to the list and refresh
+              const mappedTech: Technician = {
+                id: newTech.id,
+                name: newTech.name,
+                username: newTech.email?.split('@')[0] || '',
+                email: newTech.email,
+                phone: newTech.phone || '',
+                specialties: [],
+                status: 'Active' as const,
+                hireDate: new Date(newTech.created_at).toISOString().split('T')[0],
+                rating: newTech.rating || 0,
+                completedJobs: 0,
+                image: newTech.image_url || `https://i.pravatar.cc/150?u=${newTech.email}`,
+                loginCode: newTech.login_code || 'TEMP01',
+                autoLoginEnabled: true,
+                lastCodeGenerated: new Date().toISOString().split('T')[0]
+              };
+              setTechnicians(prev => [mappedTech, ...prev]);
+
+              toast({
+                title: "Tech Added to List",
+                description: `${newTech.name} has been added to your technician list`
+              });
+            }}
+            className="w-full max-w-md"
+          />
+        </div>
+      )}
 
 
       {/* Technician Table */}
@@ -520,8 +941,8 @@ export default function FranchiseeTechsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Link 
-                      href="/tech/login"
+                    <Link
+                      href={`/tech-auth?code=${tech.loginCode}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -530,7 +951,7 @@ export default function FranchiseeTechsPage() {
                         size="sm"
                         className="text-xs"
                       >
-                        🔐 Tech Login
+                        🔐 Login as {tech.name}
                       </Button>
                     </Link>
                   </TableCell>
@@ -547,32 +968,13 @@ export default function FranchiseeTechsPage() {
                         <DropdownMenuSeparator />
                         
                         <DropdownMenuItem
-                          onClick={() => window.open('/tech-hub', '_blank')}
-                          className="cursor-pointer"
-                        >
-                          <MessageCircle className="mr-2 h-4 w-4 text-indigo-600" />
-                          <span>View in Tech Hub</span>
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuItem
-                          onClick={() => window.open('/tech/dashboard', '_blank')}
+                          onClick={() => window.open(`/tech/${tech.id}`, '_blank')}
                           className="cursor-pointer"
                         >
                           <Eye className="mr-2 h-4 w-4 text-green-600" />
-                          <span>View as Technician</span>
+                          <span>View Tech</span>
                         </DropdownMenuItem>
-                        
-                        <DropdownMenuItem
-                          onClick={() => window.open('/tech/profile', '_blank')}
-                          className="cursor-pointer"
-                        >
-                          <Settings className="mr-2 h-4 w-4 text-blue-600" />
-                          <span>Tech Profile Settings</span>
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel>Credential Management</DropdownMenuLabel>
-                        
+
                         <DropdownMenuItem
                           onClick={() => handleGenerateNewCode(tech)}
                           className="cursor-pointer"
@@ -580,37 +982,39 @@ export default function FranchiseeTechsPage() {
                           <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
                           <span>Generate New Login Code</span>
                         </DropdownMenuItem>
-                        
+
                         <DropdownMenuItem
-                          onClick={() => {
-                            navigator.clipboard.writeText(`Login Code for ${tech.name}: ${tech.loginCode}`);
-                            toast({
-                              title: "Credentials copied",
-                              description: `${tech.name}'s login information copied to clipboard`
-                            });
-                          }}
+                          onClick={() => handleSendInvitation(tech)}
                           className="cursor-pointer"
                         >
-                          <Copy className="mr-2 h-4 w-4 text-blue-600" />
-                          <span>Copy Login Details</span>
+                          <MessageCircle className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>Send Magic Link</span>
                         </DropdownMenuItem>
-                        
+
+                        <DropdownMenuItem
+                          onClick={() => handleResetAccess(tech)}
+                          className="cursor-pointer"
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4 text-purple-600" />
+                          <span>Reset Access (Lost Credentials)</span>
+                        </DropdownMenuItem>
+
                         <DropdownMenuSeparator />
-                        
+
                         <DropdownMenuItem
                           onClick={() => openEditDialog(tech)}
                           className="cursor-pointer"
                         >
                           <Edit className="mr-2 h-4 w-4" />
-                          <span>Edit Details</span>
+                          <span>Edit Tech</span>
                         </DropdownMenuItem>
-                        
+
                         <DropdownMenuItem
                           onClick={() => openDeleteDialog(tech)}
                           className="cursor-pointer text-destructive focus:text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Remove Technician</span>
+                          <span>Remove Tech</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -624,7 +1028,7 @@ export default function FranchiseeTechsPage() {
 
       {/* Create Technician Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
             <DialogTitle>Add New Technician</DialogTitle>
             <DialogDescription>

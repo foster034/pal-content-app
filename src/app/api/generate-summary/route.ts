@@ -3,10 +3,14 @@ import OpenAI from 'openai';
 
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured');
+    }
+
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
-    
+
     const body = await request.json();
     
     const {
@@ -92,6 +96,8 @@ Write a professional service report:`;
       model: "gpt-3.5-turbo",
       max_tokens: 200,
       temperature: 0.7,
+    }, {
+      timeout: 20000, // 20 second timeout
     });
 
     const generatedText = completion.choices[0]?.message?.content?.trim();

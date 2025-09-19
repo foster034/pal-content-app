@@ -45,36 +45,23 @@ interface NavigationItem {
 }
 
 const navigation: NavigationItem[] = [
-  { 
-    name: 'Dashboard', 
-    href: '/admin', 
+  {
+    name: 'Dashboard',
+    href: '/admin',
     icon: LayoutDashboard,
     count: null
   },
-  { 
-    name: 'Users', 
-    href: '/admin/users', 
-    icon: Users,
-    count: 1234
-  },
-  { 
-    name: 'Franchisees', 
-    href: '/admin/franchisees', 
+  {
+    name: 'Franchisees',
+    href: '/admin/franchisees',
     icon: Building2,
-    count: 89
+    count: null
   },
-  { 
-    name: 'Technicians', 
-    href: '/admin/techs', 
+  {
+    name: 'Technicians',
+    href: '/admin/techs',
     icon: Wrench,
-    count: 567
-  },
-  { 
-    name: 'Tech Hub', 
-    href: '/tech-hub', 
-    icon: MessageSquare,
-    count: 30,
-    external: true
+    count: null
   },
   { 
     name: 'Analytics', 
@@ -220,8 +207,8 @@ export function Sidebar() {
                     <div className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse shadow-sm"></div>
                   </div>
                   <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-semibold text-sidebar-foreground truncate">Admin User</p>
-                    <p className="text-xs text-muted-foreground truncate">admin@popalock.com</p>
+                    <p className="text-sm font-semibold text-sidebar-foreground truncate">Administrator</p>
+                    <p className="text-xs text-muted-foreground truncate">System Admin</p>
                     <div className="flex items-center gap-1 mt-0.5">
                       <div className="w-1 h-1 bg-green-500 rounded-full"></div>
                       <span className="text-xs text-green-600 dark:text-green-400 font-medium">Online</span>

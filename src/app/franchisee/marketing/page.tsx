@@ -88,122 +88,30 @@ export default function JobPicsPage() {
   const [isEditingInModal, setIsEditingInModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState({ before: '', after: '', process: '' });
 
-  // Mock data - replace with API call
+  // Fetch job submissions from Supabase
   useEffect(() => {
-    const mockJobs: JobSubmission[] = [
-      {
-        id: 'JOB-001',
-        technician: {
-          name: 'Alex Rodriguez',
-          image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-02_upqrxi.jpg',
-          rating: 4.8
-        },
-        client: {
-          name: 'John Smith',
-          phone: '+1 (705) 555-0123',
-          email: 'john.smith@email.com',
-          preferredContactMethod: 'sms',
-          consentToContact: true,
-          consentToShare: true
-        },
-        service: {
-          category: 'Automotive',
-          type: 'Car Key Replacement',
-          location: '123 Main St, Barrie, ON L4M 1A1',
-          date: '2025-09-13',
-          duration: 45,
-          satisfaction: 5,
-          description: 'Successfully cut and programmed new key fob for 2018 Ford F-150. Verified all functions including remote start, door locks, and trunk access. Customer very satisfied with prompt service.'
-        },
-        media: {
-          beforePhotos: ['https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=300&fit=crop'],
-          afterPhotos: ['https://images.unsplash.com/photo-1544860565-d4c4d73cb237?w=400&h=300&fit=crop'],
-          processPhotos: [
-            'https://images.unsplash.com/photo-1571974599782-87624638275e?w=300&h=200&fit=crop',
-            'https://images.unsplash.com/photo-1587385789097-0197a7fbd179?w=300&h=200&fit=crop'
-          ]
-        },
-        status: 'pending',
-        submittedAt: '2025-09-13T14:30:00Z'
-      },
-      {
-        id: 'JOB-002',
-        technician: {
-          name: 'Sarah Johnson',
-          image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-01_upqrxi.jpg',
-          rating: 4.9
-        },
-        client: {
-          name: 'Emily Davis',
-          phone: '+1 (705) 555-0456',
-          email: 'emily.davis@email.com',
-          preferredContactMethod: 'email',
-          consentToContact: true,
-          consentToShare: false
-        },
-        service: {
-          category: 'Residential',
-          type: 'Lock Rekey Service',
-          location: '456 Oak Avenue, Barrie, ON L4M 2B2',
-          date: '2025-09-12',
-          duration: 30,
-          satisfaction: 5,
-          description: 'Rekeyed all locks in residential home after move-in. Provided 3 keys per lock. Customer was very pleased with quick and professional service.'
-        },
-        media: {
-          beforePhotos: ['https://images.unsplash.com/photo-1582037928769-181f2644ecb7?w=400&h=300&fit=crop'],
-          afterPhotos: ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop'],
-          processPhotos: [
-            'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300&h=200&fit=crop'
-          ]
-        },
-        status: 'pending',
-        submittedAt: '2025-09-12T16:15:00Z'
-      },
-      {
-        id: 'JOB-003',
-        technician: {
-          name: 'Mike Thompson',
-          image: 'https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/avatar-40-03_upqrxi.jpg',
-          rating: 4.7
-        },
-        client: {
-          name: 'Robert Wilson',
-          phone: '+1 (705) 555-0789',
-          email: 'robert.wilson@email.com',
-          preferredContactMethod: 'phone',
-          consentToContact: true,
-          consentToShare: true
-        },
-        service: {
-          category: 'Commercial',
-          type: 'Master Key System Install',
-          location: '789 Business Blvd, Barrie, ON L4M 3C3',
-          date: '2025-09-11',
-          duration: 120,
-          satisfaction: 4,
-          description: 'Installed comprehensive master key system for office complex. All 24 offices now accessible with individual keys plus master access for management.'
-        },
-        media: {
-          beforePhotos: [
-            'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop'
-          ],
-          afterPhotos: [
-            'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop'
-          ],
-          processPhotos: [
-            'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=300&h=200&fit=crop',
-            'https://images.unsplash.com/photo-1497366412874-3415097a27e7?w=300&h=200&fit=crop'
-          ]
-        },
-        status: 'approved',
-        submittedAt: '2025-09-11T10:45:00Z',
-        reportId: 'RPT-1694523678-ABC123',
-        reportUrl: 'http://localhost:3000/job-report/RPT-1694523678-ABC123'
-      }
-    ];
+    const fetchJobSubmissions = async () => {
+      try {
+        // In a real app, you'd pass the actual franchisee ID
+        const franchiseeId = '550e8400-e29b-41d4-a716-446655440001'; // Pop-A-Lock Barrie
 
-    setJobSubmissions(mockJobs);
+        const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setJobSubmissions(data);
+        } else {
+          console.error('Failed to fetch job submissions');
+          setJobSubmissions([]);
+        }
+      } catch (error) {
+        console.error('Error fetching job submissions:', error);
+        setJobSubmissions([]);
+      }
+    };
+
+
+    // Fetch real data from API
+    fetchJobSubmissions();
   }, []);
 
   const handleJobReview = (job: JobSubmission) => {

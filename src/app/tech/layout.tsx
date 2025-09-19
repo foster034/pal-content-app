@@ -1,4 +1,5 @@
 import { TechSidebar } from './components/TechSidebar';
+import { TableProvider } from '@/contexts/table-context';
 
 export default function TechLayout({
   children,
@@ -6,8 +7,10 @@ export default function TechLayout({
   children: React.ReactNode;
 }) {
   return (
-    <TechSidebar>
-      {children}
-    </TechSidebar>
+    <TableProvider>
+      <TechSidebar>
+        {children}
+      </TechSidebar>
+    </TableProvider>
   );
 }

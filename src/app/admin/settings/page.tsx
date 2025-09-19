@@ -1,685 +1,917 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useTheme } from '@/contexts/theme-context';
-import { useLogo } from '@/contexts/logo-context';
-import { useTable } from '@/contexts/table-context';
-import Image from 'next/image';
+import { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
+import { Settings, Volume2, Play, Pause, Download, RefreshCw, Save, TestTube, Image, Upload, Monitor, Sparkles, Camera } from 'lucide-react';
+import { toast } from 'sonner';
+import { ElevenLabsVoice, ELEVEN_LABS_MODELS } from '@/lib/eleven-labs';
 
-export default function SettingsPage() {
-  const { theme, setTheme } = useTheme();
-  const { mainLogo, setMainLogo, resetLogo } = useLogo();
-  const { tableStyle, updateTableStyleProperty } = useTable();
-  const [settings, setSettings] = useState({
-    siteName: 'PAL Content App',
-    siteDescription: 'Your amazing content platform',
-    maintenanceMode: false,
-    emailNotifications: true,
-    pushNotifications: false,
+export default function AdminSettingsPage() {
+  const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [testing, setTesting] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+
+  // TTS Configuration State
+  const [ttsConfig, setTtsConfig] = useState({
+    defaultVoiceId: '',
+    model: ELEVEN_LABS_MODELS.MULTILINGUAL_V2,
+    stability: 0.5,
+    similarityBoost: 0.75,
+    style: 0.0,
+    useSpeakerBoost: true,
+    enabled: true,
   });
 
-  const [twilioSettings, setTwilioSettings] = useState({
-    accountSid: '',
-    authToken: '',
-    phoneNumber: '',
-    enabled: false,
-    testMode: true,
+  // Login Screen Configuration
+  const [loginConfig, setLoginConfig] = useState({
+    imageType: 'static', // 'static' or 'dynamic'
+    staticImageUrl: '/login-image.jpg',
+    showLatestJobs: false,
+    jobPhotoCount: 5,
+    // Text customization
+    headerTitle: 'Welcome back to Pop-A-Lock',
+    headerSubtitle: 'Build your business efficiently with our powerful management platform.',
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    loginButtonText: 'Log in',
+    forgotPasswordText: 'Forgot password?',
+    signupText: "Don't have an account?",
+    signupLinkText: 'Sign up',
+    googleButtonText: 'Continue with Google',
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  const [twilioTesting, setTwilioTesting] = useState({
-    testPhoneNumber: '',
-    testMessage: 'Test message from Pop-A-Lock Management Portal',
-    isSending: false,
-  });
+  const [testText, setTestText] = useState(
+    "Welcome to Pop-A-Lock! We're here to help with all your locksmith needs."
+  );
 
-  const [consentRecords, setConsentRecords] = useState([]);
-  const [loadingConsent, setLoadingConsent] = useState(false);
-
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Load existing Twilio configuration on component mount
   useEffect(() => {
-    const loadTwilioConfig = async () => {
-      try {
-        const response = await fetch('/api/twilio/config');
-        const data = await response.json();
-        
-        if (data.success && data.config) {
-          setTwilioSettings(prev => ({
-            ...prev,
-            enabled: data.config.enabled,
-            testMode: data.config.testMode,
-            phoneNumber: data.config.phoneNumber,
-            accountSid: data.config.accountSid,
-            // Don't load auth token for security
-          }));
-        }
-      } catch (error) {
-        console.error('Error loading Twilio config:', error);
-      }
-    };
-
-    loadTwilioConfig();
+    fetchVoices();
+    fetchLoginSettings();
   }, []);
 
-  const loadConsentRecords = async () => {
-    setLoadingConsent(true);
+  const fetchLoginSettings = async () => {
     try {
-      const response = await fetch('/api/consent');
+      const response = await fetch('/api/login-settings');
+
+      if (!response.ok) {
+        console.error('Failed to fetch login settings:', response.status);
+        return;
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Response is not JSON:', contentType);
+        return;
+      }
+
       const data = await response.json();
-      
-      if (data.success) {
-        setConsentRecords(data.records);
+      setLoginConfig(data);
+    } catch (error) {
+      console.error('Error fetching login settings:', error);
+    }
+  };
+
+  const fetchVoices = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/tts/voices');
+      const data = await response.json();
+
+      if (response.ok) {
+        setVoices(data.voices);
+        if (data.voices.length > 0 && !ttsConfig.defaultVoiceId) {
+          setTtsConfig(prev => ({ ...prev, defaultVoiceId: data.voices[0].voice_id }));
+        }
+      } else {
+        toast.error('Failed to fetch voices');
       }
     } catch (error) {
-      console.error('Error loading consent records:', error);
+      toast.error('Error fetching voices');
     } finally {
-      setLoadingConsent(false);
+      setLoading(false);
     }
   };
 
-  const handleChange = (key: string, value: string | boolean) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleTwilioChange = (key: string, value: string | boolean) => {
-    setTwilioSettings(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleTwilioTestChange = (key: string, value: string | boolean) => {
-    setTwilioTesting(prev => ({ ...prev, [key]: value }));
-  };
-
-
-  const testTwilioConnection = async () => {
-    if (!twilioSettings.accountSid || !twilioSettings.authToken || !twilioSettings.phoneNumber) {
-      alert('Please fill in all Twilio credentials first.');
+  const testVoice = async () => {
+    if (!testText.trim()) {
+      toast.error('Please enter test text');
       return;
     }
 
-    if (!twilioTesting.testPhoneNumber) {
-      alert('Please enter a test phone number.');
-      return;
+    if (currentAudio) {
+      currentAudio.pause();
+      setCurrentAudio(null);
+      setPlaying(false);
     }
 
-    setTwilioTesting(prev => ({ ...prev, isSending: true }));
-
+    setTesting(true);
     try {
-      const response = await fetch('/api/twilio/test', {
+      const response = await fetch('/api/tts/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          accountSid: twilioSettings.accountSid,
-          authToken: twilioSettings.authToken,
-          fromNumber: twilioSettings.phoneNumber,
-          toNumber: twilioTesting.testPhoneNumber,
-          message: twilioTesting.testMessage,
+          text: testText,
+          voiceId: ttsConfig.defaultVoiceId,
+          model: ttsConfig.model,
+          voice_settings: {
+            stability: ttsConfig.stability,
+            similarity_boost: ttsConfig.similarityBoost,
+            style: ttsConfig.style,
+            use_speaker_boost: ttsConfig.useSpeakerBoost,
+          },
         }),
       });
 
-      const data = await response.json();
+      if (response.ok) {
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
 
-      if (data.success) {
-        alert(`✅ Test message sent successfully! Message SID: ${data.messageSid}`);
+        audio.onplay = () => setPlaying(true);
+        audio.onpause = () => setPlaying(false);
+        audio.onended = () => {
+          setPlaying(false);
+          setCurrentAudio(null);
+          URL.revokeObjectURL(audioUrl);
+        };
+
+        setCurrentAudio(audio);
+        await audio.play();
+        toast.success('Voice test generated successfully');
       } else {
-        alert(`❌ Failed to send test message: ${data.error}`);
+        const error = await response.json();
+        toast.error(error.error || 'Failed to generate voice test');
       }
     } catch (error) {
-      alert('❌ Error testing Twilio connection. Please check your settings.');
+      toast.error('Error testing voice');
     } finally {
-      setTwilioTesting(prev => ({ ...prev, isSending: false }));
+      setTesting(false);
     }
   };
 
-  const saveTwilioSettings = async () => {
+  const stopAudio = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      setCurrentAudio(null);
+      setPlaying(false);
+    }
+  };
+
+  const saveSettings = async () => {
     try {
-      const response = await fetch('/api/twilio/config', {
+      // Save login settings
+      const response = await fetch('/api/login-settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(twilioSettings),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginConfig),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        alert('✅ Twilio settings saved successfully!');
+      if (response.ok) {
+        toast.success('Settings saved successfully');
       } else {
-        alert(`❌ Failed to save Twilio settings: ${data.error}`);
+        toast.error('Failed to save settings');
       }
     } catch (error) {
-      alert('❌ Error saving Twilio settings.');
+      toast.error('Failed to save settings');
     }
   };
 
-
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const validTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg'];
-      if (!validTypes.includes(file.type)) {
-        alert('Please upload a valid image file (SVG, PNG, or JPEG)');
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
-        return;
-      }
-
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string;
-        setMainLogo(imageUrl);
-      };
-      reader.readAsDataURL(file);
-    }
+  const getVoiceName = (voiceId: string) => {
+    const voice = voices.find(v => v.voice_id === voiceId);
+    return voice ? voice.name : 'Unknown Voice';
   };
 
-  const resetToDefault = () => {
-    resetLogo();
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const getVoiceCategory = (voiceId: string) => {
+    const voice = voices.find(v => v.voice_id === voiceId);
+    return voice ? voice.category : '';
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground">
+            Configure system-wide settings and integrations
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchVoices}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={saveSettings}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save Settings
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">General Settings</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Site Name
-              </label>
-              <input
-                type="text"
-                value={settings.siteName}
-                onChange={(e) => handleChange('siteName', e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Main Logo
-              </label>
+      <Tabs defaultValue="tts" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="tts">Text-to-Speech</TabsTrigger>
+          <TabsTrigger value="login">Login Screen</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="general">General</TabsTrigger>
+        </TabsList>
+
+        {/* Text-to-Speech Settings */}
+        <TabsContent value="tts" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Volume2 className="h-5 w-5" />
+                Eleven Labs Configuration
+              </CardTitle>
+              <CardDescription>
+                Configure text-to-speech settings using Eleven Labs API
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Enable/Disable TTS */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Enable Text-to-Speech</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Allow users to generate audio from text content
+                  </p>
+                </div>
+                <Switch
+                  checked={ttsConfig.enabled}
+                  onCheckedChange={(checked) => setTtsConfig(prev => ({ ...prev, enabled: checked }))}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Voice Selection */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-24 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600">
-                      {mainLogo ? (
-                        <Image
-                          src={mainLogo}
-                          alt="Main Logo Preview"
-                          width={80}
-                          height={40}
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-gray-400 text-xs">No logo</span>
-                      )}
+                <Label className="text-base">Default Voice</Label>
+                <Select
+                  value={ttsConfig.defaultVoiceId}
+                  onValueChange={(value) => setTtsConfig(prev => ({ ...prev, defaultVoiceId: value }))}
+                  disabled={loading || !ttsConfig.enabled}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {voices.map((voice) => (
+                      <SelectItem key={voice.voice_id} value={voice.voice_id}>
+                        <div className="flex items-center gap-2">
+                          <span>{voice.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {voice.category}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {ttsConfig.defaultVoiceId && (
+                  <p className="text-sm text-muted-foreground">
+                    Selected: {getVoiceName(ttsConfig.defaultVoiceId)} ({getVoiceCategory(ttsConfig.defaultVoiceId)})
+                  </p>
+                )}
+              </div>
+
+              {/* Model Selection */}
+              <div className="space-y-3">
+                <Label className="text-base">AI Model</Label>
+                <Select
+                  value={ttsConfig.model}
+                  onValueChange={(value) => setTtsConfig(prev => ({ ...prev, model: value as any }))}
+                  disabled={!ttsConfig.enabled}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ELEVEN_LABS_MODELS.MULTILINGUAL_V2}>
+                      Multilingual V2 (Recommended)
+                    </SelectItem>
+                    <SelectItem value={ELEVEN_LABS_MODELS.MULTILINGUAL_V1}>
+                      Multilingual V1
+                    </SelectItem>
+                    <SelectItem value={ELEVEN_LABS_MODELS.MONOLINGUAL_V1}>
+                      Monolingual V1
+                    </SelectItem>
+                    <SelectItem value={ELEVEN_LABS_MODELS.TURBO_V2}>
+                      Turbo V2 (Fastest)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Voice Settings */}
+              <div className="space-y-6">
+                <Label className="text-base">Voice Settings</Label>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm">Stability</Label>
+                      <span className="text-sm text-muted-foreground">{ttsConfig.stability}</span>
                     </div>
-                  </div>
-                  <div className="flex-1">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".svg,.png,.jpg,.jpeg"
-                      onChange={handleLogoUpload}
-                      className="hidden"
+                    <Slider
+                      value={[ttsConfig.stability]}
+                      onValueChange={([value]) => setTtsConfig(prev => ({ ...prev, stability: value }))}
+                      max={1}
+                      min={0}
+                      step={0.01}
+                      disabled={!ttsConfig.enabled}
                     />
-                    <div className="flex space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Upload Logo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={resetToDefault}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        Reset to Default
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      SVG, PNG, or JPEG. Max 5MB. Recommended: 200x80px
+                    <p className="text-xs text-muted-foreground">
+                      Higher values make output more stable but less expressive
                     </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm">Similarity Boost</Label>
+                      <span className="text-sm text-muted-foreground">{ttsConfig.similarityBoost}</span>
+                    </div>
+                    <Slider
+                      value={[ttsConfig.similarityBoost]}
+                      onValueChange={([value]) => setTtsConfig(prev => ({ ...prev, similarityBoost: value }))}
+                      max={1}
+                      min={0}
+                      step={0.01}
+                      disabled={!ttsConfig.enabled}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enhances similarity to the original voice
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm">Style</Label>
+                      <span className="text-sm text-muted-foreground">{ttsConfig.style}</span>
+                    </div>
+                    <Slider
+                      value={[ttsConfig.style]}
+                      onValueChange={([value]) => setTtsConfig(prev => ({ ...prev, style: value }))}
+                      max={1}
+                      min={0}
+                      step={0.01}
+                      disabled={!ttsConfig.enabled}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Controls the stylistic expression of the voice
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm">Speaker Boost</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Enhances speaker similarity for better voice cloning
+                      </p>
+                    </div>
+                    <Switch
+                      checked={ttsConfig.useSpeakerBoost}
+                      onCheckedChange={(checked) => setTtsConfig(prev => ({ ...prev, useSpeakerBoost: checked }))}
+                      disabled={!ttsConfig.enabled}
+                    />
                   </div>
                 </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Site Description
-              </label>
-              <textarea
-                value={settings.siteDescription}
-                onChange={(e) => handleChange('siteDescription', e.target.value)}
-                rows={3}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Theme
-              </label>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'auto')}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="auto">Auto</option>
-              </select>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">System Settings</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Maintenance Mode
-                </label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Enable to temporarily disable site access
-                </p>
+              {/* Voice Testing */}
+              <Separator />
+
+              <div className="space-y-4">
+                <Label className="text-base">Voice Testing</Label>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="test-text" className="text-sm">Test Text</Label>
+                    <textarea
+                      id="test-text"
+                      value={testText}
+                      onChange={(e) => setTestText(e.target.value)}
+                      className="w-full mt-1 p-3 border rounded-md resize-none"
+                      rows={3}
+                      maxLength={500}
+                      disabled={!ttsConfig.enabled}
+                      placeholder="Enter text to test the voice..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {testText.length}/500 characters
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={testVoice}
+                      disabled={testing || !ttsConfig.enabled || !ttsConfig.defaultVoiceId || !testText.trim()}
+                      size="sm"
+                    >
+                      {testing ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <TestTube className="h-4 w-4 mr-2" />
+                          Test Voice
+                        </>
+                      )}
+                    </Button>
+
+                    {playing && (
+                      <Button
+                        onClick={stopAudio}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Pause className="h-4 w-4 mr-2" />
+                        Stop
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <input
-                type="checkbox"
-                checked={settings.maintenanceMode}
-                onChange={(e) => handleChange('maintenanceMode', e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Email Notifications
-                </label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Receive email notifications for important events
-                </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Login Screen Settings */}
+        <TabsContent value="login" className="space-y-6">
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-lg border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <div className="p-2 bg-white rounded-lg shadow-sm">
+                      <Monitor className="h-5 w-5 text-blue-600" />
+                    </div>
+                    Login Screen Configuration
+                  </CardTitle>
+                  <CardDescription className="mt-2">
+                    Customize the appearance of the login page
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open('/auth/login', '_blank')}
+                  className="gap-2"
+                >
+                  <Monitor className="h-4 w-4" />
+                  Preview
+                </Button>
               </div>
-              <input
-                type="checkbox"
-                checked={settings.emailNotifications}
-                onChange={(e) => handleChange('emailNotifications', e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Push Notifications
-                </label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Receive push notifications on your device
-                </p>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              {/* Image Type Selection */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">Login Screen Display</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label
+                    htmlFor="static-image"
+                    className={`relative flex cursor-pointer rounded-lg border-2 bg-white p-4 shadow-sm transition-all hover:shadow-md ${
+                      loginConfig.imageType === 'static'
+                        ? 'border-blue-500 ring-2 ring-blue-500 ring-offset-2'
+                        : 'border-gray-200'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      id="static-image"
+                      name="imageType"
+                      value="static"
+                      checked={loginConfig.imageType === 'static'}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, imageType: e.target.value }))}
+                      className="sr-only"
+                    />
+                    <div className="flex items-center">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100">
+                        <Image className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div className="ml-3">
+                        <span className="block text-sm font-medium text-gray-900">
+                          Static Image
+                        </span>
+                        <span className="block text-sm text-gray-500">
+                          Use a single custom image
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label
+                    htmlFor="dynamic-photos"
+                    className={`relative flex cursor-pointer rounded-lg border-2 bg-white p-4 shadow-sm transition-all hover:shadow-md ${
+                      loginConfig.imageType === 'dynamic'
+                        ? 'border-blue-500 ring-2 ring-blue-500 ring-offset-2'
+                        : 'border-gray-200'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      id="dynamic-photos"
+                      name="imageType"
+                      value="dynamic"
+                      checked={loginConfig.imageType === 'dynamic'}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, imageType: e.target.value }))}
+                      className="sr-only"
+                    />
+                    <div className="flex items-center">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100">
+                        <Sparkles className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div className="ml-3">
+                        <span className="block text-sm font-medium text-gray-900">
+                          Dynamic Slideshow
+                        </span>
+                        <span className="block text-sm text-gray-500">
+                          Latest tech job photos
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                </div>
               </div>
-              <input
-                type="checkbox"
-                checked={settings.pushNotifications}
-                onChange={(e) => handleChange('pushNotifications', e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Table Appearance</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Border Style
-              </label>
-              <select
-                value={tableStyle.borderStyle}
-                onChange={(e) => updateTableStyleProperty('borderStyle', e.target.value as any)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="none">No Border</option>
-                <option value="minimal">Minimal Border</option>
-                <option value="border">Standard Border</option>
-                <option value="shadow">Shadow Border</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Corner Radius
-              </label>
-              <select
-                value={tableStyle.cornerRadius}
-                onChange={(e) => updateTableStyleProperty('cornerRadius', e.target.value as any)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="none">Square</option>
-                <option value="sm">Small Radius</option>
-                <option value="md">Medium Radius</option>
-                <option value="lg">Large Radius</option>
-                <option value="xl">Extra Large Radius</option>
-              </select>
-            </div>
+              <Separator />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Background Style
-              </label>
-              <select
-                value={tableStyle.backgroundColor}
-                onChange={(e) => updateTableStyleProperty('backgroundColor', e.target.value as any)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="white">White Background</option>
-                <option value="gray">Gray Background</option>
-                <option value="transparent">Transparent</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Header Style
-              </label>
-              <select
-                value={tableStyle.headerStyle}
-                onChange={(e) => updateTableStyleProperty('headerStyle', e.target.value as any)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="gray">Gray Header</option>
-                <option value="dark">Dark Header</option>
-                <option value="primary">Primary Color Header</option>
-                <option value="minimal">Minimal Header</option>
-              </select>
-            </div>
-
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                Table style changes apply to all admin tables and are saved automatically.
-              </p>
-              <button
-                onClick={() => {
-                  updateTableStyleProperty('borderStyle', 'minimal');
-                  updateTableStyleProperty('cornerRadius', 'lg');
-                  updateTableStyleProperty('backgroundColor', 'white');
-                  updateTableStyleProperty('headerStyle', 'gray');
-                }}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Reset to Defaults
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Twilio SMS Configuration</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Enable SMS Notifications
-              </label>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Send SMS notifications to franchisees and technicians
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              checked={twilioSettings.enabled}
-              onChange={(e) => handleTwilioChange('enabled', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Account SID
-              </label>
-              <input
-                type="text"
-                value={twilioSettings.accountSid}
-                onChange={(e) => handleTwilioChange('accountSid', e.target.value)}
-                placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Auth Token
-              </label>
-              <input
-                type="password"
-                value={twilioSettings.authToken}
-                onChange={(e) => handleTwilioChange('authToken', e.target.value)}
-                placeholder="Enter your Auth Token"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                From Phone Number
-              </label>
-              <input
-                type="tel"
-                value={twilioSettings.phoneNumber}
-                onChange={(e) => handleTwilioChange('phoneNumber', e.target.value)}
-                placeholder="+1234567890"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Test Mode
-                </label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Enable for testing (logs only)
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                checked={twilioSettings.testMode}
-                onChange={(e) => handleTwilioChange('testMode', e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-3">Test SMS Connection</h4>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Test Phone Number
-                </label>
-                <input
-                  type="tel"
-                  value={twilioTesting.testPhoneNumber}
-                  onChange={(e) => handleTwilioTestChange('testPhoneNumber', e.target.value)}
-                  placeholder="+1234567890"
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Test Message
-                </label>
-                <input
-                  type="text"
-                  value={twilioTesting.testMessage}
-                  onChange={(e) => handleTwilioTestChange('testMessage', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                type="button"
-                onClick={testTwilioConnection}
-                disabled={twilioTesting.isSending}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors"
-              >
-                {twilioTesting.isSending ? 'Sending...' : '📱 Send Test SMS'}
-              </button>
-              <button
-                type="button"
-                onClick={saveTwilioSettings}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                💾 Save Twilio Settings
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              💡 Tip: Get your credentials from the Twilio Console at console.twilio.com
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Consent Management Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Privacy & Consent Management</h3>
-          <button
-            onClick={loadConsentRecords}
-            disabled={loadingConsent}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
-          >
-            {loadingConsent ? 'Loading...' : '🔄 Refresh Records'}
-          </button>
-        </div>
-        
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {consentRecords.length}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Total Records</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {consentRecords.filter((record: any) => record.consentToContact).length}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Contact Consent</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {consentRecords.filter((record: any) => record.consentToShare).length}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Sharing Consent</div>
-            </div>
-          </div>
-
-          {consentRecords.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-gray-700 dark:text-gray-300">
-                <thead className="bg-gray-100 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Client</th>
-                    <th className="px-4 py-2 text-left">Contact</th>
-                    <th className="px-4 py-2 text-center">Consents</th>
-                    <th className="px-4 py-2 text-left">Date</th>
-                    <th className="px-4 py-2 text-left">Job ID</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {consentRecords.slice(0, 10).map((record: any) => (
-                    <tr key={record.id} className="border-b border-gray-200 dark:border-gray-600">
-                      <td className="px-4 py-2 font-medium">{record.clientName}</td>
-                      <td className="px-4 py-2 text-xs">
-                        {record.clientEmail && <div>{record.clientEmail}</div>}
-                        {record.clientPhone && <div>{record.clientPhone}</div>}
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <div className="flex justify-center space-x-1">
-                          {record.consentToContact && (
-                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded" title="Contact Consent">📞</span>
-                          )}
-                          {record.consentToShare && (
-                            <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded" title="Sharing Consent">📤</span>
-                          )}
-                          {record.consentToMarketing && (
-                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="Marketing Consent">📧</span>
-                          )}
+              {/* Static Image Upload */}
+              {loginConfig.imageType === 'static' && (
+                <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Camera className="h-5 w-5 text-gray-600" />
+                    <Label className="text-base font-semibold">Login Screen Image</Label>
+                  </div>
+                  <div className="space-y-4">
+                    {/* Current Image Preview */}
+                    <div className="relative w-full h-80 bg-white rounded-lg overflow-hidden shadow-inner border-2 border-dashed border-gray-300">
+                      {loginConfig.staticImageUrl ? (
+                        <>
+                          <img
+                            src={loginConfig.staticImageUrl}
+                            alt="Login screen"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute top-2 right-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setLoginConfig(prev => ({ ...prev, staticImageUrl: '' }))}
+                              className="bg-white/90 backdrop-blur-sm hover:bg-white"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                          <Upload className="h-16 w-16 mb-4 text-gray-300" />
+                          <p className="text-lg font-medium text-gray-600">No image uploaded</p>
+                          <p className="text-sm text-gray-500 mt-1">Choose a file or drag and drop</p>
                         </div>
-                      </td>
-                      <td className="px-4 py-2 text-xs">{new Date(record.timestamp).toLocaleDateString()}</td>
-                      <td className="px-4 py-2 text-xs">{record.jobId || 'N/A'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {consentRecords.length > 10 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  Showing first 10 of {consentRecords.length} records
-                </p>
+                      )}
+                    </div>
+
+                    {/* Upload Controls */}
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="flex-1">
+                        <label
+                          htmlFor="image-upload"
+                          className="flex items-center justify-center px-6 py-3 border-2 border-blue-500 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors"
+                        >
+                          <Upload className="h-5 w-5 mr-2" />
+                          Choose Image
+                          <input
+                            id="image-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setUploadingImage(true);
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  setLoginConfig(prev => ({
+                                    ...prev,
+                                    staticImageUrl: event.target?.result as string
+                                  }));
+                                  setUploadingImage(false);
+                                  toast.success('Image uploaded successfully');
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            disabled={uploadingImage}
+                            className="sr-only"
+                          />
+                        </label>
+                      </div>
+                      {uploadingImage && (
+                        <div className="flex items-center text-sm text-gray-500">
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-900">
+                        <strong>Tip:</strong> Use a high-quality image (1920x1080 pixels) that represents your brand.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              No consent records found. Records will appear here when clients submit jobs with consent.
-            </div>
-          )}
 
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between items-center">
-            <a 
-              href="/privacy-policy" 
-              target="_blank"
-              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm underline"
-            >
-              📋 View Privacy Policy
-            </a>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              All consent records are stored securely and can be deleted upon client request for GDPR compliance.
-            </p>
-          </div>
-        </div>
-      </div>
+              {/* Dynamic Photos Settings */}
+              {loginConfig.imageType === 'dynamic' && (
+                <div className="space-y-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    <Label className="text-base font-semibold">Dynamic Photo Settings</Label>
+                  </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Danger Zone</h3>
-        <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="text-sm font-medium text-red-800 dark:text-red-400">Reset All Settings</h4>
-              <p className="text-sm text-red-600 dark:text-red-300">
-                This will reset all settings to their default values.
-              </p>
-            </div>
-            <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
-              Reset
-            </button>
-          </div>
-        </div>
-      </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm border border-purple-100">
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-sm font-medium">Number of Photos</Label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl font-bold text-purple-600">{loginConfig.jobPhotoCount}</span>
+                            <span className="text-sm text-gray-500">photos</span>
+                          </div>
+                        </div>
+                        <Slider
+                          value={[loginConfig.jobPhotoCount]}
+                          onValueChange={([value]) => setLoginConfig(prev => ({ ...prev, jobPhotoCount: value }))}
+                          max={20}
+                          min={3}
+                          step={1}
+                          className="py-2"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>3</span>
+                          <span>20</span>
+                        </div>
+                      </div>
 
-      <div className="flex justify-end space-x-4">
-        <button className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-          Cancel
-        </button>
-        <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-          Save Changes
-        </button>
-      </div>
+                      <div className="pt-3 border-t">
+                        <p className="text-sm text-gray-600">
+                          Display the latest <strong>{loginConfig.jobPhotoCount}</strong> job photos from technicians
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-purple-100 to-blue-100 border border-purple-200 rounded-lg p-4">
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-sm">i</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-purple-900 font-medium">How it works</p>
+                        <p className="text-sm text-purple-800 mt-1">
+                          The login page will showcase recent work from your technicians with an automatic slideshow that rotates every 5 seconds.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Text Customization */}
+              <div className="space-y-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100">
+                    <span className="text-2xl">✏️</span>
+                  </div>
+                  <Label className="text-base font-semibold">Text Customization</Label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Header Title */}
+                  <div className="space-y-2">
+                    <Label htmlFor="headerTitle" className="text-sm font-medium">Main Title</Label>
+                    <Input
+                      id="headerTitle"
+                      value={loginConfig.headerTitle}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, headerTitle: e.target.value }))}
+                      placeholder="Welcome back to Pop-A-Lock"
+                      className="bg-white"
+                    />
+                  </div>
+
+                  {/* Header Subtitle */}
+                  <div className="space-y-2">
+                    <Label htmlFor="headerSubtitle" className="text-sm font-medium">Subtitle</Label>
+                    <Input
+                      id="headerSubtitle"
+                      value={loginConfig.headerSubtitle}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, headerSubtitle: e.target.value }))}
+                      placeholder="Build your business efficiently..."
+                      className="bg-white"
+                    />
+                  </div>
+
+                  {/* Email Label */}
+                  <div className="space-y-2">
+                    <Label htmlFor="emailLabel" className="text-sm font-medium">Email Field Label</Label>
+                    <Input
+                      id="emailLabel"
+                      value={loginConfig.emailLabel}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, emailLabel: e.target.value }))}
+                      placeholder="Email"
+                      className="bg-white"
+                    />
+                  </div>
+
+                  {/* Password Label */}
+                  <div className="space-y-2">
+                    <Label htmlFor="passwordLabel" className="text-sm font-medium">Password Field Label</Label>
+                    <Input
+                      id="passwordLabel"
+                      value={loginConfig.passwordLabel}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, passwordLabel: e.target.value }))}
+                      placeholder="Password"
+                      className="bg-white"
+                    />
+                  </div>
+
+                  {/* Login Button Text */}
+                  <div className="space-y-2">
+                    <Label htmlFor="loginButtonText" className="text-sm font-medium">Login Button Text</Label>
+                    <Input
+                      id="loginButtonText"
+                      value={loginConfig.loginButtonText}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, loginButtonText: e.target.value }))}
+                      placeholder="Log in"
+                      className="bg-white"
+                    />
+                  </div>
+
+                  {/* Forgot Password Text */}
+                  <div className="space-y-2">
+                    <Label htmlFor="forgotPasswordText" className="text-sm font-medium">Forgot Password Link</Label>
+                    <Input
+                      id="forgotPasswordText"
+                      value={loginConfig.forgotPasswordText}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, forgotPasswordText: e.target.value }))}
+                      placeholder="Forgot password?"
+                      className="bg-white"
+                    />
+                  </div>
+
+                  {/* Google Button Text */}
+                  <div className="space-y-2">
+                    <Label htmlFor="googleButtonText" className="text-sm font-medium">Google Button Text</Label>
+                    <Input
+                      id="googleButtonText"
+                      value={loginConfig.googleButtonText}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, googleButtonText: e.target.value }))}
+                      placeholder="Continue with Google"
+                      className="bg-white"
+                    />
+                  </div>
+
+                  {/* Signup Text */}
+                  <div className="space-y-2">
+                    <Label htmlFor="signupText" className="text-sm font-medium">Signup Prompt Text</Label>
+                    <Input
+                      id="signupText"
+                      value={loginConfig.signupText}
+                      onChange={(e) => setLoginConfig(prev => ({ ...prev, signupText: e.target.value }))}
+                      placeholder="Don't have an account?"
+                      className="bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-green-100 to-blue-100 border border-green-200 rounded-lg p-3 mt-4">
+                  <p className="text-sm text-green-900">
+                    <strong>💡 Tip:</strong> Customize the login page text to match your brand voice and messaging. Changes will be reflected immediately after saving.
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Save Button for Login Settings */}
+              <div className="flex justify-between items-center pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Changes will be applied after saving
+                </p>
+                <Button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/login-settings', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(loginConfig),
+                      });
+
+                      if (!response.ok) {
+                        console.error('Save failed with status:', response.status);
+                        toast.error(`Failed to save login settings (${response.status})`);
+                        return;
+                      }
+
+                      const contentType = response.headers.get('content-type');
+                      if (contentType && contentType.includes('application/json')) {
+                        const result = await response.json();
+                        if (result.success) {
+                          toast.success('Login settings saved successfully');
+                        } else {
+                          toast.error('Failed to save login settings');
+                        }
+                      } else {
+                        toast.success('Login settings saved successfully');
+                      }
+                    } catch (error) {
+                      console.error('Save error:', error);
+                      toast.error('Failed to save login settings');
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Login Settings
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Other tabs would go here */}
+        <TabsContent value="email">
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Settings</CardTitle>
+              <CardDescription>Configure email notifications and SMTP settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Email configuration will be implemented here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Settings</CardTitle>
+              <CardDescription>Manage system-wide notification preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Notification settings will be implemented here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="general">
+          <Card>
+            <CardHeader>
+              <CardTitle>General Settings</CardTitle>
+              <CardDescription>Basic application configuration</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">General settings will be implemented here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

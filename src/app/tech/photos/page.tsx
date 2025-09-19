@@ -1,17 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -23,10 +15,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { X } from 'lucide-react';
+import { X, Plus, Camera } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import JobSubmissionForm from '@/components/JobSubmissionForm';
+import { useTable } from '@/contexts/table-context';
+import ImageModal from '@/components/ImageModal';
 
 interface TechPhoto {
-  id: number;
+  id: string;
   photoUrl: string;
   jobType: 'Commercial' | 'Residential' | 'Automotive' | 'Roadside';
   jobDescription: string;
@@ -35,58 +31,129 @@ interface TechPhoto {
   tags: string[];
   franchiseeApproved: boolean;
   adminOverride?: boolean;
+  technicianName?: string;
 }
 
-const initialPhotos: TechPhoto[] = [
-  {
-    id: 1,
-    photoUrl: 'https://picsum.photos/400/300?random=1',
-    jobType: 'Commercial',
-    jobDescription: 'Office building master key system installation',
-    dateUploaded: '2024-09-08',
-    jobLocation: 'Downtown Dallas, TX',
-    tags: ['master key', 'office building', 'installation'],
-    franchiseeApproved: true,
-  },
-  {
-    id: 2,
-    photoUrl: 'https://picsum.photos/400/300?random=2',
-    jobType: 'Residential',
-    jobDescription: 'Smart lock installation and setup',
-    dateUploaded: '2024-09-07',
-    jobLocation: 'Austin, TX',
-    tags: ['smart lock', 'residential', 'installation'],
-    franchiseeApproved: true,
-  },
-  {
-    id: 3,
-    photoUrl: 'https://picsum.photos/400/300?random=3',
-    jobType: 'Automotive',
-    jobDescription: 'Car lockout service - key extraction',
-    dateUploaded: '2024-09-06',
-    jobLocation: 'Houston, TX',
-    tags: ['car lockout', 'key extraction', 'emergency'],
-    franchiseeApproved: false,
-  },
-  {
-    id: 4,
-    photoUrl: 'https://picsum.photos/400/300?random=4',
-    jobType: 'Roadside',
-    jobDescription: 'Emergency roadside assistance - broken key removal',
-    dateUploaded: '2024-09-05',
-    jobLocation: 'San Antonio, TX',
-    tags: ['roadside', 'emergency', 'key repair'],
-    franchiseeApproved: true,
-  },
-];
+const serviceCategories: { [key: string]: string[] } = {
+  'Residential': [
+    'Lock Installation',
+    'Lock Repair',
+    'Lock Rekeying',
+    'Security Upgrade',
+    'Smart Lock Installation',
+    'Door Repair',
+    'Safe Opening',
+    'Emergency Lockout'
+  ],
+  'Automotive': [
+    'Car Lockout',
+    'Key Replacement',
+    'Ignition Repair',
+    'Key Programming',
+    'Key Duplication',
+    'Remote Programming',
+    'Transponder Keys',
+    'Emergency Service'
+  ],
+  'Commercial': [
+    'Office Lockout',
+    'Master Key System',
+    'Access Control Installation',
+    'High Security Locks',
+    'Panic Hardware',
+    'File Cabinet Service',
+    'Keypad Installation',
+    'Business Rekey'
+  ],
+  'Roadside': [
+    'Emergency Lockout',
+    'Mobile Key Service',
+    '24/7 Assistance',
+    'Trunk Lockout',
+    'Motorcycle Assistance',
+    'Fleet Vehicle Service',
+    'Emergency Key Making',
+    'Mobile Locksmith'
+  ]
+};
 
 export default function TechPhotosPage() {
-  const [photos, setPhotos] = useState<TechPhoto[]>(initialPhotos);
+  const router = useRouter();
+  const { getTableClasses } = useTable();
+  const tableClasses = getTableClasses();
+  const [photos, setPhotos] = useState<TechPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState<string>('All');
   const [editingPhoto, setEditingPhoto] = useState<TechPhoto | null>(null);
   const [viewingPhoto, setViewingPhoto] = useState<TechPhoto | null>(null);
   const [editForm, setEditForm] = useState<Partial<TechPhoto>>({});
+  const [showSubmitForm, setShowSubmitForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [jobForm, setJobForm] = useState({
+    category: '',
+    service: '',
+    location: '',
+    description: '',
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    customerPermission: false,
+    photos: [] as string[],
+    photoTypes: [] as string[]
+  });
+
+  // Fetch job submissions and transform them into photos
+  useEffect(() => {
+    const fetchJobSubmissions = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/job-submissions');
+        if (!response.ok) {
+          throw new Error('Failed to fetch job submissions');
+        }
+
+        const jobSubmissions = await response.json();
+
+        // Transform job submissions into TechPhoto format
+        const transformedPhotos: TechPhoto[] = [];
+
+        jobSubmissions.forEach((job: any) => {
+          // Extract all photos from the job submission
+          const allPhotos = [
+            ...(job.media.beforePhotos || []),
+            ...(job.media.afterPhotos || []),
+            ...(job.media.processPhotos || [])
+          ];
+
+          allPhotos.forEach((photo: string, index: number) => {
+            if (photo && photo.trim()) {
+              transformedPhotos.push({
+                id: `${job.id}-${index}`,
+                photoUrl: photo,
+                jobType: job.service.category as TechPhoto['jobType'],
+                jobDescription: job.service.description || `${job.service.type} - ${job.service.category}`,
+                dateUploaded: new Date(job.submittedAt).toLocaleDateString(),
+                jobLocation: job.service.location,
+                tags: [job.service.type, job.service.category].filter(Boolean),
+                franchiseeApproved: job.status === 'approved',
+                adminOverride: job.status === 'admin_approved',
+                technicianName: job.technician.name
+              });
+            }
+          });
+        });
+
+        setPhotos(transformedPhotos);
+      } catch (error) {
+        console.error('Error fetching job submissions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobSubmissions();
+  }, []);
 
   const filteredPhotos = useMemo(() => {
     return photos.filter(photo => {
@@ -100,8 +167,33 @@ export default function TechPhotosPage() {
     });
   }, [photos, selectedJobType, selectedApprovalStatus]);
 
-  const deletePhoto = (photoId: number) => {
-    setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+  const deletePhoto = async (photoId: string) => {
+    try {
+      // Extract job ID from photo ID (format: jobId-photoIndex)
+      const jobId = photoId.split('-')[0];
+
+      // Show confirmation dialog
+      if (!confirm('Are you sure you want to delete this job submission? This will remove all photos associated with this job.')) {
+        return;
+      }
+
+      // Delete from database
+      const response = await fetch(`/api/job-submissions?id=${jobId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete job submission');
+      }
+
+      // Remove all photos for this job from local state
+      setPhotos(prev => prev.filter(photo => !photo.id.startsWith(jobId)));
+
+      alert('Job submission deleted successfully');
+    } catch (error) {
+      console.error('Error deleting job submission:', error);
+      alert('Failed to delete job submission. Please try again.');
+    }
   };
 
   const openEditModal = (photo: TechPhoto) => {
@@ -141,13 +233,18 @@ export default function TechPhotosPage() {
     setEditForm(prev => ({ ...prev, tags }));
   };
 
-  const getJobTypeVariant = (jobType: string): "default" | "secondary" | "destructive" | "outline" => {
+  const getJobTypeVariant = (jobType: string) => {
     switch (jobType) {
-      case 'Commercial': return 'default';
-      case 'Residential': return 'secondary';
-      case 'Automotive': return 'destructive';
-      case 'Roadside': return 'outline';
-      default: return 'outline';
+      case 'Commercial':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border-blue-200';
+      case 'Residential':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 border-green-200';
+      case 'Automotive':
+        return 'bg-gray-900 text-white dark:bg-gray-700 dark:text-gray-100 border-gray-800';
+      case 'Roadside':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border-gray-200';
     }
   };
 
@@ -165,6 +262,119 @@ export default function TechPhotosPage() {
     return 'Franchisee Review';
   };
 
+  const handleSubmitJob = () => {
+    router.push('/tech/dashboard?openForm=true');
+  };
+
+  const handleJobFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!jobForm.category || !jobForm.service) {
+      alert('Please select both category and service');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // Transform to API format
+      const jobSubmissionData = {
+        technicianId: '52e1e11e-3200-4ae5-ab8e-60722788ec51', // John Smith from actual database
+        franchiseeId: 'bd452dd2-aade-4c4b-a112-5ad3a07f4013', // Pop-A-Lock Simcoe County from actual database
+        client: {
+          name: jobForm.customerName || 'Not provided',
+          phone: jobForm.customerPhone || '',
+          email: jobForm.customerEmail || '',
+          preferredContactMethod: 'phone',
+          consentToContact: jobForm.customerPermission,
+          consentToShare: jobForm.customerPermission
+        },
+        service: {
+          category: jobForm.category,
+          type: jobForm.service,
+          location: jobForm.location,
+          date: new Date().toISOString().split('T')[0],
+          duration: 30,
+          satisfaction: 5,
+          description: jobForm.description
+        },
+        media: {
+          beforePhotos: jobForm.photos.filter((_, i) => jobForm.photoTypes[i] === 'before'),
+          afterPhotos: jobForm.photos.filter((_, i) => jobForm.photoTypes[i] === 'after'),
+          processPhotos: jobForm.photos.filter((_, i) => !jobForm.photoTypes[i] || jobForm.photoTypes[i] === 'process')
+        }
+      };
+
+      const response = await fetch('/api/job-submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jobSubmissionData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit job');
+      }
+
+      alert('Job submitted successfully!');
+      setShowSubmitForm(false);
+
+      // Reload photos to show new submission
+      const fetchResponse = await fetch('/api/job-submissions');
+      if (fetchResponse.ok) {
+        const jobSubmissions = await fetchResponse.json();
+        const transformedPhotos: TechPhoto[] = [];
+        jobSubmissions.forEach((job: any) => {
+          const allPhotos = [
+            ...(job.media.beforePhotos || []),
+            ...(job.media.afterPhotos || []),
+            ...(job.media.processPhotos || [])
+          ];
+          allPhotos.forEach((photo: string, index: number) => {
+            if (photo && photo.trim()) {
+              transformedPhotos.push({
+                id: `${job.id}-${index}`,
+                photoUrl: photo,
+                jobType: job.service.category as TechPhoto['jobType'],
+                jobDescription: job.service.description || `${job.service.type} - ${job.service.category}`,
+                dateUploaded: new Date(job.submittedAt).toLocaleDateString(),
+                jobLocation: job.service.location,
+                tags: [job.service.type, job.service.category].filter(Boolean),
+                franchiseeApproved: job.status === 'approved',
+                adminOverride: job.status === 'admin_approved',
+                technicianName: job.technician.name
+              });
+            }
+          });
+        });
+        setPhotos(transformedPhotos);
+      }
+    } catch (error) {
+      console.error('Error submitting job:', error);
+      alert('Failed to submit job. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result) {
+          setJobForm(prev => ({
+            ...prev,
+            photos: [...prev.photos, reader.result as string],
+            photoTypes: [...prev.photoTypes, 'process']
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -172,9 +382,16 @@ export default function TechPhotosPage() {
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Marketing Photos</h1>
           <p className="text-muted-foreground">Manage your job photos for marketing approval</p>
         </div>
-        <Button>
-          Upload Photo
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700">
+            <Plus className="w-4 h-4 mr-2" />
+            Submit Job
+          </Button>
+          <Button variant="outline" onClick={handleSubmitJob}>
+            <Camera className="w-4 h-4 mr-2" />
+            Upload Photo
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -211,84 +428,170 @@ export default function TechPhotosPage() {
       <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
           <CardTitle>My Marketing Photos</CardTitle>
-          <CardDescription>Photos submitted for marketing approval. Showing {filteredPhotos.length} of {photos.length} photos.</CardDescription>
+          <CardDescription>
+            {photos.length === 0
+              ? "No photos uploaded yet. Start by uploading your first job photo for marketing approval."
+              : `Photos submitted for marketing approval. Showing ${filteredPhotos.length} of ${photos.length} photos.`
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table className="border-0">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Photo</TableHead>
-                <TableHead>Job Details</TableHead>
-                <TableHead>Location & Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPhotos.map((photo) => (
-                <TableRow key={photo.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
-                  <TableCell>
-                    <div className="w-20 h-20 relative rounded-full overflow-hidden">
-                      <img
-                        src={photo.photoUrl}
-                        alt={photo.jobDescription}
-                        className="w-full h-full object-cover"
+          <div className={tableClasses.wrapper}>
+            <table className={tableClasses.table}>
+              <thead className={tableClasses.header}>
+                <tr>
+                  <th scope="col" className="p-4">
+                    <div className="flex items-center">
+                      <input
+                        id="checkbox-all"
+                        type="checkbox"
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                       />
+                      <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-                        {photo.jobDescription}
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Media
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Job Details
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Technician
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Franchisee
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Category
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Archive Date
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-12">
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Loading your photos...</p>
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {photo.jobType}
+                    </td>
+                  </tr>
+                ) : filteredPhotos.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-12">
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                          <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No photos yet</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+                            Submit jobs from the dashboard to see your photos here for marketing approval.
+                          </p>
+                        </div>
+                        <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Submit Your First Job
+                        </Button>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium text-sm">{photo.jobLocation}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{photo.dateUploaded}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(photo)}>
-                      {getStatusText(photo)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setViewingPhoto(photo)}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        View
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditModal(photo)}
-                        className="text-green-600 hover:text-green-700"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deletePhoto(photo.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredPhotos.map((photo, index) => (
+                    <tr
+                      key={photo.id}
+                      className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
+                      onClick={() => setViewingPhoto(photo)}>
+                      <td className="w-4 p-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center">
+                          <input
+                            id={`checkbox-table-${photo.id}`}
+                            type="checkbox"
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          />
+                          <label htmlFor={`checkbox-table-${photo.id}`} className="sr-only">checkbox</label>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="w-12 h-12 relative rounded-full overflow-hidden">
+                          <img
+                            src={photo.photoUrl}
+                            alt={photo.jobDescription}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </td>
+                      <th scope="row" className="px-6 py-3 font-medium text-gray-900 dark:text-white">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                          📍 {photo.jobLocation}
+                        </div>
+                        {photo.tags && photo.tags.length > 0 && (
+                          <div className="text-xs text-gray-600 dark:text-gray-300 italic">
+                            "Additional notes available"
+                          </div>
+                        )}
+                      </th>
+                      <td className="px-6 py-3 text-sm">
+                        {photo.technicianName || 'Unknown Tech'}
+                      </td>
+                      <td className="px-6 py-3 text-sm">
+                        Pop-A-Lock Franchise
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getJobTypeVariant(photo.jobType)}`}>
+                          {photo.jobType}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {photo.dateUploaded}
+                      </td>
+                      <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setViewingPhoto(photo)}
+                            className="p-2 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                            title="View Details"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => openEditModal(photo)}
+                            className="p-2 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors"
+                            title="Edit"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => deletePhoto(photo.id)}
+                            className="p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                            title="Delete"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
@@ -390,73 +693,219 @@ export default function TechPhotosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View Details Modal */}
-      <Dialog open={!!viewingPhoto} onOpenChange={() => setViewingPhoto(null)}>
-        <DialogContent className="max-w-4xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+      {/* Enhanced Image Modal */}
+      <ImageModal
+        isOpen={!!viewingPhoto}
+        onClose={() => setViewingPhoto(null)}
+        imageUrl={viewingPhoto?.photoUrl || ''}
+        altText={viewingPhoto?.jobDescription || ''}
+        jobDetails={viewingPhoto ? {
+          imageUrl: viewingPhoto.photoUrl,
+          jobType: viewingPhoto.jobType,
+          location: viewingPhoto.jobLocation,
+          dateUploaded: viewingPhoto.dateUploaded,
+          status: viewingPhoto.adminOverride === true
+            ? 'Approved'
+            : viewingPhoto.adminOverride === false
+            ? 'Denied'
+            : viewingPhoto.franchiseeApproved
+            ? 'Approved'
+            : 'Pending Review',
+          serviceDescription: viewingPhoto.jobDescription,
+          tags: viewingPhoto.tags,
+          technicianName: viewingPhoto.technicianName
+        } : undefined}
+      />
+
+      {/* Job Submission Modal */}
+      <Dialog open={showSubmitForm} onOpenChange={setShowSubmitForm}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Job Details</DialogTitle>
+            <DialogTitle>Submit New Job</DialogTitle>
             <DialogDescription>
-              Complete information for this job photo submission.
+              Fill in the job details and upload photos for marketing approval
             </DialogDescription>
           </DialogHeader>
-          {viewingPhoto && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Photo */}
-              <div className="space-y-4">
-                <div className="w-full aspect-[4/3] relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
-                  <img
-                    src={viewingPhoto.photoUrl}
-                    alt={viewingPhoto.jobDescription}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <button
-                  onClick={() => window.open(viewingPhoto.photoUrl, '_blank')}
-                  className="text-sm text-blue-600 hover:text-blue-700 underline"
+
+          <form onSubmit={handleJobFormSubmit} className="space-y-6">
+            {/* Category and Service */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Category *</Label>
+                <select
+                  id="category"
+                  value={jobForm.category}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, category: e.target.value, service: '' }))}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  required
                 >
-                  Open full size image
-                </button>
+                  <option value="">Select Category</option>
+                  <option value="Residential">Residential</option>
+                  <option value="Automotive">Automotive</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Roadside">Roadside</option>
+                </select>
               </div>
 
-              {/* Details */}
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-lg mb-2">{viewingPhoto.jobDescription}</h3>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-600 dark:text-gray-400">Job Type:</span>
-                      <span className="ml-2">{viewingPhoto.jobType}</span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 dark:text-gray-400">Location:</span>
-                      <span className="ml-2">{viewingPhoto.jobLocation}</span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 dark:text-gray-400">Date Uploaded:</span>
-                      <span className="ml-2">{viewingPhoto.dateUploaded}</span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 dark:text-gray-400">Status:</span>
-                      <span className="ml-2">
-                        {viewingPhoto.franchiseeApproved === true ? 'Approved' : 
-                         viewingPhoto.franchiseeApproved === false ? 'Denied' : 'Pending Review'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 dark:text-gray-400">Tags:</span>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {viewingPhoto.tags.map(tag => (
-                          <span key={tag} className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="service">Service Type *</Label>
+                <select
+                  id="service"
+                  value={jobForm.service}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, service: e.target.value }))}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  disabled={!jobForm.category}
+                  required
+                >
+                  <option value="">Select Service</option>
+                  {jobForm.category && serviceCategories[jobForm.category]?.map(service => (
+                    <option key={service} value={service}>{service}</option>
+                  ))}
+                </select>
               </div>
             </div>
-          )}
+
+            {/* Location */}
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={jobForm.location}
+                onChange={(e) => setJobForm(prev => ({ ...prev, location: e.target.value }))}
+                placeholder="Enter job location"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Job Description</Label>
+              <Textarea
+                id="description"
+                value={jobForm.description}
+                onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe the work performed"
+                rows={3}
+              />
+            </div>
+
+            {/* Photos */}
+            <div className="space-y-2">
+              <Label htmlFor="photos">Photos</Label>
+              <Input
+                id="photos"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handlePhotoUpload}
+                className="cursor-pointer"
+              />
+              {jobForm.photos.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {jobForm.photos.map((photo, index) => (
+                    <div key={index} className="relative">
+                      <img src={photo} alt={`Photo ${index + 1}`} className="w-full h-24 object-cover rounded" />
+                      <select
+                        value={jobForm.photoTypes[index] || 'process'}
+                        onChange={(e) => {
+                          const newTypes = [...jobForm.photoTypes];
+                          newTypes[index] = e.target.value;
+                          setJobForm(prev => ({ ...prev, photoTypes: newTypes }));
+                        }}
+                        className="absolute bottom-1 left-1 right-1 text-xs px-1 py-0.5 bg-white/90 dark:bg-gray-800/90 rounded"
+                      >
+                        <option value="before">Before</option>
+                        <option value="process">Process</option>
+                        <option value="after">After</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJobForm(prev => ({
+                            ...prev,
+                            photos: prev.photos.filter((_, i) => i !== index),
+                            photoTypes: prev.photoTypes.filter((_, i) => i !== index)
+                          }));
+                        }}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Customer Information */}
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-medium">Customer Information (Optional)</h4>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="permission"
+                  checked={jobForm.customerPermission}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, customerPermission: e.target.checked }))}
+                  className="rounded"
+                />
+                <Label htmlFor="permission" className="cursor-pointer">
+                  Customer consents to contact and sharing
+                </Label>
+              </div>
+
+              {jobForm.customerPermission && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="customerName">Customer Name</Label>
+                    <Input
+                      id="customerName"
+                      value={jobForm.customerName}
+                      onChange={(e) => setJobForm(prev => ({ ...prev, customerName: e.target.value }))}
+                      placeholder="Enter customer name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerPhone">Phone</Label>
+                    <Input
+                      id="customerPhone"
+                      value={jobForm.customerPhone}
+                      onChange={(e) => setJobForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="customerEmail">Email</Label>
+                    <Input
+                      id="customerEmail"
+                      type="email"
+                      value={jobForm.customerEmail}
+                      onChange={(e) => setJobForm(prev => ({ ...prev, customerEmail: e.target.value }))}
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowSubmitForm(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting} className="bg-blue-600 hover:bg-blue-700">
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-4 h-4 mr-2" />
+                    Submit Job
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

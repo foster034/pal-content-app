@@ -14,61 +14,68 @@ import {
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useLogo } from "@/contexts/logo-context";
+import LogoutButton from "@/components/auth/LogoutButton";
 
 export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const franchiseeId = searchParams.get('id');
+
+  // Ensure we're on the client before applying ID parameters
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Helper function to add ID parameter to URLs when admin is viewing specific franchisee
+  const getHrefWithId = (basePath: string) => {
+    return isClient && franchiseeId ? `${basePath}?id=${franchiseeId}` : basePath;
+  };
 
   const links = [
     {
       label: "Dashboard",
-      href: "/franchisee",
+      href: getHrefWithId("/franchisee"),
       icon: (
         <IconDashboard className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
       label: "My Technicians",
-      href: "/franchisee/techs",
+      href: getHrefWithId("/franchisee/techs"),
       icon: (
         <IconTool className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
       label: "Job Pics",
-      href: "/franchisee/marketing",
+      href: getHrefWithId("/franchisee/marketing"),
       icon: (
         <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
-      label: "Tech Hub",
-      href: "/tech-hub",
-      icon: (
-        <IconDeviceGamepad2 className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-      ),
-    },
-    {
       label: "Reports",
-      href: "/franchisee/reports",
+      href: getHrefWithId("/franchisee/reports"),
       icon: (
         <IconChartBar className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
       label: "Profile",
-      href: "/franchisee/profile",
+      href: getHrefWithId("/franchisee/profile"),
       icon: (
         <IconUser className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
       label: "Settings",
-      href: "/franchisee/settings",
+      href: getHrefWithId("/franchisee/settings"),
       icon: (
         <IconSettings className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
@@ -93,6 +100,9 @@ export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </div>
+          </div>
+          <div className="mt-auto">
+            <LogoutButton variant="ghost" className="w-full justify-start" />
           </div>
         </SidebarBody>
       </Sidebar>
