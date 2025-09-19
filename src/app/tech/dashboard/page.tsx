@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,7 +132,7 @@ interface MarketingContent {
   photoTypes?: { [photoId: string]: 'before' | 'after' | 'process' | 'result' | 'tools' };
 }
 
-export default function TechDashboard() {
+function TechDashboardContent() {
   const searchParams = useSearchParams();
   const [showContentForm, setShowContentForm] = useState(false);
   const [formStep, setFormStep] = useState(1); // Progressive form steps
@@ -2133,6 +2133,14 @@ export default function TechDashboard() {
       )}
 
     </div>
+  );
+}
+
+export default function TechDashboard() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading dashboard...</div>}>
+      <TechDashboardContent />
+    </Suspense>
   );
 }
 
