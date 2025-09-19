@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Vercel Deployment Check', () => {
-  const VERCEL_URL = 'https://pal-content-1x2iuofv0-brents-projects-c51a7c87.vercel.app';
+  const VERCEL_URL = 'https://pal-content-g8uqegyiq-brents-projects-c51a7c87.vercel.app';
 
   test('should load homepage without errors', async ({ page }) => {
     // Listen for console errors

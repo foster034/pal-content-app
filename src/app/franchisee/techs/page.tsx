@@ -862,7 +862,6 @@ export default function FranchiseeTechsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Performance</TableHead>
                 <TableHead>Login Code</TableHead>
-                <TableHead>Tech Login</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -939,21 +938,6 @@ export default function FranchiseeTechsPage() {
                         <span className="text-gray-500">Manual login only</span>
                       )}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/tech-auth?code=${tech.loginCode}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                      >
-                        🔐 Login as {tech.name}
-                      </Button>
-                    </Link>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
