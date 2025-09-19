@@ -241,7 +241,7 @@ export default function JobApprovalsPage() {
       </div>
 
       {/* Pending Jobs */}
-      {pendingJobs.length > 0 ? (
+      {pendingJobs.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Clock className="w-5 h-5 text-amber-500" />
