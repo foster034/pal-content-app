@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-});
+}) : null;
 
 export async function POST(request: NextRequest) {
   console.log('AI Marketing API called');
-  
+
+  if (!openai) {
+    return NextResponse.json({
+      error: 'OpenAI API key not configured. Please add OPENAI_API_KEY environment variable.'
+    }, { status: 503 });
+  }
+
   try {
     const { message, mediaContext, conversationHistory } = await request.json();
     console.log('Received data:', { message, mediaContext, historyLength: conversationHistory?.length });
