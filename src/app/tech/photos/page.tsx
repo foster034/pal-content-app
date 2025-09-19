@@ -196,6 +196,19 @@ export default function TechPhotosPage() {
 
   const deletePhoto = async (photoId: string) => {
     try {
+      // Find the photo to check if it can be deleted
+      const photo = photos.find(p => p.id === photoId);
+      if (!photo) {
+        alert('Photo not found');
+        return;
+      }
+
+      // Check if the photo can be deleted
+      if (!canDeletePhoto(photo)) {
+        alert('Cannot delete this job submission. Once a job has been reviewed or approved by your franchisee, it cannot be deleted. Only pending jobs can be removed.');
+        return;
+      }
+
       // Extract job ID from photo ID (format: jobId__photoIndex)
       const jobId = photoId.split('__')[0];
 
@@ -301,6 +314,11 @@ export default function TechPhotosPage() {
       default:
         return 'Pending Review';
     }
+  };
+
+  const canDeletePhoto = (photo: TechPhoto): boolean => {
+    // Only allow deletion if the job is still pending
+    return photo.photoStatus === 'pending' || !photo.photoStatus;
   };
 
   const handleSubmitJob = () => {
@@ -507,6 +525,9 @@ export default function TechPhotosPage() {
                     Category
                   </th>
                   <th scope="col" className="px-6 py-3">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3">
                     Archive Date
                   </th>
                   <th scope="col" className="px-6 py-3">
@@ -517,7 +538,7 @@ export default function TechPhotosPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12">
+                    <td colSpan={9} className="text-center py-12">
                       <div className="flex flex-col items-center justify-center space-y-4">
                         <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Loading your photos...</p>
@@ -526,7 +547,7 @@ export default function TechPhotosPage() {
                   </tr>
                 ) : filteredPhotos.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12">
+                    <td colSpan={9} className="text-center py-12">
                       <div className="flex flex-col items-center justify-center space-y-4">
                         <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
                           <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -602,6 +623,11 @@ export default function TechPhotosPage() {
                           {photo.jobType}
                         </span>
                       </td>
+                      <td className="px-6 py-3">
+                        <Badge variant={getStatusVariant(photo)} className="text-xs">
+                          {getStatusText(photo)}
+                        </Badge>
+                      </td>
                       <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {photo.dateUploaded}
                       </td>
@@ -628,8 +654,13 @@ export default function TechPhotosPage() {
                           </button>
                           <button
                             onClick={() => deletePhoto(photo.id)}
-                            className="p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                            title="Delete"
+                            disabled={!canDeletePhoto(photo)}
+                            className={`p-2 rounded-full transition-colors ${
+                              canDeletePhoto(photo)
+                                ? 'text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                : 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
+                            }`}
+                            title={canDeletePhoto(photo) ? "Delete" : "Cannot delete - job has been reviewed"}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
