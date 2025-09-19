@@ -255,10 +255,7 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
 
               {/* Footer Actions */}
               <div className="border-t border-gray-100 bg-gray-50 px-8 py-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-500">
-                    Job #{imageUrl.split('/').pop()?.split('.')[0]?.substring(0, 8) || 'Unknown'}
-                  </p>
+                <div className="flex items-center justify-center">
                   <div className="flex gap-2">
                     <button
                       onClick={() => window.open(imageUrl, '_blank')}
