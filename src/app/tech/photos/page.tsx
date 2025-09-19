@@ -32,6 +32,9 @@ interface TechPhoto {
   franchiseeApproved: boolean;
   adminOverride?: boolean;
   technicianName?: string;
+  photoStatus?: 'pending' | 'approved' | 'denied' | 'flagged';
+  reviewNotes?: string;
+  reviewedAt?: string;
 }
 
 const serviceCategories: { [key: string]: string[] } = {
@@ -85,6 +88,7 @@ export default function TechPhotosPage() {
   const [loading, setLoading] = useState(true);
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState<string>('All');
+  const [photoStatuses, setPhotoStatuses] = useState<{ [key: string]: any }>({});
   const [editingPhoto, setEditingPhoto] = useState<TechPhoto | null>(null);
   const [viewingPhoto, setViewingPhoto] = useState<TechPhoto | null>(null);
   const [editForm, setEditForm] = useState<Partial<TechPhoto>>({});
@@ -105,9 +109,11 @@ export default function TechPhotosPage() {
 
   // Fetch job submissions and transform them into photos
   useEffect(() => {
-    const fetchJobSubmissions = async () => {
+    const fetchJobSubmissionsAndStatuses = async () => {
       try {
         setLoading(true);
+
+        // Fetch job submissions
         const response = await fetch('/api/job-submissions');
         if (!response.ok) {
           throw new Error('Failed to fetch job submissions');
@@ -115,30 +121,51 @@ export default function TechPhotosPage() {
 
         const jobSubmissions = await response.json();
 
+        // Fetch photo statuses from franchisee_photos table
+        const statusResponse = await fetch('/api/franchisee-photos?technicianId=52e1e11e-3200-4ae5-ab8e-60722788ec51');
+        let photoStatusMap: { [key: string]: any } = {};
+
+        if (statusResponse.ok) {
+          const photoStatuses = await statusResponse.json();
+          setPhotoStatuses(photoStatuses);
+
+          // Create a map for quick lookup
+          photoStatuses.forEach((status: any) => {
+            const key = `${status.job_submission_id}-${status.photo_url}`;
+            photoStatusMap[key] = status;
+          });
+        }
+
         // Transform job submissions into TechPhoto format
         const transformedPhotos: TechPhoto[] = [];
 
         jobSubmissions.forEach((job: any) => {
           // Extract all photos from the job submission
           const allPhotos = [
-            ...(job.media.beforePhotos || []),
-            ...(job.media.afterPhotos || []),
-            ...(job.media.processPhotos || [])
+            ...(job.media.beforePhotos || []).map((url: string) => ({ url, type: 'before' })),
+            ...(job.media.afterPhotos || []).map((url: string) => ({ url, type: 'after' })),
+            ...(job.media.processPhotos || []).map((url: string) => ({ url, type: 'process' }))
           ];
 
-          allPhotos.forEach((photo: string, index: number) => {
-            if (photo && photo.trim()) {
+          allPhotos.forEach((photo: any, index: number) => {
+            if (photo.url && photo.url.trim()) {
+              const photoKey = `${job.id}-${photo.url}`;
+              const statusData = photoStatusMap[photoKey];
+
               transformedPhotos.push({
                 id: `${job.id}-${index}`,
-                photoUrl: photo,
+                photoUrl: photo.url,
                 jobType: job.service.category as TechPhoto['jobType'],
                 jobDescription: job.service.description || `${job.service.type} - ${job.service.category}`,
                 dateUploaded: new Date(job.submittedAt).toLocaleDateString(),
                 jobLocation: job.service.location,
-                tags: [job.service.type, job.service.category].filter(Boolean),
+                tags: [job.service.type, job.service.category, photo.type].filter(Boolean),
                 franchiseeApproved: job.status === 'approved',
                 adminOverride: job.status === 'admin_approved',
-                technicianName: job.technician.name
+                technicianName: job.technician.name,
+                photoStatus: statusData?.status || 'pending',
+                reviewNotes: statusData?.review_notes,
+                reviewedAt: statusData?.reviewed_at
               });
             }
           });
@@ -152,7 +179,7 @@ export default function TechPhotosPage() {
       }
     };
 
-    fetchJobSubmissions();
+    fetchJobSubmissionsAndStatuses();
   }, []);
 
   const filteredPhotos = useMemo(() => {
@@ -249,17 +276,31 @@ export default function TechPhotosPage() {
   };
 
   const getStatusVariant = (photo: TechPhoto): "default" | "secondary" | "destructive" | "outline" => {
-    if (photo.adminOverride === true) return 'default';
-    if (photo.adminOverride === false) return 'destructive';
-    if (photo.franchiseeApproved) return 'secondary';
-    return 'outline';
+    switch (photo.photoStatus) {
+      case 'approved':
+        return 'default';
+      case 'denied':
+        return 'destructive';
+      case 'flagged':
+        return 'secondary';
+      case 'pending':
+      default:
+        return 'outline';
+    }
   };
 
   const getStatusText = (photo: TechPhoto): string => {
-    if (photo.adminOverride === true) return 'Admin Approved';
-    if (photo.adminOverride === false) return 'Admin Denied';
-    if (photo.franchiseeApproved) return 'Pending Review';
-    return 'Franchisee Review';
+    switch (photo.photoStatus) {
+      case 'approved':
+        return 'Approved';
+      case 'denied':
+        return 'Denied';
+      case 'flagged':
+        return 'Flagged';
+      case 'pending':
+      default:
+        return 'Pending Review';
+    }
   };
 
   const handleSubmitJob = () => {
@@ -534,9 +575,19 @@ export default function TechPhotosPage() {
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                           📍 {photo.jobLocation}
                         </div>
-                        {photo.tags && photo.tags.length > 0 && (
-                          <div className="text-xs text-gray-600 dark:text-gray-300 italic">
-                            "Additional notes available"
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant={getStatusVariant(photo)} className="text-xs">
+                            {getStatusText(photo)}
+                          </Badge>
+                          {photo.tags && photo.tags.length > 0 && (
+                            <span className="text-xs text-gray-600 dark:text-gray-300 italic">
+                              {photo.tags.join(', ')}
+                            </span>
+                          )}
+                        </div>
+                        {photo.reviewNotes && (
+                          <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            Note: {photo.reviewNotes}
                           </div>
                         )}
                       </th>
@@ -704,13 +755,7 @@ export default function TechPhotosPage() {
           jobType: viewingPhoto.jobType,
           location: viewingPhoto.jobLocation,
           dateUploaded: viewingPhoto.dateUploaded,
-          status: viewingPhoto.adminOverride === true
-            ? 'Approved'
-            : viewingPhoto.adminOverride === false
-            ? 'Denied'
-            : viewingPhoto.franchiseeApproved
-            ? 'Approved'
-            : 'Pending Review',
+          status: getStatusText(viewingPhoto),
           serviceDescription: viewingPhoto.jobDescription,
           tags: viewingPhoto.tags,
           technicianName: viewingPhoto.technicianName

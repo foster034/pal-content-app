@@ -30,6 +30,23 @@ export default function FranchiseeSettingsPage() {
     reviewRequestDelay: 2, // hours after job completion
   });
 
+  const [photoSettings, setPhotoSettings] = useState({
+    autoApprovePhotos: false,
+    autoForwardToAdmin: true,
+    requireReview: true,
+    emailOnSubmission: true,
+    emailOnTechActivity: true,
+    emailDailySummary: false,
+    notifyPhotoSubmission: true,
+    notifyUrgentItems: true,
+    weekendNotifications: true,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '08:00',
+    notificationEmail: '',
+    phoneNotifications: false,
+    notificationPhone: '',
+  });
+
   const [brandingSettings, setBrandingSettings] = useState({
     logo: '',
     primaryColor: '#0066cc',
@@ -47,6 +64,10 @@ export default function FranchiseeSettingsPage() {
     setClientOutreachSettings(prev => ({ ...prev, [key]: value }));
   };
 
+  const handlePhotoSettingsChange = (key: string, value: string | boolean | number) => {
+    setPhotoSettings(prev => ({ ...prev, [key]: value }));
+  };
+
   const handleBrandingChange = (key: string, value: string) => {
     setBrandingSettings(prev => ({ ...prev, [key]: value }));
   };
@@ -57,6 +78,26 @@ export default function FranchiseeSettingsPage() {
     const googleGPattern = /^https:\/\/g\.page\//;
     
     return googleReviewPattern.test(url) || googleBusinessPattern.test(url) || googleGPattern.test(url);
+  };
+
+  const savePhotoSettings = async () => {
+    try {
+      const response = await fetch('/api/franchisee/photo-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(photoSettings),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('✅ Photo submission settings saved successfully!');
+      } else {
+        alert(`❌ Failed to save settings: ${data.error}`);
+      }
+    } catch (error) {
+      alert('❌ Error saving photo settings.');
+    }
   };
 
   const saveClientOutreachSettings = async () => {
@@ -316,6 +357,219 @@ export default function FranchiseeSettingsPage() {
                 <option value="dark">Dark</option>
                 <option value="auto">Auto</option>
               </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Photo Submission Settings - Full Width */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">📸 Job Submission Settings</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          Configure how photo submissions from your technicians are handled and forwarded to the admin marketing team
+        </p>
+
+        <div className="space-y-6">
+          {/* Auto-Approval Settings */}
+          <div>
+            <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-4">🔄 Approval Workflow</h4>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Auto-Approve All Photos
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Automatically approve and forward all tech submissions to admin
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={photoSettings.autoApprovePhotos}
+                    onChange={(e) => handlePhotoSettingsChange('autoApprovePhotos', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Auto-Forward to Admin
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Automatically send approved photos to admin marketing team
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={photoSettings.autoForwardToAdmin}
+                    onChange={(e) => handlePhotoSettingsChange('autoForwardToAdmin', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Require Manual Review
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      All submissions require your approval before forwarding
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={photoSettings.requireReview}
+                    onChange={(e) => handlePhotoSettingsChange('requireReview', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h5 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">💡 Recommended Setup</h5>
+                  <ul className="text-sm text-blue-600 dark:text-blue-300 space-y-1">
+                    <li>• Enable "Require Manual Review" for quality control</li>
+                    <li>• Enable "Auto-Forward to Admin" for approved photos</li>
+                    <li>• Keep "Auto-Approve All" disabled unless you trust all techs</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notification Settings */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-4">🔔 Notification Preferences</h4>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Email on Photo Submission
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Get notified when techs submit new photos
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={photoSettings.emailOnSubmission}
+                    onChange={(e) => handlePhotoSettingsChange('emailOnSubmission', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Email on Tech Activity
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Get notified of job completions and updates
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={photoSettings.emailOnTechActivity}
+                    onChange={(e) => handlePhotoSettingsChange('emailOnTechActivity', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Daily Summary Email
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Receive daily digest of all photo submissions
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={photoSettings.emailDailySummary}
+                    onChange={(e) => handlePhotoSettingsChange('emailDailySummary', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Weekend Notifications
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Receive notifications on weekends
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={photoSettings.weekendNotifications}
+                    onChange={(e) => handlePhotoSettingsChange('weekendNotifications', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Quiet Hours Start
+                  </label>
+                  <input
+                    type="time"
+                    value={photoSettings.quietHoursStart}
+                    onChange={(e) => handlePhotoSettingsChange('quietHoursStart', e.target.value)}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Quiet Hours End
+                  </label>
+                  <input
+                    type="time"
+                    value={photoSettings.quietHoursEnd}
+                    onChange={(e) => handlePhotoSettingsChange('quietHoursEnd', e.target.value)}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Notification Email
+                  </label>
+                  <input
+                    type="email"
+                    value={photoSettings.notificationEmail}
+                    onChange={(e) => handlePhotoSettingsChange('notificationEmail', e.target.value)}
+                    placeholder="your-email@domain.com"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Leave blank to use your account email
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={savePhotoSettings}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                💾 Save Photo Settings
+              </button>
             </div>
           </div>
         </div>

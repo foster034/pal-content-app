@@ -246,7 +246,122 @@ export async function POST(request: NextRequest) {
       reportUrl: data.report_url
     };
 
-    console.log('🎉 Job submission created successfully, returning:', JSON.stringify(transformedData, null, 2));
+    console.log('🎉 Job submission created successfully');
+
+    // Now create individual photo records for franchisee management
+    console.log('📸 Creating franchisee photo records...');
+
+    try {
+      const photoRecords = [];
+
+      // Create records for before photos
+      if (data.before_photos && data.before_photos.length > 0) {
+        for (let i = 0; i < data.before_photos.length; i++) {
+          photoRecords.push({
+            job_submission_id: data.id,
+            franchisee_id: data.franchisee_id,
+            technician_id: data.technician_id,
+            photo_url: data.before_photos[i],
+            photo_type: 'before',
+            service_category: data.service_category,
+            service_type: data.service_type,
+            service_location: data.service_location,
+            service_date: data.service_date,
+            job_description: data.description,
+            status: 'pending'
+          });
+        }
+      }
+
+      // Create records for after photos
+      if (data.after_photos && data.after_photos.length > 0) {
+        for (let i = 0; i < data.after_photos.length; i++) {
+          photoRecords.push({
+            job_submission_id: data.id,
+            franchisee_id: data.franchisee_id,
+            technician_id: data.technician_id,
+            photo_url: data.after_photos[i],
+            photo_type: 'after',
+            service_category: data.service_category,
+            service_type: data.service_type,
+            service_location: data.service_location,
+            service_date: data.service_date,
+            job_description: data.description,
+            status: 'pending'
+          });
+        }
+      }
+
+      // Create records for process photos
+      if (data.process_photos && data.process_photos.length > 0) {
+        for (let i = 0; i < data.process_photos.length; i++) {
+          photoRecords.push({
+            job_submission_id: data.id,
+            franchisee_id: data.franchisee_id,
+            technician_id: data.technician_id,
+            photo_url: data.process_photos[i],
+            photo_type: 'process',
+            service_category: data.service_category,
+            service_type: data.service_type,
+            service_location: data.service_location,
+            service_date: data.service_date,
+            job_description: data.description,
+            status: 'pending'
+          });
+        }
+      }
+
+      console.log(`📊 Creating ${photoRecords.length} photo records for franchisee management`);
+
+      if (photoRecords.length > 0) {
+        // Try to insert photo records (will work once table is created)
+        try {
+          const { data: photoData, error: photoError } = await supabase
+            .from('franchisee_photos')
+            .insert(photoRecords)
+            .select();
+
+          if (photoError) {
+            console.log('⚠️ Could not create franchisee photo records (table may not exist yet):', photoError.message);
+            // Don't fail the main request, just log this
+          } else {
+            console.log(`✅ Created ${photoData.length} franchisee photo records`);
+
+            // Create notification for franchisee
+            try {
+              const notificationData = {
+                user_id: data.franchisee_id, // This will need to be mapped to profile ID
+                user_type: 'franchisee',
+                title: 'New Photo Submission',
+                message: `${data.technicians.name} submitted ${photoRecords.length} photos for ${data.service_category} service at ${data.service_location}`,
+                type: 'photo_submitted',
+                related_id: data.id,
+                related_type: 'job_submission',
+                read: false
+              };
+
+              const { error: notifError } = await supabase
+                .from('notifications')
+                .insert([notificationData]);
+
+              if (notifError) {
+                console.log('⚠️ Could not create notification (table may not exist yet):', notifError.message);
+              } else {
+                console.log('✅ Notification created for franchisee');
+              }
+            } catch (notifError) {
+              console.log('⚠️ Notification creation skipped:', notifError.message);
+            }
+          }
+        } catch (photoError) {
+          console.log('⚠️ Photo record creation skipped (table not ready):', photoError.message);
+        }
+      }
+    } catch (photoError) {
+      console.log('⚠️ Photo workflow skipped:', photoError.message);
+    }
+
+    console.log('🎉 Returning job submission data');
     return NextResponse.json(transformedData, { status: 201 });
 
   } catch (error) {
