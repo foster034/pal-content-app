@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function TechSetup() {
+function TechSetupContent() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -283,5 +283,13 @@ export default function TechSetup() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function TechSetup() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading setup...</div>}>
+      <TechSetupContent />
+    </Suspense>
   );
 }
