@@ -11,6 +11,8 @@ import {
   IconLogout,
   IconShield,
   IconPhoto,
+  IconRocket,
+  IconCalendar,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -49,6 +51,13 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
       href: "/admin/marketing",
       icon: (
         <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Marketing Dashboard",
+      href: "/admin/marketing-dashboard",
+      icon: (
+        <IconCalendar className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
