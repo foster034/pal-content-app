@@ -61,19 +61,24 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/tech-auth', request.url))
     }
 
-    // If there's a regular session, check if it's a tech user
+    // If there's a regular session, check if it's a tech user or admin
     const { data: profile } = await supabase
       .from('profiles')
       .select('role, franchisee_id')
       .eq('id', session.user.id)
       .single()
 
-    // If user has tech role in profiles, allow access
-    if (profile && profile.role === 'tech') {
+    // If user has tech role or admin role in profiles, allow access
+    if (profile && (profile.role === 'tech' || profile.role === 'admin')) {
       return response
     }
 
-    // If no tech role, redirect to tech auth for login code entry
+    // If no tech or admin role, redirect to appropriate page
+    if (profile && profile.role === 'franchisee') {
+      return NextResponse.redirect(new URL('/franchisee', request.url))
+    }
+
+    // Default redirect to tech auth for login code entry
     return NextResponse.redirect(new URL('/tech-auth', request.url))
   }
 

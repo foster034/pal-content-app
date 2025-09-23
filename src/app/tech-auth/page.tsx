@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClientComponentClient } from '@/lib/supabase-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,43 @@ export default function TechAuth() {
   const [error, setError] = useState('');
   const [showEmailLogin, setShowEmailLogin] = useState(false);
   const router = useRouter();
+  const supabase = createClientComponentClient();
+
+  useEffect(() => {
+    // Check if user is already logged in with regular auth
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        // Get user profile to determine role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          // Redirect based on role
+          switch (profile.role) {
+            case 'admin':
+              router.push('/admin');
+              break;
+            case 'franchisee':
+              router.push('/franchisee');
+              break;
+            case 'tech':
+              router.push('/tech/dashboard');
+              break;
+            default:
+              // Stay on tech auth page
+              break;
+          }
+        }
+      }
+    };
+
+    checkAuth();
+  }, [router, supabase]);
 
   const handleLoginCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

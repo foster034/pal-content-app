@@ -55,7 +55,7 @@ export default function AuthCallbackPage() {
             } else if (profile?.role === 'franchisee') {
               router.push('/franchisee');
             } else if (profile?.role === 'tech') {
-              router.push('/tech');
+              router.push('/tech/dashboard');
             } else {
               router.push('/');
             }

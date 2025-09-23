@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
   IconBrandTabler,
@@ -19,10 +19,37 @@ import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import LogoutButton from "@/components/auth/LogoutButton";
+import { createClientComponentClient } from '@/lib/supabase-client';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 export function AdminSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const supabase = createClientComponentClient();
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        setUserProfile({
+          email: user.email,
+          full_name: profile?.full_name || user.user_metadata?.full_name || 'Admin User',
+          role: profile?.role || 'admin',
+          avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url
+        });
+      }
+    };
+
+    fetchUserProfile();
+  }, [supabase]);
 
   const links = [
     {
@@ -92,7 +119,32 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
               ))}
             </div>
           </div>
-          <div className="mt-auto">
+          <div className="mt-auto space-y-4">
+            {userProfile && (
+              <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-neutral-700/50">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={userProfile.avatar_url} />
+                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                    {userProfile.full_name?.charAt(0) || userProfile.email?.charAt(0) || 'A'}
+                  </AvatarFallback>
+                </Avatar>
+                {open && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {userProfile.full_name}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {userProfile.email}
+                      </p>
+                      <Badge variant="secondary" className="text-xs px-1 py-0">
+                        {userProfile.role}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <LogoutButton variant="ghost" className="w-full justify-start" />
           </div>
         </SidebarBody>
