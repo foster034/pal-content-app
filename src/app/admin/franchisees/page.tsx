@@ -23,7 +23,7 @@ import {
 import ImageUploader from "@/components/ImageUploader";
 import ImageModal from "@/components/ImageModal";
 import { DetailModal } from "@/components/DetailModal";
-import { Mail, Phone, Bell, MoreHorizontal, Eye, Send, Edit, Trash2, Settings } from "lucide-react";
+import { Mail, Phone, Bell, MoreHorizontal, Eye, Send, Edit, Trash2, Settings, Search, X } from "lucide-react";
 import '../../../styles/animations.css';
 
 interface Owner {
@@ -104,6 +104,8 @@ export default function FranchiseesPage() {
   const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
   const [selectedFranchisee, setSelectedFranchisee] = useState<Franchisee | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState<string>('');
 
   // Fetch franchisees from database on component mount
   useEffect(() => {
@@ -447,6 +449,40 @@ export default function FranchiseesPage() {
       default: return 'outline';
     }
   };
+
+  // Get unique company names for dropdown
+  const companyNames = Array.from(new Set(franchisees.map(f => f.name))).sort();
+
+  // Filter franchisees based on selected company and search term
+  const filteredFranchisees = franchisees.filter(franchisee => {
+    // First filter by selected company
+    if (selectedCompany && franchisee.name !== selectedCompany) {
+      return false;
+    }
+
+    // Then filter by search term if provided
+    if (!searchTerm) return true;
+
+    const searchLower = searchTerm.toLowerCase();
+    const primaryContact = getPrimaryContact(franchisee);
+
+    return (
+      // Search in franchisee name (company name)
+      franchisee.name.toLowerCase().includes(searchLower) ||
+      // Search in primary contact name (franchisee name)
+      (primaryContact?.name || '').toLowerCase().includes(searchLower) ||
+      // Search in email
+      (primaryContact?.email || franchisee.email).toLowerCase().includes(searchLower) ||
+      // Search in phone
+      (primaryContact?.phone || franchisee.phone).toLowerCase().includes(searchLower) ||
+      // Search in territory
+      franchisee.territory.toLowerCase().includes(searchLower) ||
+      // Search in country
+      franchisee.country.toLowerCase().includes(searchLower) ||
+      // Search in username
+      franchisee.username.toLowerCase().includes(searchLower)
+    );
+  });
 
   return (
     <div className="space-y-6 bg-white min-h-screen">
@@ -822,8 +858,55 @@ export default function FranchiseesPage() {
 
       <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
-          <CardTitle>Franchise Partners</CardTitle>
-          <CardDescription>Professional franchise partners across your locksmith network.</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Franchise Partners</CardTitle>
+              <CardDescription>
+                Professional franchise partners across your locksmith network.
+                {(searchTerm || selectedCompany) && (
+                  <span className="ml-2 text-sm font-medium text-blue-600">
+                    ({filteredFranchisees.length} of {franchisees.length} shown
+                    {selectedCompany && ` • ${selectedCompany}`})
+                  </span>
+                )}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white bg-white min-w-[200px]"
+              >
+                <option value="">All Companies</option>
+                {companyNames.map((companyName) => (
+                  <option key={companyName} value={companyName}>
+                    {companyName}
+                  </option>
+                ))}
+              </select>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={selectedCompany ? `Search within ${selectedCompany}...` : 'Search franchisees...'}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-10 py-2 w-80 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                />
+                {(searchTerm || selectedCompany) && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedCompany('');
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table className="border-0">
@@ -845,13 +928,15 @@ export default function FranchiseesPage() {
                     <div className="text-muted-foreground">Loading franchisees...</div>
                   </TableCell>
                 </TableRow>
-              ) : franchisees.length === 0 ? (
+              ) : filteredFranchisees.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
-                    <div className="text-muted-foreground">No franchisees found. Click "Add Franchisee" to create one.</div>
+                    <div className="text-muted-foreground">
+                      {searchTerm ? `No franchisees found matching "${searchTerm}".` : 'No franchisees found. Click "Add Franchisee" to create one.'}
+                    </div>
                   </TableCell>
                 </TableRow>
-              ) : franchisees.map((franchisee) => {
+              ) : filteredFranchisees.map((franchisee) => {
                 const primaryContact = getPrimaryContact(franchisee);
                 return (
                 <TableRow

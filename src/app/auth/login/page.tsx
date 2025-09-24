@@ -30,6 +30,15 @@ export default function LoginPage() {
   useEffect(() => {
     // Fetch login settings
     fetchLoginSettings()
+
+    // Check for saved credentials
+    const savedEmail = localStorage.getItem('rememberedEmail')
+    const shouldRemember = localStorage.getItem('rememberMe') === 'true'
+
+    if (savedEmail && shouldRemember) {
+      setEmail(savedEmail)
+      setRememberMe(true)
+    }
   }, [])
 
   useEffect(() => {
@@ -123,6 +132,15 @@ export default function LoginPage() {
         console.error('Authentication error:', error)
         setError(error.message)
         return
+      }
+
+      // Handle remember me functionality
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email)
+        localStorage.setItem('rememberMe', 'true')
+      } else {
+        localStorage.removeItem('rememberedEmail')
+        localStorage.removeItem('rememberMe')
       }
 
       // Get user profile to determine role and redirect accordingly
@@ -253,7 +271,7 @@ export default function LoginPage() {
               )}
 
               {/* Form */}
-              <form onSubmit={handleSignIn} className="space-y-4">
+              <form onSubmit={handleSignIn} className="space-y-4" autoComplete="on">
                 {/* Email Field */}
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium text-gray-700">
@@ -263,7 +281,9 @@ export default function LoginPage() {
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
                       id="email"
+                      name="email"
                       type="email"
+                      autoComplete="email"
                       placeholder="alex.jordan@gmail.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -282,7 +302,9 @@ export default function LoginPage() {
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
                       id="password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}

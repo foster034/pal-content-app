@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Avatar Upload</title>
+</head>
+<body>
+    <h1>Test Avatar Upload</h1>
+    <input type="file" id="imageInput" accept="image/*">
+    <br><br>
+    <canvas id="canvas" width="100" height="100" style="border: 1px solid black;"></canvas>
+    <br><br>
+    <button onclick="testUpload()">Test Upload to API</button>
+    <br><br>
+    <div id="result"></div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let dataUrl = '';
+
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // Draw image to canvas (100x100)
+                        ctx.drawImage(img, 0, 0, 100, 100);
+                        dataUrl = canvas.toDataURL('image/png');
+                        console.log('Generated data URL length:', dataUrl.length);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        async function testUpload() {
+            if (!dataUrl) {
+                alert('Please select an image first');
+                return;
+            }
+
+            try {
+                console.log('Sending avatar data URL to API...');
+                console.log('Data URL preview:', dataUrl.substring(0, 100) + '...');
+
+                const response = await fetch('/api/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        full_name: 'Test Avatar User',
+                        avatar_url: dataUrl
+                    }),
+                });
+
+                const result = await response.json();
+                console.log('API Response:', result);
+
+                document.getElementById('result').innerHTML = `
+                    <h3>Response:</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
