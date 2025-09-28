@@ -61,7 +61,23 @@ export default function FranchiseePhotosPage() {
     const fetchPhotos = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/franchisee-photos?franchiseeId=4c8b70f3-797b-4384-869e-e1fb3919f615');
+
+        // Get current user's franchisee ID
+        const userResponse = await fetch('/api/profile');
+        if (!userResponse.ok) {
+          throw new Error('Failed to get user profile');
+        }
+
+        const userProfile = await userResponse.json();
+        const franchiseeId = userProfile.franchisee_id;
+
+        if (!franchiseeId) {
+          console.warn('No franchisee ID found for current user');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`/api/franchisee-photos?franchiseeId=${franchiseeId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch photos');
         }
