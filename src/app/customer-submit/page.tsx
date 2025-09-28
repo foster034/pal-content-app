@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Camera, CheckCircle, Shield, Lock, Upload, Star, MessageSquare, MapPin } from 'lucide-react';
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-export default function CustomerSubmitPage() {
+function CustomerSubmitContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -507,5 +507,13 @@ export default function CustomerSubmitPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CustomerSubmitPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CustomerSubmitContent />
+    </Suspense>
   );
 }
