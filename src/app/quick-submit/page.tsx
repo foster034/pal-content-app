@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import JobSubmissionForm from '@/components/JobSubmissionForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Camera, CheckCircle, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
-export default function QuickSubmitPage() {
+function QuickSubmitContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -158,5 +158,13 @@ export default function QuickSubmitPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function QuickSubmitPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <QuickSubmitContent />
+    </Suspense>
   );
 }
