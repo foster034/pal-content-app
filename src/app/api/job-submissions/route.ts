@@ -28,6 +28,9 @@ export async function GET(request: NextRequest) {
           name,
           image_url,
           rating
+        ),
+        franchisee_photos (
+          job_description
         )
       `)
       .order('created_at', { ascending: false });
@@ -53,40 +56,55 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform data to match frontend expectations
-    const transformedData = data?.map(job => ({
-      id: job.id,
-      technician: {
-        name: job.technicians.name,
-        image: job.technicians.image_url,
-        rating: job.technicians.rating
-      },
-      client: {
-        name: job.client_name,
-        phone: job.client_phone,
-        email: job.client_email,
-        preferredContactMethod: job.client_preferred_contact,
-        consentToContact: job.client_consent_contact,
-        consentToShare: job.client_consent_share
-      },
-      service: {
-        category: job.service_category,
-        type: job.service_type,
-        location: job.service_location,
-        date: job.service_date,
-        duration: job.service_duration,
-        satisfaction: job.satisfaction_rating,
-        description: job.description
-      },
-      media: {
-        beforePhotos: job.before_photos || [],
-        afterPhotos: job.after_photos || [],
-        processPhotos: job.process_photos || []
-      },
-      status: job.status,
-      submittedAt: job.created_at,
-      reportId: job.report_id,
-      reportUrl: job.report_url
-    })) || [];
+    const transformedData = data?.map(job => {
+      // Use AI-generated summary from franchisee_photos if available, otherwise use original description
+      const aiGeneratedSummary = job.franchisee_photos?.[0]?.job_description;
+      const jobDescription = aiGeneratedSummary || job.description;
+
+      return {
+        id: job.id,
+        technician: {
+          name: job.technicians.name,
+          image: job.technicians.image_url,
+          rating: job.technicians.rating
+        },
+        client: {
+          name: job.client_name,
+          phone: job.client_phone,
+          email: job.client_email,
+          preferredContactMethod: job.client_preferred_contact,
+          consentToContact: job.client_consent_contact,
+          consentToShare: job.client_consent_share
+        },
+        service: {
+          category: job.service_category,
+          type: job.service_type,
+          location: job.service_location,
+          date: job.service_date,
+          duration: job.service_duration,
+          satisfaction: job.satisfaction_rating,
+          description: jobDescription
+        },
+        vehicle: {
+          year: job.vehicle_year,
+          make: job.vehicle_make,
+          model: job.vehicle_model,
+          color: job.vehicle_color,
+          vin: job.vehicle_vin
+        },
+        media: {
+          beforePhotos: job.before_photos || [],
+          afterPhotos: job.after_photos || [],
+          processPhotos: job.process_photos || []
+        },
+        status: job.status,
+        submittedAt: job.created_at,
+        reportId: job.report_id,
+        reportUrl: job.report_url,
+        aiReport: job.ai_report,
+        aiReportGeneratedAt: job.ai_report_generated_at
+      };
+    }) || [];
 
     return NextResponse.json(transformedData);
 
@@ -132,6 +150,12 @@ export async function POST(request: NextRequest) {
       service_duration: body.service.duration,
       satisfaction_rating: body.service.satisfaction,
       description: body.service.description,
+      // Vehicle fields (for automotive services)
+      vehicle_year: body.vehicleYear || body.vehicle?.year || null,
+      vehicle_make: body.vehicleMake || body.vehicle?.make || null,
+      vehicle_model: body.vehicleModel || body.vehicle?.model || null,
+      vehicle_color: body.vehicleColor || body.vehicle?.color || null,
+      vehicle_vin: body.vehicleVin || body.vehicle?.vin || null,
       before_photos: body.media.beforePhotos || [],
       after_photos: body.media.afterPhotos || [],
       process_photos: body.media.processPhotos || [],
@@ -235,6 +259,13 @@ export async function POST(request: NextRequest) {
         satisfaction: data.satisfaction_rating,
         description: data.description
       },
+      vehicle: {
+        year: data.vehicle_year,
+        make: data.vehicle_make,
+        model: data.vehicle_model,
+        color: data.vehicle_color,
+        vin: data.vehicle_vin
+      },
       media: {
         beforePhotos: data.before_photos || [],
         afterPhotos: data.after_photos || [],
@@ -243,11 +274,36 @@ export async function POST(request: NextRequest) {
       status: data.status,
       submittedAt: data.created_at,
       reportId: data.report_id,
-      reportUrl: data.report_url
+      reportUrl: data.report_url,
+      aiReport: data.ai_report,
+      aiReportGeneratedAt: data.ai_report_generated_at
     };
 
     console.log('🎉 Job submission created successfully');
 
+    // Generate AI report asynchronously in the background (don't await)
+    generateAIReportAsync(data, supabase).catch(error => {
+      console.error('Background AI report generation failed:', error);
+    });
+
+    // Return immediately to user without waiting for AI report
+    console.log('✅ Returning job submission immediately');
+    return NextResponse.json(transformedData, { status: 201 });
+
+  } catch (error) {
+    console.error('Error in POST /api/job-submissions:', error);
+    return NextResponse.json(
+      { error: 'Failed to create job submission' },
+      { status: 500 }
+    );
+  }
+}
+
+// Async function to generate AI report in background
+async function generateAIReportAsync(data: any, supabase: any) {
+  console.log('🤖 Background: Starting AI report generation...');
+
+  try {
     // Now create individual photo records for franchisee management
     console.log('📸 Creating franchisee photo records...');
 
@@ -361,15 +417,132 @@ export async function POST(request: NextRequest) {
       console.log('⚠️ Photo workflow skipped:', photoError.message);
     }
 
-    console.log('🎉 Returning job submission data');
-    return NextResponse.json(transformedData, { status: 201 });
+    // Generate comprehensive AI job report in background
+    console.log('🤖 Background: Auto-generating comprehensive job report...');
+    const allPhotos = [
+      ...(data.before_photos || []),
+      ...(data.after_photos || []),
+      ...(data.process_photos || [])
+    ];
 
-  } catch (error) {
-    console.error('Error creating job submission:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    // Include vehicle information for automotive jobs
+    let vehicleInfo = '';
+    if (data.service_category === 'Automotive') {
+      const vehicleDetails = [];
+      if (data.vehicle_year) vehicleDetails.push(`Year: ${data.vehicle_year}`);
+      if (data.vehicle_make) vehicleDetails.push(`Make: ${data.vehicle_make}`);
+      if (data.vehicle_model) vehicleDetails.push(`Model: ${data.vehicle_model}`);
+      if (data.vehicle_color) vehicleDetails.push(`Color: ${data.vehicle_color}`);
+      if (data.vehicle_vin) vehicleDetails.push(`VIN: ${data.vehicle_vin}`);
+
+      if (vehicleDetails.length > 0) {
+        vehicleInfo = `
+VEHICLE INFORMATION:
+${vehicleDetails.join('\n')}`;
+      }
+    }
+
+    // Generate AI report directly (avoid authentication issues with internal fetch)
+    const prompt = `Create a simple, factual report of this locksmith service. DO NOT add any details that are not explicitly provided.
+
+JOB INFORMATION:
+Date: ${data.service_date}
+Location: ${data.service_location}
+Technician: ${data.technicians?.name || 'Not specified'}
+Service Category: ${data.service_category}
+Service Type: ${data.service_type}
+${vehicleInfo}
+WHAT THE TECHNICIAN WROTE:
+"${data.description}"
+
+CUSTOMER INFO (if provided):
+- Name: ${data.client_name || 'Not provided'}
+- Phone: ${data.client_phone || 'Not provided'}
+- Email: ${data.client_email || 'Not provided'}
+- Consent to Contact: ${data.client_consent_contact ? 'Yes' : 'No'}
+- Consent to Share: ${data.client_consent_share ? 'Yes' : 'No'}
+
+PHOTOS TAKEN:
+- Before: ${(data.before_photos || []).length}
+- During: ${(data.process_photos || []).length}
+- After: ${(data.after_photos || []).length}
+
+Write a brief factual report (1-2 paragraphs) using this format:
+- First sentence: State who (technician name) was where (location) on what date to help a customer
+- For automotive jobs: MUST include the vehicle information. Format: "Brent Foster was in Springwater on [date] to help a customer with a [year] [make] [model] who [what happened]"
+- For other services: Include the service type and location
+- Second sentence: State exactly what service was completed based on the technician's description
+- Only mention photo documentation if photos were actually taken
+
+MANDATORY FOR AUTOMOTIVE JOBS:
+- If vehicle year, make, or model are provided in the VEHICLE INFORMATION section above, you MUST include them in the first sentence
+- Format example: "Brent Foster was in Springwater on 2025-09-27 to help a customer with a 2019 Ford F-150 who lost their keys"
+
+STRICT RULES:
+- Include ALL provided vehicle information (year, make, model, color) when available
+- Use ONLY the information provided above - do not add or interpret anything
+- Do NOT mention duration, time taken, or satisfaction ratings unless they are meaningful and not test/default values
+- If the technician description is generic like "test" or very brief, only mention the basic facts
+- Keep it simple and factual - no embellishment`;
+
+    // Call OpenAI API directly
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a report writer. Write only factual statements using the exact information provided. Do not add adjectives, adverbs, or any descriptive language not in the original text. Do not embellish or interpret. Simply state what happened based on the provided data.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.3,
+      }),
+    });
+
+    if (openaiResponse.ok) {
+      const aiResponse = await openaiResponse.json();
+      const report = aiResponse.choices[0].message.content;
+      const generatedAt = new Date().toISOString();
+      console.log('✅ Background: Comprehensive job report generated:', report.substring(0, 100) + '...');
+
+      // Update the job submission with the AI-generated report
+      console.log('🔄 Background: Updating job submission with AI-generated report...');
+      const { error: reportUpdateError } = await supabase
+        .from('job_submissions')
+        .update({
+          ai_report: report,
+          ai_report_generated_at: generatedAt
+        })
+        .eq('id', data.id);
+
+      if (reportUpdateError) {
+        console.log('⚠️ Background: Could not update job submission with AI report:', reportUpdateError.message);
+        throw reportUpdateError;
+      } else {
+        console.log('✅ Background: Job submission updated with AI-generated report');
+      }
+
+      // Note: We no longer update franchisee_photos.job_description with AI report
+      // The job_description field should keep the original description entered by the tech
+      // The AI report is stored separately in job_submissions.ai_report and displayed in its own section
+      console.log('ℹ️ Background: Keeping original job description in franchisee_photos, AI report stored separately');
+    } else {
+      console.log('⚠️ Background: Failed to generate job report:', openaiResponse.statusText);
+      throw new Error('OpenAI API call failed');
+    }
+  } catch (reportError) {
+    console.log('⚠️ Background: AI report generation failed:', reportError.message);
+    throw reportError;
   }
 }
 

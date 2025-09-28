@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { getTechSession } from '@/lib/tech-auth';
 
 // Dynamic stats calculation function
 const getPhotoStats = (submittedContent: MarketingContent[]) => {
@@ -137,27 +138,29 @@ function TechDashboardContent() {
   const [showContentForm, setShowContentForm] = useState(false);
   const [formStep, setFormStep] = useState(1); // Progressive form steps
   const [submittedContent, setSubmittedContent] = useState<MarketingContent[]>([]); // Store submitted marketing content
+  const [techSession, setTechSession] = useState<any>(null); // Store technician session data
   const [socialMediaFormat, setSocialMediaFormat] = useState<'instagram' | 'facebook' | 'auto'>('auto');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [vinLoading, setVinLoading] = useState(false);
-  const [vin, setVin] = useState('');
-  const [showVinScanner, setShowVinScanner] = useState(false);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [vehicleMakes, setVehicleMakes] = useState<string[]>([]);
+  const [vehicleModels, setVehicleModels] = useState<string[]>([]);
+  const [loadingMakes, setLoadingMakes] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(false);
   const [showPhotoCamera, setShowPhotoCamera] = useState(false);
   const [photoCameraStream, setPhotoCameraStream] = useState<MediaStream | null>(null);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
-  const [aiGenerating, setAiGenerating] = useState(false);
   const [showCameraGuide, setShowCameraGuide] = useState(false);
   const [deviceType, setDeviceType] = useState<'ios' | 'android' | 'unknown'>('unknown');
   const [loading, setLoading] = useState(true);
+  const [showCustomerInfo, setShowCustomerInfo] = useState(false);
   const [contentForm, setContentForm] = useState({
     category: '' as MarketingContent['category'] | '',
     service: '',
     location: '',
     description: '',
     photos: [] as string[],
+    photoFiles: [] as File[], // Store File objects for upload
     customerPermission: false,
     customerName: '',
     customerPhone: '',
@@ -210,6 +213,25 @@ function TechDashboardContent() {
     loadJobSubmissions();
   }, []);
 
+  // Load technician session data
+  useEffect(() => {
+    const loadTechSession = async () => {
+      try {
+        const session = await getTechSession();
+        if (session) {
+          setTechSession(session);
+          console.log('✅ Tech session loaded:', session);
+        } else {
+          console.warn('⚠️ No tech session found');
+        }
+      } catch (error) {
+        console.error('❌ Error loading tech session:', error);
+      }
+    };
+
+    loadTechSession();
+  }, []);
+
   // Detect device type
   useEffect(() => {
     const userAgent = navigator.userAgent;
@@ -223,14 +245,11 @@ function TechDashboardContent() {
   // Cleanup camera streams on unmount
   useEffect(() => {
     return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
       if (photoCameraStream) {
         photoCameraStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [cameraStream, photoCameraStream]);
+  }, [photoCameraStream]);
 
   // Check for openForm query parameter
   useEffect(() => {
@@ -272,6 +291,109 @@ function TechDashboardContent() {
     return serviceCategories[contentForm.category] || [];
   };
 
+  // Fetch vehicle makes for a given year
+  const fetchVehicleMakes = async (year: string) => {
+    if (!year || year.length !== 4) {
+      setVehicleMakes([]);
+      return;
+    }
+
+    setLoadingMakes(true);
+    try {
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleType/car?format=json`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const makes = data.Results
+          .map((item: any) => item.MakeName)
+          .filter((make: string) => make)
+          .sort();
+
+        // Common makes to prioritize
+        const commonMakes = ['Ford', 'Chevrolet', 'Toyota', 'Honda', 'Nissan', 'BMW', 'Mercedes-Benz', 'Audi', 'Volkswagen', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Jeep', 'Ram', 'GMC', 'Dodge', 'Chrysler', 'Buick', 'Cadillac', 'Lincoln', 'Acura', 'Infiniti', 'Lexus', 'Volvo', 'Porsche', 'Tesla'];
+
+        // Filter to show common makes first, then others
+        const sortedMakes = [
+          ...commonMakes.filter(make => makes.includes(make)),
+          ...makes.filter((make: string) => !commonMakes.includes(make))
+        ];
+
+        setVehicleMakes(sortedMakes);
+      }
+    } catch (error) {
+      console.error('Error fetching vehicle makes:', error);
+      setVehicleMakes([]);
+    } finally {
+      setLoadingMakes(false);
+    }
+  };
+
+  // Fetch vehicle models for a given year and make
+  const fetchVehicleModels = async (year: string, make: string) => {
+    if (!year || !make) {
+      setVehicleModels([]);
+      return;
+    }
+
+    setLoadingModels(true);
+    try {
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${year}?format=json`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const models = data.Results
+          .map((item: any) => item.Model_Name)
+          .filter((model: string) => model)
+          .sort();
+
+        setVehicleModels(models);
+      }
+    } catch (error) {
+      console.error('Error fetching vehicle models:', error);
+      setVehicleModels([]);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  // Handle year change
+  const handleYearChange = (year: string) => {
+    setContentForm(prev => ({
+      ...prev,
+      vehicleYear: year,
+      vehicleMake: '', // Reset make when year changes
+      vehicleModel: ''  // Reset model when year changes
+    }));
+
+    // Fetch available makes for this year
+    if (year) {
+      fetchVehicleMakes(year);
+    } else {
+      setVehicleMakes([]);
+      setVehicleModels([]);
+    }
+  };
+
+  // Handle make change
+  const handleMakeChange = (make: string) => {
+    setContentForm(prev => ({
+      ...prev,
+      vehicleMake: make,
+      vehicleModel: '' // Reset model when make changes
+    }));
+
+    // Fetch available models for this year and make
+    if (contentForm.vehicleYear && make) {
+      fetchVehicleModels(contentForm.vehicleYear, make);
+    } else {
+      setVehicleModels([]);
+    }
+  };
+
   const handleSubmitContent = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -280,11 +402,31 @@ function TechDashboardContent() {
       return;
     }
 
+
+    // Show warning confirmation dialog
+    const confirmSubmission = window.confirm(
+      '⚠️ IMPORTANT: Once submitted, this content cannot be edited or deleted.\n\n' +
+      '• Please double-check all information is correct\n' +
+      '• Ensure photos are clear and professional\n' +
+      '• Verify customer information is accurate\n\n' +
+      'Do you want to proceed with submission?'
+    );
+
+    if (!confirmSubmission) {
+      return;
+    }
+
+    // Validate tech session is available
+    if (!techSession?.id) {
+      alert('Unable to submit: No technician session found. Please log in again.');
+      return;
+    }
+
     try {
-      // Transform MarketingContent to job_submissions format
+      // First create the job submission without photos to get a job ID
       const jobSubmissionData = {
-        technicianId: '52e1e11e-3200-4ae5-ab8e-60722788ec51', // John Smith from actual database
-        franchiseeId: 'bd452dd2-aade-4c4b-a112-5ad3a07f4013', // Pop-A-Lock Simcoe County from actual database
+        technicianId: techSession?.id || 'f95f54d7-51be-4f55-a081-2d3b692ff5d9', // Use session ID or fallback to brent foster
+        franchiseeId: '4c8b70f3-797b-4384-869e-e1fb3919f615', // Pop-A-Lock Simcoe County (correct ID for tech 8D0LS9)
         client: {
           name: contentForm.customerName || 'Not provided',
           phone: contentForm.customerPhone || '',
@@ -302,12 +444,14 @@ function TechDashboardContent() {
           satisfaction: 5, // Default satisfaction rating
           description: contentForm.description
         },
+        // Add vehicle information for automotive jobs
+        vehicleYear: contentForm.vehicleYear || '',
+        vehicleMake: contentForm.vehicleMake || '',
+        vehicleModel: contentForm.vehicleModel || '',
         media: {
-          beforePhotos: contentForm.photos.filter((_, index) => contentForm.photoTypes[index] === 'before'),
-          afterPhotos: contentForm.photos.filter((_, index) => contentForm.photoTypes[index] === 'after'),
-          processPhotos: contentForm.photos.filter((_, index) =>
-            !contentForm.photoTypes[index] || contentForm.photoTypes[index] === 'process'
-          )
+          beforePhotos: [],
+          afterPhotos: [],
+          processPhotos: []
         }
       };
 
@@ -323,6 +467,49 @@ function TechDashboardContent() {
       }
 
       const savedJob = await response.json();
+
+      // Now upload photos to bucket if any exist
+      if (contentForm.photoFiles.length > 0) {
+        // Group photos by type
+        const photosByType = {
+          before: contentForm.photoFiles.filter((_, index) => contentForm.photoTypes[index] === 'before'),
+          after: contentForm.photoFiles.filter((_, index) => contentForm.photoTypes[index] === 'after'),
+          process: contentForm.photoFiles.filter((_, index) => !contentForm.photoTypes[index] || contentForm.photoTypes[index] === 'process')
+        };
+
+        // Upload each photo type to bucket
+        for (const [photoType, photos] of Object.entries(photosByType)) {
+          if (photos.length > 0) {
+            const typeFormData = new FormData();
+            typeFormData.append('technicianId', techSession?.id || 'f95f54d7-51be-4f55-a081-2d3b692ff5d9');
+            typeFormData.append('franchiseeId', '4c8b70f3-797b-4384-869e-e1fb3919f615');
+            typeFormData.append('jobId', savedJob.id); // Use the real job ID
+            typeFormData.append('photoType', photoType);
+
+            // Add all photos of this type
+            photos.forEach(photo => {
+              typeFormData.append('photos', photo);
+            });
+
+            // Upload photos to bucket
+            const uploadResponse = await fetch('/api/upload-job-photos', {
+              method: 'POST',
+              body: typeFormData
+            });
+
+            if (!uploadResponse.ok) {
+              console.error(`Failed to upload ${photoType} photos: ${uploadResponse.statusText}`);
+              // Continue with other photo types even if one fails
+            } else {
+              const uploadResult = await uploadResponse.json();
+              console.log(`Successfully uploaded ${uploadResult.uploadedUrls?.length || 0} ${photoType} photos`);
+            }
+          }
+        }
+
+        // Note: Photos are uploaded to bucket and URLs are stored in database via the upload API
+        // The job record is automatically updated by the upload-job-photos endpoint
+      }
 
       // Transform response back to MarketingContent format for local state
       const newContent: MarketingContent = {
@@ -362,6 +549,7 @@ function TechDashboardContent() {
         location: '',
         description: '',
         photos: [],
+        photoFiles: [],
         customerPermission: false,
         customerName: '',
         customerPhone: '',
@@ -373,7 +561,8 @@ function TechDashboardContent() {
         jobDuration: undefined,
         photoTypes: {}
       });
-      setVin('');
+      setVehicleMakes([]);
+      setVehicleModels([]);
       setFormStep(1);
       setShowContentForm(false);
 
@@ -456,7 +645,8 @@ function TechDashboardContent() {
             
             setContentForm(prev => ({
               ...prev,
-              photos: [...prev.photos, optimizedDataUrl]
+              photos: [...prev.photos, optimizedDataUrl],
+              photoFiles: [...prev.photoFiles, file]
             }));
           };
           img.src = event.target?.result as string;
@@ -722,7 +912,8 @@ function TechDashboardContent() {
   const removePhoto = (index: number) => {
     setContentForm(prev => ({
       ...prev,
-      photos: prev.photos.filter((_, i) => i !== index)
+      photos: prev.photos.filter((_, i) => i !== index),
+      photoFiles: prev.photoFiles.filter((_, i) => i !== index)
     }));
   };
 
@@ -804,118 +995,16 @@ function TechDashboardContent() {
     }
   };
 
-  const decodeVIN = async (vinCode: string) => {
-    if (!vinCode || vinCode.length !== 17) {
-      alert('Please enter a valid 17-character VIN');
-      return;
+  // Generate year options (current year back to 1990)
+  const getYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let year = currentYear; year >= 1990; year--) {
+      years.push(year.toString());
     }
-
-    setVinLoading(true);
-    
-    try {
-      const response = await fetch(
-        `https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vinCode}?format=json`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        const results = data.Results;
-        
-        const year = results.find((item: any) => item.Variable === 'Model Year')?.Value;
-        const make = results.find((item: any) => item.Variable === 'Make')?.Value;
-        const model = results.find((item: any) => item.Variable === 'Model')?.Value;
-        
-        if (year && make && model) {
-          setContentForm(prev => ({
-            ...prev,
-            vehicleYear: year,
-            vehicleMake: make,
-            vehicleModel: model
-          }));
-          
-          alert(`Vehicle decoded successfully!\n${year} ${make} ${model}`);
-        } else {
-          alert('Could not decode vehicle information from VIN. Please enter manually.');
-        }
-      } else {
-        throw new Error('Failed to decode VIN');
-      }
-    } catch (error) {
-      console.error('VIN decode error:', error);
-      alert('Unable to decode VIN. Please check the VIN and try again, or enter vehicle information manually.');
-    } finally {
-      setVinLoading(false);
-    }
+    return years;
   };
 
-  const generateAISummary = async () => {
-    if (!contentForm.service || !contentForm.category) {
-      alert('Please select service category and type first');
-      return;
-    }
-
-    setAiGenerating(true);
-
-    try {
-      const context = {
-        category: contentForm.category,
-        service: contentForm.service,
-        location: contentForm.location,
-        description: contentForm.description,
-        jobDuration: contentForm.jobDuration,
-        vehicle: contentForm.vehicleYear && contentForm.vehicleMake && contentForm.vehicleModel ?
-          `${contentForm.vehicleYear} ${contentForm.vehicleMake} ${contentForm.vehicleModel}` : null,
-        techName: 'Alex Rodriguez',
-        photoCount: contentForm.photos.length
-      };
-
-      // Add timeout to the fetch request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-      const response = await fetch('/api/generate-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(context),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`Server responded with ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setContentForm(prev => ({
-        ...prev,
-        description: data.summary
-      }));
-
-    } catch (error) {
-      console.error('AI generation error:', error);
-
-      // Provide a fallback template based on the service details
-      const fallbackDescription = generateFallbackDescription(contentForm);
-
-      setContentForm(prev => ({
-        ...prev,
-        description: fallbackDescription
-      }));
-
-      // Show a friendlier message
-      alert('AI service is temporarily unavailable. We\'ve provided a template description that you can customize.');
-    } finally {
-      setAiGenerating(false);
-    }
-  };
 
   const generateFallbackDescription = (form: typeof contentForm) => {
     const vehicle = form.vehicleYear && form.vehicleMake && form.vehicleModel ?
@@ -1042,7 +1131,7 @@ function TechDashboardContent() {
         })}
       </div>
 
-      {/* Recent Photos and Quick Actions */}
+      {/* Recent Photos */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
         <BlurFade delay={0.6} className="xl:col-span-2">
           <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
@@ -1162,53 +1251,6 @@ function TechDashboardContent() {
           </Card>
         </BlurFade>
 
-        <BlurFade delay={0.7}>
-          <Card className="border-0 shadow-lg bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-emerald-500/5" />
-            <CardHeader className="relative">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Upload className="h-5 w-5 text-green-600" />
-                Quick Actions
-              </CardTitle>
-              <CardDescription>
-                Common tasks and shortcuts
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="relative">
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => setShowContentForm(true)}
-                  className="w-full justify-start bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Submit New Content
-                </Button>
-                <Link href="/tech/photos">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Camera className="h-4 w-4 mr-2" />
-                    Manage Photos
-                  </Button>
-                </Link>
-                <Link href="/tech/profile">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Star className="h-4 w-4 mr-2" />
-                    Update Profile
-                  </Button>
-                </Link>
-              </div>
-              
-              <div className="mt-6 p-3 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-lg border border-amber-200/20">
-                <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-1">📸 Photo Tips</h4>
-                <ul className="text-xs text-amber-600/80 dark:text-amber-400/80 space-y-1">
-                  <li>• Take clear, well-lit photos</li>
-                  <li>• Show your work in progress</li>
-                  <li>• Include before/after shots</li>
-                  <li>• Capture professional results</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </BlurFade>
       </div>
 
       {/* Submit Content Modal */}
@@ -1252,25 +1294,17 @@ function TechDashboardContent() {
             
             <div className="px-6 pb-6">
               <form onSubmit={handleSubmitContent} className="space-y-8 pt-6">
-                {/* Progress Steps */}
-                <div className="flex items-center justify-center space-x-4 mb-8">
-                  <div className={`flex items-center ${formStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 ${
-                      formStep >= 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-400 border-gray-300'
-                    }`}>
-                      1
-                    </div>
-                    <span className="ml-2 text-sm font-medium hidden sm:inline">Job Details</span>
+                {/* Form Header */}
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
                   </div>
-                  <div className={`w-8 h-0.5 ${formStep >= 2 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-                  <div className={`flex items-center ${formStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 ${
-                      formStep >= 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-400 border-gray-300'
-                    }`}>
-                      2
-                    </div>
-                    <span className="ml-2 text-sm font-medium hidden sm:inline">Customer Info</span>
-                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Submit Job Content</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Quick content submission - add customer info only if needed
+                  </p>
                 </div>
 
                 {/* Step 1: Job Details & Content */}
@@ -1372,85 +1406,69 @@ function TechDashboardContent() {
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
                 <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">🚗 Vehicle Information</h4>
                 
-                {/* VIN Section */}
+                {/* Year Selection */}
                 <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-md border border-blue-200 dark:border-blue-800">
-                  <Label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">VIN (Vehicle Identification Number)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      value={vin}
-                      onChange={(e) => {
-                        const value = e.target.value.toUpperCase();
-                        if (value.length <= 17) {
-                          setVin(value);
-                        }
-                      }}
-                      className="flex-1 font-mono"
-                      placeholder="Enter 17-character VIN"
-                      maxLength={17}
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => decodeVIN(vin)}
-                      disabled={vinLoading || vin.length !== 17}
-                      className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center gap-1 whitespace-nowrap"
-                      title="Decode VIN using NHTSA database"
-                    >
-                      {vinLoading ? (
-                        <>
-                          <span className="animate-spin">⏳</span>
-                          <span className="text-xs">Decoding...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>🔍</span>
-                          <span className="text-xs">Decode</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                    📱 Enter VIN and click "Decode" to auto-fill vehicle details from NHTSA database
-                  </p>
+                  <Label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Vehicle Year</Label>
+                  <select
+                    value={contentForm.vehicleYear}
+                    onChange={(e) => handleYearChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="">Select Year</option>
+                    {getYearOptions().map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Manual Entry Section */}
-                <div className="space-y-3">
-                  <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">Or enter manually:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <Label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Year</Label>
-                      <Input
-                        type="text"
-                        value={contentForm.vehicleYear}
-                        onChange={(e) => setContentForm(prev => ({ ...prev, vehicleYear: e.target.value }))}
-                        placeholder="e.g., 2023"
-                        maxLength={4}
-                      />
-                    </div>
-                    <div>
-                      <Label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Make</Label>
-                      <Input
-                        type="text"
-                        value={contentForm.vehicleMake}
-                        onChange={(e) => setContentForm(prev => ({ ...prev, vehicleMake: e.target.value }))}
-                        placeholder="e.g., Honda, Ford, Toyota"
-                      />
-                    </div>
-                    <div>
-                      <Label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Model</Label>
-                      <Input
-                        type="text"
-                        value={contentForm.vehicleModel}
-                        onChange={(e) => setContentForm(prev => ({ ...prev, vehicleModel: e.target.value }))}
-                        placeholder="e.g., Civic, F-150, Camry"
-                      />
-                    </div>
-                  </div>
+                {/* Make Selection */}
+                <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-md border border-blue-200 dark:border-blue-800">
+                  <Label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Vehicle Make</Label>
+                  <select
+                    value={contentForm.vehicleMake}
+                    onChange={(e) => handleMakeChange(e.target.value)}
+                    disabled={!contentForm.vehicleYear || loadingMakes}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {loadingMakes ? 'Loading makes...' : contentForm.vehicleYear ? 'Select Make' : 'Select year first'}
+                    </option>
+                    {vehicleMakes.map(make => (
+                      <option key={make} value={make}>{make}</option>
+                    ))}
+                  </select>
+                  {loadingMakes && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      ⏳ Loading available makes for {contentForm.vehicleYear}...
+                    </p>
+                  )}
                 </div>
-                
+
+                {/* Model Selection */}
+                <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-md border border-blue-200 dark:border-blue-800">
+                  <Label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Vehicle Model</Label>
+                  <select
+                    value={contentForm.vehicleModel}
+                    onChange={(e) => setContentForm(prev => ({ ...prev, vehicleModel: e.target.value }))}
+                    disabled={!contentForm.vehicleMake || loadingModels}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {loadingModels ? 'Loading models...' : contentForm.vehicleMake ? 'Select Model' : 'Select make first'}
+                    </option>
+                    {vehicleModels.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                  {loadingModels && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      ⏳ Loading available models for {contentForm.vehicleYear} {contentForm.vehicleMake}...
+                    </p>
+                  )}
+                </div>
+
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-3">
-                  💡 VIN decoding uses official NHTSA database for accurate vehicle information
+                  💡 Vehicle data from official NHTSA database for accurate information
                 </p>
               </div>
             )}
@@ -1607,33 +1625,7 @@ function TechDashboardContent() {
                   </div>
                   
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Service Summary *</Label>
-                      <Button
-                        type="button"
-                        onClick={generateAISummary}
-                        disabled={aiGenerating || !contentForm.service || !contentForm.category}
-                        className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 disabled:text-gray-500 text-white rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium"
-                        title="Generate AI marketing summary using form data"
-                      >
-                        {aiGenerating ? (
-                          <>
-                            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            AI Generate
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Service Summary *</Label>
                     
                     <Textarea
                       value={contentForm.description}
@@ -1643,16 +1635,84 @@ function TechDashboardContent() {
                       placeholder="Describe the service provided, challenges encountered, work performed, tools used, resolution details, or any technical notes..."
                       required
                     />
-                    
-                    {!aiGenerating && (contentForm.service && contentForm.category) && (
-                      <div className="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800/30 rounded-lg p-3">
-                        <div className="flex gap-2">
-                          <svg className="w-4 h-4 text-violet-600 dark:text-violet-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <p className="text-xs text-violet-700 dark:text-violet-300">
-                            Add your technical notes above, then click "AI Generate" to create a professional service report for marketing use.
-                          </p>
+                  </div>
+
+                  {/* Customer Information Checkbox */}
+                  <div className="space-y-4 pt-6 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex items-start space-x-3">
+                      <input
+                        type="checkbox"
+                        id="includeCustomerInfo"
+                        checked={showCustomerInfo}
+                        onChange={(e) => setShowCustomerInfo(e.target.checked)}
+                        className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="includeCustomerInfo" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                          📋 Add customer information & consent
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Include customer details and marketing permission for follow-up opportunities
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Customer Information Fields - Conditionally Shown */}
+                    {showCustomerInfo && (
+                      <div className="space-y-4 pl-8 border-l-2 border-blue-100 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/10 p-4 rounded-lg">
+                        {/* Customer Permission Checkbox */}
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                          <label className="flex items-start space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={contentForm.customerPermission}
+                              onChange={(e) => setContentForm(prev => ({ ...prev, customerPermission: e.target.checked }))}
+                              className="mt-1 h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                            />
+                            <div>
+                              <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                                ✅ Customer has given permission to use photos and information for marketing purposes
+                              </div>
+                              <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                                This includes permission to create social media posts, case studies, and promotional materials showcasing the completed work.
+                              </p>
+                            </div>
+                          </label>
+                        </div>
+
+                        {/* Customer Contact Information */}
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-white">Customer Contact Details</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Customer Name</Label>
+                              <Input
+                                value={contentForm.customerName}
+                                onChange={(e) => setContentForm(prev => ({ ...prev, customerName: e.target.value }))}
+                                placeholder="Enter customer name"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Phone Number</Label>
+                              <Input
+                                value={contentForm.customerPhone}
+                                onChange={(e) => setContentForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                                placeholder="(555) 123-4567"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Email Address</Label>
+                              <Input
+                                type="email"
+                                value={contentForm.customerEmail}
+                                onChange={(e) => setContentForm(prev => ({ ...prev, customerEmail: e.target.value }))}
+                                placeholder="customer@example.com"
+                                className="text-sm"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1678,149 +1738,17 @@ function TechDashboardContent() {
                         </Button>
                         <Button
                           type="button"
-                          onClick={() => {
-                            if (contentForm.category && contentForm.service && contentForm.description) {
-                              setFormStep(2);
-                            }
-                          }}
+                          onClick={handleSubmitContent}
                           disabled={!contentForm.category || !contentForm.service || !contentForm.description}
-                          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 text-white rounded-lg transition-colors font-medium"
+                          className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:text-gray-500 text-white rounded-lg transition-colors font-medium"
                         >
-                          Continue to Customer Info
+                          📸 Submit Content
                         </Button>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Step 2: Customer Information & Consent */}
-                {formStep === 2 && (
-                  <div className="space-y-6">
-                    <div className="text-center">
-                      <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Customer Information & Marketing Consent</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-                        Get customer consent and contact details for follow-up opportunities, reviews, and future service communications.
-                      </p>
-                    </div>
-
-                    {/* Customer Permission */}
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                      <label className="flex items-start space-x-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={contentForm.customerPermission}
-                          onChange={(e) => setContentForm(prev => ({ ...prev, customerPermission: e.target.checked }))}
-                          className="mt-1 h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                        />
-                        <div>
-                          <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                            ✅ Customer has given permission to use photos and information for marketing purposes
-                          </div>
-                          <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                            This includes permission to create social media posts, case studies, and promotional materials showcasing the completed work. Content can be saved without consent but cannot be published without explicit permission.
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-
-                    {/* Customer Contact Information */}
-                    <div className="space-y-4">
-                      <h4 className="text-md font-medium text-gray-900 dark:text-white">Customer Contact Details</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Customer Name</Label>
-                          <Input
-                            type="text"
-                            value={contentForm.customerName || ''}
-                            onChange={(e) => setContentForm(prev => ({ ...prev, customerName: e.target.value }))}
-                            placeholder="Full name"
-                            className="w-full"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Phone Number</Label>
-                          <Input
-                            type="tel"
-                            value={contentForm.customerPhone || ''}
-                            onChange={(e) => setContentForm(prev => ({ ...prev, customerPhone: e.target.value }))}
-                            placeholder="(555) 123-4567"
-                            className="w-full"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Email Address</Label>
-                          <Input
-                            type="email"
-                            value={contentForm.customerEmail || ''}
-                            onChange={(e) => setContentForm(prev => ({ ...prev, customerEmail: e.target.value }))}
-                            placeholder="customer@email.com"
-                            className="w-full"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Preferred Contact Method</Label>
-                          <select
-                            value={contentForm.preferredContact || 'phone'}
-                            onChange={(e) => setContentForm(prev => ({ ...prev, preferredContact: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          >
-                            <option value="phone">Phone Call</option>
-                            <option value="text">Text Message</option>
-                            <option value="email">Email</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-start space-x-2">
-                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div>
-                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">Follow-up Opportunities</p>
-                          <p className="text-xs text-blue-700 dark:text-blue-300">
-                            This information enables franchisees to send personalized service reports, request reviews, offer maintenance reminders, and provide exceptional customer service. All data is kept confidential and used only for legitimate business purposes.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Form Actions for Step 2 */}
-                    <div className="flex justify-between space-x-3 pt-8 border-t border-gray-100 dark:border-gray-800">
-                      <Button
-                        type="button"
-                        onClick={() => setFormStep(1)}
-                        variant="outline"
-                        className="px-6 py-2 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                      >
-                        Back to Job Details
-                      </Button>
-                      <div className="flex space-x-3">
-                        <Button
-                          type="submit"
-                          className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors font-medium"
-                        >
-                          Save as Draft
-                        </Button>
-                        <Button
-                          type="submit"
-                          className="px-8 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {contentForm.customerPermission ? 'Submit for Publishing' : 'Submit as Draft'}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </form>
             </div>
           </div>

@@ -5,6 +5,7 @@ interface TechSession {
   name: string;
   email: string;
   phone: string;
+  avatar_url?: string;
   franchisee: {
     id: string;
     business_name: string;

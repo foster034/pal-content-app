@@ -3,7 +3,7 @@ import { createServerComponentClient } from '@/lib/supabase-server';
 
 const DEFAULT_SETTINGS = {
   imageType: 'static',
-  staticImageUrl: '/login-image.jpg',
+  staticImageUrl: '/PAL-Canada-social.png',
   showLatestJobs: false,
   jobPhotoCount: 5,
   // Text customization

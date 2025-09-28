@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { LogoProvider } from "@/contexts/logo-context";
 import { Toaster } from "sonner";
+import PWAInstall from "@/components/PWAInstall";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,6 +68,7 @@ export default function RootLayout({
           <LogoProvider>
             {children}
             <Toaster richColors />
+            <PWAInstall />
           </LogoProvider>
         </ThemeProvider>
       </body>

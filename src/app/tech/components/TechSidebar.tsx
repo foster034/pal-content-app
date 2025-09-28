@@ -38,12 +38,36 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
 
       // If authenticated via tech session, use that info
       if (techSession) {
-        setUserProfile({
-          email: techSession.email || 'Tech User',
-          full_name: techSession.name || 'Technician',
-          role: 'tech',
-          avatar_url: null
-        });
+        // Try to fetch full profile data from tech-profile API
+        try {
+          const response = await fetch(`/api/tech-profile?techId=${techSession.id}`);
+          if (response.ok) {
+            const profileData = await response.json();
+            setUserProfile({
+              email: profileData.email || techSession.email || 'Tech User',
+              full_name: profileData.full_name || techSession.name || 'Technician',
+              role: 'tech',
+              avatar_url: techSession.avatar_url || profileData.avatar_url || null
+            });
+          } else {
+            // Fallback to session data
+            setUserProfile({
+              email: techSession.email || 'Tech User',
+              full_name: techSession.name || 'Technician',
+              role: 'tech',
+              avatar_url: techSession.avatar_url || null
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching tech profile:', error);
+          // Fallback to session data
+          setUserProfile({
+            email: techSession.email || 'Tech User',
+            full_name: techSession.name || 'Technician',
+            role: 'tech',
+            avatar_url: techSession.avatar_url || null
+          });
+        }
       } else {
         // Otherwise check if regular auth
         const { data: { user } } = await supabase.auth.getUser();
@@ -70,8 +94,15 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
     const handleStorageChange = () => checkAuth();
     window.addEventListener('storage', handleStorageChange);
 
+    // Listen for profile updates (when user saves profile changes)
+    const handleProfileUpdate = () => {
+      setTimeout(() => checkAuth(), 100); // Small delay to ensure localStorage is updated
+    };
+    window.addEventListener('tech-profile-updated', handleProfileUpdate);
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('tech-profile-updated', handleProfileUpdate);
     };
   }, [supabase]);
 
@@ -99,13 +130,6 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
       href: `/tech/${techId}`,
       icon: (
         <IconFileText className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-      ),
-    }] : []),
-    ...(isAuthenticated ? [{
-      label: "Profile & Settings",
-      href: "/tech/profile",
-      icon: (
-        <IconSettings className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     }] : []),
   ];
@@ -155,29 +179,31 @@ export function TechSidebar({ children }: { children: React.ReactNode }) {
           </div>
           <div className="mt-auto space-y-4">
             {userProfile && (
-              <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-neutral-700/50">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={userProfile.avatar_url} />
-                  <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white">
-                    {userProfile.full_name?.charAt(0) || userProfile.email?.charAt(0) || 'T'}
-                  </AvatarFallback>
-                </Avatar>
-                {open && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {userProfile.full_name}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {userProfile.email}
+              <Link href="/tech/profile">
+                <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-neutral-700/50 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={userProfile.avatar_url} />
+                    <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white">
+                      {userProfile.full_name?.charAt(0) || userProfile.email?.charAt(0) || 'T'}
+                    </AvatarFallback>
+                  </Avatar>
+                  {open && (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {userProfile.full_name}
                       </p>
-                      <Badge variant="secondary" className="text-xs px-1 py-0">
-                        {userProfile.role}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {userProfile.email}
+                        </p>
+                        <Badge variant="secondary" className="text-xs px-1 py-0">
+                          {userProfile.role}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              </Link>
             )}
             {isAuthenticated ? (
               <TechLogoutButton variant="ghost" className="w-full justify-start" />

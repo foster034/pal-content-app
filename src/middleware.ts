@@ -35,7 +35,15 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/auth/login', '/auth/signup', '/auth/callback', '/tech/login', '/tech-auth', '/tech/setup', '/job-report', '/api/job-submissions', '/api/test-db', '/api/tech-auth', '/api/login-settings', '/api/magic-links', '/api/consent', '/api/privacy-policy']
+  const publicRoutes = [
+    '/auth/login', '/auth/signup', '/auth/callback', '/tech/login', '/tech-auth', '/tech/setup',
+    '/job-report', '/api/job-submissions', '/api/test-db', '/api/tech-auth', '/api/login-settings',
+    '/api/magic-links', '/api/consent', '/api/privacy-policy', '/api/generate-summary', '/api/media-archive',
+    '/api/tech-photos', '/api/testimonials', '/api/franchisees', '/api/technicians', '/api/franchisee-photos',
+    '/api/google-my-business', '/api/generated-content', '/api/marketing-content', '/api/ai-marketing',
+    '/api/job-reports', '/api/tts', '/api/twilio', '/api/profile', '/api/tech-profile', '/api/update-job-ai-report',
+    '/api/generate-job-report', '/api/debug-technicians', '/api/migrate-ai-columns', '/api/upload-avatar', '/api/upload-job-photos'
+  ]
   const isPublicRoute = publicRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   )
@@ -68,9 +76,14 @@ export async function middleware(request: NextRequest) {
       .eq('id', session.user.id)
       .single()
 
-    // If user has tech role or admin role in profiles, allow access
-    if (profile && (profile.role === 'tech' || profile.role === 'admin')) {
+    // If user has tech role in profiles, allow access
+    if (profile && profile.role === 'tech') {
       return response
+    }
+
+    // If admin tries to access tech routes, redirect to admin dashboard
+    if (profile && profile.role === 'admin') {
+      return NextResponse.redirect(new URL('/admin', request.url))
     }
 
     // If no tech or admin role, redirect to appropriate page

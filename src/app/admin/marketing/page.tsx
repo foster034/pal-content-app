@@ -25,6 +25,8 @@ interface ArchivedMedia {
   category: 'Before' | 'After' | 'Process' | 'Tools' | 'Documentation';
   notes?: string;
   archived: boolean;
+  aiReport?: string;
+  aiReportGeneratedAt?: string;
 }
 
 const initialArchivedMedia: ArchivedMedia[] = [
@@ -346,6 +348,8 @@ export default function MediaArchivePage() {
   const handleCreateMarketingPost = async () => {
     if (!selectedMedia || !generatedContent || !selectedPlatform) {
       console.warn('Missing required data for creating marketing post');
+      setCopySuccess('Missing required data ❌');
+      setTimeout(() => setCopySuccess(''), 3000);
       return;
     }
 
@@ -358,28 +362,39 @@ export default function MediaArchivePage() {
         'Generated marketing content'
       );
 
-      if (savedContent?.data) {
-        // Create marketing content for scheduling
-        const marketingContent = await createMarketingContent(
-          savedContent.data.id,
-          selectedMedia,
-          generatedContent,
-          selectedPlatform
-        );
-
-        if (marketingContent?.success) {
-          // Show success message and close modals
-          setCopySuccess('Sent to Marketing Dashboard! 🎉');
-          setTimeout(() => {
-            setShowPreviewModal(false);
-            closeAIMarketing();
-            setCopySuccess('');
-          }, 2000);
-        }
+      if (!savedContent?.data) {
+        console.warn('Failed to save generated content - database table may not exist');
+        setCopySuccess('Database setup required - check console for instructions ❌');
+        setTimeout(() => setCopySuccess(''), 5000);
+        return;
       }
+
+      // Create marketing content for scheduling
+      const marketingContent = await createMarketingContent(
+        savedContent.data.id,
+        selectedMedia,
+        generatedContent,
+        selectedPlatform
+      );
+
+      if (!marketingContent?.success) {
+        console.warn('Failed to create marketing content');
+        setCopySuccess('Marketing content creation failed ❌');
+        setTimeout(() => setCopySuccess(''), 3000);
+        return;
+      }
+
+      // Show success message and close modals
+      setCopySuccess('Sent to Marketing Dashboard! 🎉');
+      setTimeout(() => {
+        setShowPreviewModal(false);
+        closeAIMarketing();
+        setCopySuccess('');
+      }, 2000);
+
     } catch (error) {
       console.error('Error creating marketing post:', error);
-      setCopySuccess('Error creating post ❌');
+      setCopySuccess('Unexpected error occurred ❌');
       setTimeout(() => setCopySuccess(''), 3000);
     }
   };
@@ -1476,18 +1491,36 @@ export default function MediaArchivePage() {
                       </div>
                     </div>
 
-                    {/* View Original Button */}
-                    <div className="flex justify-center pt-4">
-                      <button
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200 shadow-sm border border-gray-200"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        View Original
-                      </button>
-                    </div>
+                    {/* AI Job Report */}
+                    {selectedMedia.aiReport && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                            </svg>
+                          </div>
+                          <h4 className="text-base font-semibold text-gray-900">AI Job Report</h4>
+                          {selectedMedia.aiReportGeneratedAt && (
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                              Generated {new Date(selectedMedia.aiReportGeneratedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200/50 max-h-80 overflow-y-auto">
+                          <div className="prose prose-sm max-w-none">
+                            {selectedMedia.aiReport.split('\n').map((paragraph, index) => (
+                              paragraph.trim() && (
+                                <p key={index} className="text-gray-700 leading-relaxed mb-2 last:mb-0 text-sm">
+                                  {paragraph.trim()}
+                                </p>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
 
                   {/* Footer Actions */}
@@ -1590,158 +1623,183 @@ export default function MediaArchivePage() {
             {/* Simple Form Interface */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-4xl mx-auto">
-                {/* Content Generation Form */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 mb-6">
-                  <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">AI Content Generator</h3>
-                    <p className="text-gray-600 dark:text-gray-400">Generate professional social media content for your locksmith services</p>
-                  </div>
+                {/* Remote-style Split Layout */}
+                <div className="bg-white rounded-2xl overflow-hidden shadow-xl max-w-5xl mx-auto">
+                  <div className="flex min-h-[600px]">
+                    {/* Left Brand Side - Purple/Blue like Remote */}
+                    <div className="w-2/5 bg-gradient-to-br from-purple-600 to-blue-600 p-8 flex flex-col justify-center text-white relative overflow-hidden">
+                      {/* Decorative background pattern */}
+                      <div className="absolute bottom-0 left-0 w-full h-32 opacity-10">
+                        <svg viewBox="0 0 200 200" className="w-full h-full">
+                          <defs>
+                            <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                              <circle cx="10" cy="10" r="3" fill="currentColor" />
+                            </pattern>
+                          </defs>
+                          <rect width="200" height="200" fill="url(#dots)" />
+                        </svg>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    {/* Social Platform */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                        🎯 Social Platform
-                      </label>
-                      <select
-                        value={selectedPlatform}
-                        onChange={(e) => setSelectedPlatform(e.target.value)}
-                        className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-xl px-4 py-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all font-medium"
-                      >
-                        <option value="">Choose platform...</option>
-                        <option value="instagram">📱 Instagram</option>
-                        <option value="facebook">👥 Facebook</option>
-                        <option value="linkedin">💼 LinkedIn</option>
-                        <option value="tiktok">🎵 TikTok</option>
-                        <option value="twitter">🐦 Twitter/X</option>
-                        <option value="youtube">📺 YouTube</option>
-                        <option value="pinterest">📌 Pinterest</option>
-                        <option value="google-business">🏢 Google My Business</option>
-                      </select>
+                      <div className="relative z-10">
+                        <div className="mb-6">
+                          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        <h2 className="text-2xl font-bold mb-4">Generate AI Content</h2>
+                        <p className="text-white/90 mb-6">
+                          Creating professional social media content is complex. Our AI makes it simple.
+                        </p>
+
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                            <span className="text-white/80">Platform-specific optimization</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                            <span className="text-white/80">Locksmith industry expertise</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                            <span className="text-white/80">Engaging content templates</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    
-                    {/* Content Type */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                        📝 Content Type
-                      </label>
-                      <select
-                        value={selectedPostType}
-                        onChange={(e) => setSelectedPostType(e.target.value)}
-                        className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-xl px-4 py-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all font-medium"
-                      >
-                        <option value="">Choose content type...</option>
-                        <option value="success-story">🏆 Success Story</option>
-                        <option value="educational">📚 Educational Content</option>
-                        <option value="behind-scenes">🎬 Behind the Scenes</option>
-                        <option value="testimonial">⭐ Customer Testimonial</option>
-                        <option value="tips-tricks">💡 Tips & Tricks</option>
-                        <option value="tools-showcase">🔧 Tools Showcase</option>
-                        <option value="before-after">📸 Before & After</option>
-                        <option value="promotional">📢 Promotional</option>
-                      </select>
+
+                    {/* Right Form Side - Clean White */}
+                    <div className="w-3/5 p-8 flex flex-col justify-center">
+                      <div className="max-w-md mx-auto w-full">
+                        <div className="mb-8">
+                          <h3 className="text-2xl font-semibold text-gray-900 mb-2">Create Content ✨</h3>
+                          <p className="text-gray-600">Generate professional social media posts for your locksmith business.</p>
+                        </div>
+
+                        <div className="space-y-6">
+                          {/* Platform Selection */}
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-2">Social Platform</label>
+                            <select
+                              value={selectedPlatform}
+                              onChange={(e) => setSelectedPlatform(e.target.value)}
+                              className="w-full h-12 border border-gray-300 rounded-xl px-4 bg-white text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                            >
+                              <option value="">Select platform</option>
+                              <option value="instagram">Instagram</option>
+                              <option value="facebook">Facebook</option>
+                              <option value="linkedin">LinkedIn</option>
+                              <option value="tiktok">TikTok</option>
+                              <option value="twitter">Twitter/X</option>
+                              <option value="youtube">YouTube</option>
+                              <option value="pinterest">Pinterest</option>
+                              <option value="google-business">Google My Business</option>
+                            </select>
+                          </div>
+
+                          {/* Content Type Selection */}
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-2">Content Type</label>
+                            <select
+                              value={selectedPostType}
+                              onChange={(e) => setSelectedPostType(e.target.value)}
+                              className="w-full h-12 border border-gray-300 rounded-xl px-4 bg-white text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                            >
+                              <option value="">Select content type</option>
+                              <option value="success-story">Success Story</option>
+                              <option value="educational">Educational Content</option>
+                              <option value="behind-scenes">Behind the Scenes</option>
+                              <option value="testimonial">Customer Testimonial</option>
+                              <option value="tips-tricks">Tips & Tricks</option>
+                              <option value="tools-showcase">Tools Showcase</option>
+                              <option value="before-after">Before & After</option>
+                              <option value="promotional">Promotional</option>
+                            </select>
+                          </div>
+
+                          {/* Generate Button - Remote Blue Style */}
+                          <Button
+                            onClick={() => {
+                              if (selectedPlatform && selectedPostType) {
+                                const platformNames = {
+                                  instagram: 'Instagram',
+                                  facebook: 'Facebook',
+                                  linkedin: 'LinkedIn',
+                                  tiktok: 'TikTok',
+                                  twitter: 'Twitter/X',
+                                  youtube: 'YouTube',
+                                  pinterest: 'Pinterest',
+                                  'google-business': 'Google My Business'
+                                };
+                                const postTypeNames = {
+                                  'success-story': 'success story',
+                                  'educational': 'educational content',
+                                  'behind-scenes': 'behind the scenes content',
+                                  'testimonial': 'customer testimonial style',
+                                  'tips-tricks': 'tips and tricks',
+                                  'tools-showcase': 'tools showcase',
+                                  'before-after': 'before and after showcase',
+                                  'promotional': 'promotional content'
+                                };
+                                sendMessageToAI(`Create a ${postTypeNames[selectedPostType as keyof typeof postTypeNames]} post for ${platformNames[selectedPlatform as keyof typeof platformNames]}`);
+                              }
+                            }}
+                            disabled={!selectedPlatform || !selectedPostType}
+                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all"
+                          >
+                            Generate Content
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  
-                  {/* Generate Button */}
-                  <Button 
-                    onClick={() => {
-                      if (selectedPlatform && selectedPostType) {
-                        const platformNames = {
-                          instagram: 'Instagram',
-                          facebook: 'Facebook', 
-                          linkedin: 'LinkedIn',
-                          tiktok: 'TikTok',
-                          twitter: 'Twitter/X',
-                          youtube: 'YouTube',
-                          pinterest: 'Pinterest',
-                          'google-business': 'Google My Business'
-                        };
-                        const postTypeNames = {
-                          'success-story': 'success story',
-                          'educational': 'educational content',
-                          'behind-scenes': 'behind the scenes content',
-                          'testimonial': 'customer testimonial style',
-                          'tips-tricks': 'tips and tricks',
-                          'tools-showcase': 'tools showcase',
-                          'before-after': 'before and after showcase',
-                          'promotional': 'promotional content'
-                        };
-                        sendMessageToAI(`Create a ${postTypeNames[selectedPostType as keyof typeof postTypeNames]} post for ${platformNames[selectedPlatform as keyof typeof platformNames]}`);
-                      }
-                    }}
-                    disabled={!selectedPlatform || !selectedPostType}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl text-lg"
-                  >
-                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    Generate Content
-                  </Button>
                 </div>
 
-                {/* Generated Content Display */}
+                {/* Generated Content Display - Remote Style */}
                 {generatedContent && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
+                  <div className="bg-white rounded-2xl shadow-xl max-w-5xl mx-auto mt-8">
+                    <div className="p-8">
+                      <div className="flex items-center justify-between mb-6">
                         <div>
-                          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Content Generated!</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                          <h3 className="text-xl font-semibold text-gray-900">Content Generated ✨</h3>
+                          <p className="text-gray-600 mt-1">
                             {selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1)} • {selectedPostType.split('-').join(' ')}
                           </p>
                         </div>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => copyToClipboard(generatedContent)}
+                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                          >
+                            {copySuccess || 'Copy'}
+                          </button>
+                          <button
+                            onClick={() => setShowPreviewModal(true)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+                          >
+                            Preview
+                          </button>
+                          <button
+                            onClick={() => {
+                              setGeneratedContent('');
+                              setSelectedPlatform('');
+                              setSelectedPostType('');
+                              setAiConversation([]);
+                            }}
+                            className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                          >
+                            New
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => copyToClipboard(generatedContent)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                          {copySuccess || 'Copy'}
-                        </button>
-                        <button
-                          onClick={() => setShowPreviewModal(true)}
-                          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors flex items-center gap-2 font-medium"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          Preview
-                        </button>
-                        <button
-                          onClick={() => {
-                            setGeneratedContent('');
-                            setSelectedPlatform('');
-                            setSelectedPostType('');
-                            setAiConversation([]);
-                          }}
-                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 font-medium"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          New
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-                      <div className="whitespace-pre-line text-gray-900 dark:text-white leading-relaxed">
-                        {generatedContent}
+
+                      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                        <div className="whitespace-pre-line text-gray-900 leading-relaxed">
+                          {generatedContent}
+                        </div>
                       </div>
                     </div>
                   </div>

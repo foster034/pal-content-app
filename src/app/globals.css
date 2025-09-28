@@ -123,8 +123,47 @@ body {
   }
 }
 
-/* Hide any avatar fallback elements or floating "N" circles */
+/* Mobile touch and responsive improvements */
 @layer utilities {
+  /* Mobile touch optimization */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Ensure proper touch targets on mobile */
+  @media (max-width: 768px) {
+    button,
+    a,
+    [role="button"],
+    .cursor-pointer {
+      min-height: 44px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Prevent 300ms tap delay on mobile */
+    * {
+      touch-action: manipulation;
+    }
+
+    /* Improve mobile scrolling */
+    .overflow-y-auto,
+    .overflow-auto {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Fix iOS zoom on input focus */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+
+  /* Hide any avatar fallback elements or floating "N" circles */
   /* Hide common avatar fallback patterns */
   [data-avatar-fallback],
   [class*="avatar-fallback"],
@@ -134,7 +173,7 @@ body {
     visibility: hidden !important;
     opacity: 0 !important;
   }
-  
+
   /* Hide elements with common single-letter avatar patterns */
   .rounded-full.bg-gray-800:is([class*="w-7"], [class*="w-8"], [class*="h-7"], [class*="h-8"]),
   .rounded-full.bg-neutral-800:is([class*="w-7"], [class*="w-8"], [class*="h-7"], [class*="h-8"]),
@@ -142,7 +181,7 @@ body {
   .rounded-full.bg-zinc-800:is([class*="w-7"], [class*="w-8"], [class*="h-7"], [class*="h-8"]) {
     display: none !important;
   }
-  
+
   /* Hide small circular elements that are likely avatar fallbacks */
   div[style*="width: 28px"][style*="height: 28px"][style*="border-radius"],
   div[style*="width: 32px"][style*="height: 32px"][style*="border-radius"],

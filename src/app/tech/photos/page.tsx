@@ -21,20 +21,18 @@ import JobSubmissionForm from '@/components/JobSubmissionForm';
 import { useTable } from '@/contexts/table-context';
 import ImageModal from '@/components/ImageModal';
 
-interface TechPhoto {
+interface JobSubmissionDisplay {
   id: string;
-  photoUrl: string;
+  photos: string[];
   jobType: 'Commercial' | 'Residential' | 'Automotive' | 'Roadside';
   jobDescription: string;
   dateUploaded: string;
   jobLocation: string;
   tags: string[];
-  franchiseeApproved: boolean;
-  adminOverride?: boolean;
   technicianName?: string;
-  photoStatus?: 'pending' | 'approved' | 'denied' | 'flagged';
-  reviewNotes?: string;
-  reviewedAt?: string;
+  photoCount: number;
+  aiReport?: string;
+  aiReportGeneratedAt?: string;
 }
 
 const serviceCategories: { [key: string]: string[] } = {
@@ -84,16 +82,16 @@ export default function TechPhotosPage() {
   const router = useRouter();
   const { getTableClasses } = useTable();
   const tableClasses = getTableClasses();
-  const [photos, setPhotos] = useState<TechPhoto[]>([]);
+  const [jobs, setJobs] = useState<JobSubmissionDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
-  const [selectedApprovalStatus, setSelectedApprovalStatus] = useState<string>('All');
-  const [photoStatuses, setPhotoStatuses] = useState<{ [key: string]: any }>({});
-  const [editingPhoto, setEditingPhoto] = useState<TechPhoto | null>(null);
-  const [viewingPhoto, setViewingPhoto] = useState<TechPhoto | null>(null);
-  const [editForm, setEditForm] = useState<Partial<TechPhoto>>({});
+  const [editingJob, setEditingJob] = useState<JobSubmissionDisplay | null>(null);
+  const [viewingJob, setViewingJob] = useState<JobSubmissionDisplay | null>(null);
+  const [selectedImageModal, setSelectedImageModal] = useState<{ imageUrl: string; jobDetails: any; } | null>(null);
+  const [editForm, setEditForm] = useState<Partial<JobSubmissionDisplay>>({});
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pollingIntervals, setPollingIntervals] = useState<Map<string, NodeJS.Timeout>>(new Map());
   const [jobForm, setJobForm] = useState({
     category: '',
     service: '',
@@ -109,7 +107,7 @@ export default function TechPhotosPage() {
 
   // Fetch job submissions and transform them into photos
   useEffect(() => {
-    const fetchJobSubmissionsAndStatuses = async () => {
+    const fetchJobSubmissions = async () => {
       try {
         setLoading(true);
 
@@ -121,57 +119,37 @@ export default function TechPhotosPage() {
 
         const jobSubmissions = await response.json();
 
-        // Fetch photo statuses from franchisee_photos table
-        const statusResponse = await fetch('/api/franchisee-photos?technicianId=52e1e11e-3200-4ae5-ab8e-60722788ec51');
-        let photoStatusMap: { [key: string]: any } = {};
 
-        if (statusResponse.ok) {
-          const photoStatuses = await statusResponse.json();
-          setPhotoStatuses(photoStatuses);
-
-          // Create a map for quick lookup
-          photoStatuses.forEach((status: any) => {
-            const key = `${status.job_submission_id}-${status.photo_url}`;
-            photoStatusMap[key] = status;
-          });
-        }
-
-        // Transform job submissions into TechPhoto format
-        const transformedPhotos: TechPhoto[] = [];
+        // Transform job submissions into JobSubmissionDisplay format (grouped by job)
+        const transformedJobs: JobSubmissionDisplay[] = [];
 
         jobSubmissions.forEach((job: any) => {
           // Extract all photos from the job submission
           const allPhotos = [
-            ...(job.media.beforePhotos || []).map((url: string) => ({ url, type: 'before' })),
-            ...(job.media.afterPhotos || []).map((url: string) => ({ url, type: 'after' })),
-            ...(job.media.processPhotos || []).map((url: string) => ({ url, type: 'process' }))
-          ];
+            ...(job.media.beforePhotos || []),
+            ...(job.media.afterPhotos || []),
+            ...(job.media.processPhotos || [])
+          ].filter(url => url && url.trim());
 
-          allPhotos.forEach((photo: any, index: number) => {
-            if (photo.url && photo.url.trim()) {
-              const photoKey = `${job.id}-${photo.url}`;
-              const statusData = photoStatusMap[photoKey];
-
-              transformedPhotos.push({
-                id: `${job.id}__${index}`,
-                photoUrl: photo.url,
-                jobType: job.service.category as TechPhoto['jobType'],
-                jobDescription: job.service.description || `${job.service.type} - ${job.service.category}`,
-                dateUploaded: new Date(job.submittedAt).toLocaleDateString(),
-                jobLocation: job.service.location,
-                tags: [job.service.type, job.service.category, photo.type].filter(Boolean),
-                franchiseeApproved: job.status === 'approved',
-                adminOverride: job.status === 'admin_approved',
-                technicianName: job.technician.name,
-                photoStatus: statusData?.status || 'pending',
-                reviewNotes: statusData?.review_notes,
-                reviewedAt: statusData?.reviewed_at
-              });
-            }
-          });
+          // Only show jobs that have photos
+          if (allPhotos.length > 0) {
+            transformedJobs.push({
+              id: job.id,
+              photos: allPhotos,
+              jobType: job.service.category as JobSubmissionDisplay['jobType'],
+              jobDescription: job.service.description || `${job.service.type} - ${job.service.category}`,
+              dateUploaded: new Date(job.submittedAt).toLocaleDateString(),
+              jobLocation: job.service.location,
+              tags: [job.service.type, job.service.category].filter(Boolean),
+              technicianName: job.technician.name,
+              photoCount: allPhotos.length,
+              aiReport: job.aiReport,
+              aiReportGeneratedAt: job.aiReportGeneratedAt
+            });
+          }
         });
 
-        setPhotos(transformedPhotos);
+        setJobs(transformedJobs);
       } catch (error) {
         console.error('Error fetching job submissions:', error);
       } finally {
@@ -179,41 +157,84 @@ export default function TechPhotosPage() {
       }
     };
 
-    fetchJobSubmissionsAndStatuses();
+    fetchJobSubmissions();
   }, []);
 
-  const filteredPhotos = useMemo(() => {
-    return photos.filter(photo => {
-      if (selectedJobType !== 'All' && photo.jobType !== selectedJobType) return false;
-      if (selectedApprovalStatus !== 'All') {
-        if (selectedApprovalStatus === 'Franchisee Approved' && !photo.franchiseeApproved) return false;
-        if (selectedApprovalStatus === 'Franchisee Denied' && photo.franchiseeApproved) return false;
-        if (selectedApprovalStatus === 'Admin Override' && !photo.adminOverride) return false;
+  // Function to poll for AI report updates
+  const pollForAIReport = async (jobId: string) => {
+    try {
+      const response = await fetch('/api/job-submissions');
+      if (response.ok) {
+        const data = await response.json();
+        const updatedJob = data.find((job: any) => job.id === jobId);
+
+        if (updatedJob && updatedJob.aiReport) {
+          // Update the job in state with the AI report
+          setJobs(prevJobs => prevJobs.map(job => {
+            if (job.id === jobId) {
+              return {
+                ...job,
+                aiReport: updatedJob.aiReport,
+                aiReportGeneratedAt: updatedJob.aiReportGeneratedAt
+              };
+            }
+            return job;
+          }));
+
+          // Update the modal if it's currently showing this job
+          if (selectedImageModal && selectedImageModal.jobDetails.id === jobId) {
+            setSelectedImageModal(prev => prev ? {
+              ...prev,
+              jobDetails: {
+                ...prev.jobDetails,
+                aiReport: updatedJob.aiReport,
+                aiReportGeneratedAt: updatedJob.aiReportGeneratedAt
+              }
+            } : null);
+          }
+
+          // Clear the polling interval for this job
+          const interval = pollingIntervals.get(jobId);
+          if (interval) {
+            clearInterval(interval);
+            setPollingIntervals(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(jobId);
+              return newMap;
+            });
+          }
+        }
       }
+    } catch (error) {
+      console.error('Error polling for AI report:', error);
+    }
+  };
+
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    return () => {
+      pollingIntervals.forEach(interval => clearInterval(interval));
+    };
+  }, [pollingIntervals]);
+
+  const filteredJobs = useMemo(() => {
+    return jobs.filter(job => {
+      if (selectedJobType !== 'All' && job.jobType !== selectedJobType) return false;
       return true;
     });
-  }, [photos, selectedJobType, selectedApprovalStatus]);
+  }, [jobs, selectedJobType]);
 
-  const deletePhoto = async (photoId: string) => {
+  const deleteJob = async (jobId: string) => {
     try {
-      // Find the photo to check if it can be deleted
-      const photo = photos.find(p => p.id === photoId);
-      if (!photo) {
-        alert('Photo not found');
+      // Find the job to check if it can be deleted
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) {
+        alert('Job not found');
         return;
       }
-
-      // Check if the photo can be deleted
-      if (!canDeletePhoto(photo)) {
-        alert('Cannot delete this job submission. Once a job has been reviewed or approved by your franchisee, it cannot be deleted. Only pending jobs can be removed.');
-        return;
-      }
-
-      // Extract job ID from photo ID (format: jobId__photoIndex)
-      const jobId = photoId.split('__')[0];
 
       // Show confirmation dialog
-      if (!confirm('Are you sure you want to delete this job submission? This will remove all photos associated with this job.')) {
+      if (!confirm(`Are you sure you want to delete this job submission? This will remove all ${job.photoCount} photos associated with this job.`)) {
         return;
       }
 
@@ -226,8 +247,8 @@ export default function TechPhotosPage() {
         throw new Error('Failed to delete job submission');
       }
 
-      // Remove all photos for this job from local state
-      setPhotos(prev => prev.filter(photo => !photo.id.startsWith(jobId + '__')));
+      // Remove job from local state
+      setJobs(prev => prev.filter(job => job.id !== jobId));
 
       alert('Job submission deleted successfully');
     } catch (error) {
@@ -236,34 +257,34 @@ export default function TechPhotosPage() {
     }
   };
 
-  const openEditModal = (photo: TechPhoto) => {
-    setEditingPhoto(photo);
+  const openEditModal = (job: JobSubmissionDisplay) => {
+    setEditingJob(job);
     setEditForm({
-      jobDescription: photo.jobDescription,
-      jobLocation: photo.jobLocation,
-      jobType: photo.jobType,
-      tags: [...photo.tags],
+      jobDescription: job.jobDescription,
+      jobLocation: job.jobLocation,
+      jobType: job.jobType,
+      tags: [...job.tags],
     });
   };
 
   const closeEditModal = () => {
-    setEditingPhoto(null);
+    setEditingJob(null);
     setEditForm({});
   };
 
   const saveEdit = () => {
-    if (!editingPhoto) return;
-    
-    setPhotos(prev => prev.map(photo => 
-      photo.id === editingPhoto.id 
-        ? { 
-            ...photo, 
-            jobDescription: editForm.jobDescription || photo.jobDescription,
-            jobLocation: editForm.jobLocation || photo.jobLocation,
-            jobType: (editForm.jobType as TechPhoto['jobType']) || photo.jobType,
-            tags: editForm.tags || photo.tags,
+    if (!editingJob) return;
+
+    setJobs(prev => prev.map(job =>
+      job.id === editingJob.id
+        ? {
+            ...job,
+            jobDescription: editForm.jobDescription || job.jobDescription,
+            jobLocation: editForm.jobLocation || job.jobLocation,
+            jobType: (editForm.jobType as JobSubmissionDisplay['jobType']) || job.jobType,
+            tags: editForm.tags || job.tags,
           }
-        : photo
+        : job
     ));
     closeEditModal();
   };
@@ -271,6 +292,21 @@ export default function TechPhotosPage() {
   const updateTags = (tagsString: string) => {
     const tags = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
     setEditForm(prev => ({ ...prev, tags }));
+  };
+
+  const convertToImageModalData = (job: JobSubmissionDisplay) => {
+    return {
+      jobType: job.jobType,
+      location: job.jobLocation,
+      dateUploaded: job.dateUploaded,
+      status: 'Pending Review' as 'Approved' | 'Denied' | 'Pending Review',
+      serviceDescription: job.jobDescription,
+      tags: job.tags,
+      technicianName: job.technicianName || 'Unknown Tech',
+      allImages: job.photos,
+      aiReport: job.aiReport,
+      aiReportGeneratedAt: job.aiReportGeneratedAt
+    };
   };
 
   const getJobTypeVariant = (jobType: string) => {
@@ -288,41 +324,12 @@ export default function TechPhotosPage() {
     }
   };
 
-  const getStatusVariant = (photo: TechPhoto): "default" | "secondary" | "destructive" | "outline" => {
-    switch (photo.photoStatus) {
-      case 'approved':
-        return 'default';
-      case 'denied':
-        return 'destructive';
-      case 'flagged':
-        return 'secondary';
-      case 'pending':
-      default:
-        return 'outline';
-    }
-  };
-
-  const getStatusText = (photo: TechPhoto): string => {
-    switch (photo.photoStatus) {
-      case 'approved':
-        return 'Approved';
-      case 'denied':
-        return 'Denied';
-      case 'flagged':
-        return 'Flagged';
-      case 'pending':
-      default:
-        return 'Pending Review';
-    }
-  };
-
-  const canDeletePhoto = (photo: TechPhoto): boolean => {
-    // Only allow deletion if the job is still pending
-    return photo.photoStatus === 'pending' || !photo.photoStatus;
-  };
 
   const handleSubmitJob = () => {
-    router.push('/tech/dashboard?openForm=true');
+    // Use setTimeout to avoid router navigation conflicts
+    setTimeout(() => {
+      router.push('/tech/dashboard?openForm=true');
+    }, 0);
   };
 
   const handleJobFormSubmit = async (e: React.FormEvent) => {
@@ -338,7 +345,7 @@ export default function TechPhotosPage() {
 
       // Transform to API format
       const jobSubmissionData = {
-        technicianId: '52e1e11e-3200-4ae5-ab8e-60722788ec51', // John Smith from actual database
+        technicianId: 'f95f54d7-51be-4f55-a081-2d3b692ff5d9', // brent foster from actual database
         franchiseeId: 'bd452dd2-aade-4c4b-a112-5ad3a07f4013', // Pop-A-Lock Simcoe County from actual database
         client: {
           name: jobForm.customerName || 'Not provided',
@@ -374,38 +381,66 @@ export default function TechPhotosPage() {
         throw new Error('Failed to submit job');
       }
 
+      const newJob = await response.json();
       alert('Job submitted successfully!');
       setShowSubmitForm(false);
 
-      // Reload photos to show new submission
+      // Reload jobs to show new submission
       const fetchResponse = await fetch('/api/job-submissions');
       if (fetchResponse.ok) {
         const jobSubmissions = await fetchResponse.json();
-        const transformedPhotos: TechPhoto[] = [];
+        const transformedJobs: JobSubmissionDisplay[] = [];
         jobSubmissions.forEach((job: any) => {
           const allPhotos = [
             ...(job.media.beforePhotos || []),
             ...(job.media.afterPhotos || []),
             ...(job.media.processPhotos || [])
-          ];
-          allPhotos.forEach((photo: string, index: number) => {
-            if (photo && photo.trim()) {
-              transformedPhotos.push({
-                id: `${job.id}-${index}`,
-                photoUrl: photo,
-                jobType: job.service.category as TechPhoto['jobType'],
-                jobDescription: job.service.description || `${job.service.type} - ${job.service.category}`,
-                dateUploaded: new Date(job.submittedAt).toLocaleDateString(),
-                jobLocation: job.service.location,
-                tags: [job.service.type, job.service.category].filter(Boolean),
-                franchiseeApproved: job.status === 'approved',
-                adminOverride: job.status === 'admin_approved',
-                technicianName: job.technician.name
+          ].filter(url => url && url.trim());
+
+          if (allPhotos.length > 0) {
+            transformedJobs.push({
+              id: job.id,
+              photos: allPhotos,
+              jobType: job.service.category as JobSubmissionDisplay['jobType'],
+              jobDescription: job.service.description || `${job.service.type} - ${job.service.category}`,
+              dateUploaded: new Date(job.submittedAt).toLocaleDateString(),
+              jobLocation: job.service.location,
+              tags: [job.service.type, job.service.category].filter(Boolean),
+              technicianName: job.technician.name,
+              photoCount: allPhotos.length,
+              aiReport: job.aiReport,
+              aiReportGeneratedAt: job.aiReportGeneratedAt
+            });
+          }
+        });
+        setJobs(transformedJobs);
+
+        // Start polling for AI report if the new job doesn't have one yet
+        if (newJob && newJob.id && !newJob.aiReport) {
+          const interval = setInterval(() => {
+            pollForAIReport(newJob.id);
+          }, 3000); // Poll every 3 seconds
+
+          // Store the interval to clean up later
+          setPollingIntervals(prev => {
+            const newMap = new Map(prev);
+            newMap.set(newJob.id, interval);
+            return newMap;
+          });
+
+          // Stop polling after 30 seconds if report still not generated
+          setTimeout(() => {
+            const existingInterval = pollingIntervals.get(newJob.id);
+            if (existingInterval) {
+              clearInterval(existingInterval);
+              setPollingIntervals(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(newJob.id);
+                return newMap;
               });
             }
-          });
-        });
-        setPhotos(transformedPhotos);
+          }, 30000);
+        }
       }
     } catch (error) {
       console.error('Error submitting job:', error);
@@ -469,28 +504,15 @@ export default function TechPhotosPage() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
-          <select
-            value={selectedApprovalStatus}
-            onChange={(e) => setSelectedApprovalStatus(e.target.value)}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="All">All Status</option>
-            <option value="Franchisee Approved">Pending Review</option>
-            <option value="Franchisee Denied">Franchisee Denied</option>
-            <option value="Admin Override">Admin Override</option>
-          </select>
-        </div>
       </div>
 
       <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
           <CardTitle>My Marketing Photos</CardTitle>
           <CardDescription>
-            {photos.length === 0
-              ? "No photos uploaded yet. Start by uploading your first job photo for marketing approval."
-              : `Photos submitted for marketing approval. Showing ${filteredPhotos.length} of ${photos.length} photos.`
+            {jobs.length === 0
+              ? "No jobs uploaded yet. Start by submitting your first job for marketing approval."
+              : `Job submissions for marketing approval. Showing ${filteredJobs.length} of ${jobs.length} jobs.`
             }
           </CardDescription>
         </CardHeader>
@@ -525,9 +547,6 @@ export default function TechPhotosPage() {
                     Category
                   </th>
                   <th scope="col" className="px-6 py-3">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3">
                     Archive Date
                   </th>
                   <th scope="col" className="px-6 py-3">
@@ -545,7 +564,7 @@ export default function TechPhotosPage() {
                       </div>
                     </td>
                   </tr>
-                ) : filteredPhotos.length === 0 ? (
+                ) : filteredJobs.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="text-center py-12">
                       <div className="flex flex-col items-center justify-center space-y-4">
@@ -555,9 +574,9 @@ export default function TechPhotosPage() {
                           </svg>
                         </div>
                         <div className="space-y-2">
-                          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No photos yet</h3>
+                          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No jobs yet</h3>
                           <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
-                            Submit jobs from the dashboard to see your photos here for marketing approval.
+                            Submit jobs from the dashboard to see your job submissions here for marketing approval.
                           </p>
                         </div>
                         <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700">
@@ -568,73 +587,77 @@ export default function TechPhotosPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredPhotos.map((photo, index) => (
+                  filteredJobs.map((job, index) => (
                     <tr
-                      key={photo.id}
+                      key={job.id}
                       className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
-                      onClick={() => setViewingPhoto(photo)}>
+                      onClick={() => {
+                        setSelectedImageModal({
+                          imageUrl: job.photos[0],
+                          jobDetails: convertToImageModalData(job)
+                        });
+                      }}>
                       <td className="w-4 p-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center">
                           <input
-                            id={`checkbox-table-${photo.id}`}
+                            id={`checkbox-table-${job.id}`}
                             type="checkbox"
                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                           />
-                          <label htmlFor={`checkbox-table-${photo.id}`} className="sr-only">checkbox</label>
+                          <label htmlFor={`checkbox-table-${job.id}`} className="sr-only">checkbox</label>
                         </div>
                       </td>
                       <td className="px-6 py-3">
-                        <div className="w-12 h-12 relative rounded-full overflow-hidden">
-                          <img
-                            src={photo.photoUrl}
-                            alt={photo.jobDescription}
-                            className="w-full h-full object-cover"
-                          />
+                        <div className="flex items-center gap-2">
+                          {/* First photo as preview */}
+                          <div className="w-12 h-12 relative rounded-full overflow-hidden">
+                            <img
+                              src={job.photos[0]}
+                              alt={job.jobDescription}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          {/* Photo count badge */}
+                          {job.photoCount > 1 && (
+                            <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs font-medium px-2 py-1 rounded-full">
+                              +{job.photoCount - 1}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <th scope="row" className="px-6 py-3 font-medium text-gray-900 dark:text-white">
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          📍 {photo.jobLocation}
+                          📍 {job.jobLocation}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant={getStatusVariant(photo)} className="text-xs">
-                            {getStatusText(photo)}
-                          </Badge>
-                          {photo.tags && photo.tags.length > 0 && (
+                          {job.tags && job.tags.length > 0 && (
                             <span className="text-xs text-gray-600 dark:text-gray-300 italic">
-                              {photo.tags.join(', ')}
+                              {job.tags.join(', ')}
                             </span>
                           )}
                         </div>
-                        {photo.reviewNotes && (
-                          <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                            Note: {photo.reviewNotes}
-                          </div>
-                        )}
                       </th>
                       <td className="px-6 py-3 text-sm">
-                        {photo.technicianName || 'Unknown Tech'}
+                        {job.technicianName || 'Unknown Tech'}
                       </td>
                       <td className="px-6 py-3 text-sm">
                         Pop-A-Lock Franchise
                       </td>
                       <td className="px-6 py-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getJobTypeVariant(photo.jobType)}`}>
-                          {photo.jobType}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getJobTypeVariant(job.jobType)}`}>
+                          {job.jobType}
                         </span>
                       </td>
-                      <td className="px-6 py-3">
-                        <Badge variant={getStatusVariant(photo)} className="text-xs">
-                          {getStatusText(photo)}
-                        </Badge>
-                      </td>
                       <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {photo.dateUploaded}
+                        {job.dateUploaded}
                       </td>
                       <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => setViewingPhoto(photo)}
+                            onClick={() => setSelectedImageModal({
+                              imageUrl: job.photos[0],
+                              jobDetails: convertToImageModalData(job)
+                            })}
                             className="p-2 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
                             title="View Details"
                           >
@@ -644,7 +667,7 @@ export default function TechPhotosPage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => openEditModal(photo)}
+                            onClick={() => openEditModal(job)}
                             className="p-2 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors"
                             title="Edit"
                           >
@@ -653,14 +676,9 @@ export default function TechPhotosPage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => deletePhoto(photo.id)}
-                            disabled={!canDeletePhoto(photo)}
-                            className={`p-2 rounded-full transition-colors ${
-                              canDeletePhoto(photo)
-                                ? 'text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                : 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
-                            }`}
-                            title={canDeletePhoto(photo) ? "Delete" : "Cannot delete - job has been reviewed"}
+                            onClick={() => deleteJob(job.id)}
+                            className="p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                            title="Delete"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -678,35 +696,42 @@ export default function TechPhotosPage() {
       </Card>
 
       {/* Edit Modal */}
-      <Dialog open={!!editingPhoto} onOpenChange={closeEditModal}>
+      <Dialog open={!!editingJob} onOpenChange={closeEditModal}>
         <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
           <DialogHeader>
-            <DialogTitle>Edit Photo Details</DialogTitle>
+            <DialogTitle>Edit Job Details</DialogTitle>
             <DialogDescription>
-              Update the information for this job photo submission.
+              Update the information for this job submission.
             </DialogDescription>
           </DialogHeader>
-          
-          {editingPhoto && (
+
+          {editingJob && (
             <div className="space-y-6">
-              {/* Photo Preview */}
+              {/* Photos Preview */}
               <div className="flex gap-4">
-                <div className="w-32 h-32 relative rounded-full overflow-hidden shrink-0">
-                  <img
-                    src={editingPhoto.photoUrl}
-                    alt={editingPhoto.jobDescription}
-                    className="w-full h-full object-cover"
-                  />
+                <div className="flex gap-2 flex-wrap">
+                  {editingJob.photos.slice(0, 4).map((photo, index) => (
+                    <div key={index} className="w-16 h-16 relative rounded-lg overflow-hidden shrink-0">
+                      <img
+                        src={photo}
+                        alt={`Photo ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                  {editingJob.photoCount > 4 && (
+                    <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-xs">
+                      +{editingJob.photoCount - 4}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground">
-                    Photo uploaded: {editingPhoto.dateUploaded}
+                    Job submitted: {editingJob.dateUploaded}
                   </p>
-                  <div className="flex gap-2 mt-1">
-                    <Badge variant={getStatusVariant(editingPhoto)}>
-                      {getStatusText(editingPhoto)}
-                    </Badge>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Photos: {editingJob.photoCount}
+                  </p>
                 </div>
               </div>
 
@@ -717,7 +742,7 @@ export default function TechPhotosPage() {
                   <select
                     id="jobType"
                     value={editForm.jobType || ''}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, jobType: e.target.value as TechPhoto['jobType'] }))}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, jobType: e.target.value as JobSubmissionDisplay['jobType'] }))}
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Commercial">Commercial</option>
@@ -775,23 +800,16 @@ export default function TechPhotosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Enhanced Image Modal */}
-      <ImageModal
-        isOpen={!!viewingPhoto}
-        onClose={() => setViewingPhoto(null)}
-        imageUrl={viewingPhoto?.photoUrl || ''}
-        altText={viewingPhoto?.jobDescription || ''}
-        jobDetails={viewingPhoto ? {
-          imageUrl: viewingPhoto.photoUrl,
-          jobType: viewingPhoto.jobType,
-          location: viewingPhoto.jobLocation,
-          dateUploaded: viewingPhoto.dateUploaded,
-          status: getStatusText(viewingPhoto),
-          serviceDescription: viewingPhoto.jobDescription,
-          tags: viewingPhoto.tags,
-          technicianName: viewingPhoto.technicianName
-        } : undefined}
-      />
+      {/* Job Details Modal using ImageModal */}
+      {selectedImageModal && (
+        <ImageModal
+          imageUrl={selectedImageModal.imageUrl}
+          altText="Job photo"
+          isOpen={true}
+          onClose={() => setSelectedImageModal(null)}
+          jobDetails={selectedImageModal.jobDetails}
+        />
+      )}
 
       {/* Job Submission Modal */}
       <Dialog open={showSubmitForm} onOpenChange={setShowSubmitForm}>

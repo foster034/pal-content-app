@@ -84,6 +84,7 @@ export default function TechAuth() {
           name: data.technician.name,
           email: data.technician.email,
           phone: data.technician.phone,
+          avatar_url: data.technician.image_url,
           franchisee: data.technician.franchisee,
           loginTime: new Date().toISOString()
         });
@@ -108,12 +109,12 @@ export default function TechAuth() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Key className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Key className="w-10 h-10 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold">Technician Login</CardTitle>
-          <CardDescription>
-            Enter your login code provided by your franchise
+          <CardTitle className="text-3xl font-bold">Tech Portal</CardTitle>
+          <CardDescription className="text-base mt-2">
+            Enter your 6-digit access code to continue
           </CardDescription>
         </CardHeader>
 
@@ -124,31 +125,42 @@ export default function TechAuth() {
             </Alert>
           )}
 
-          <form onSubmit={handleLoginCodeSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="loginCode">Login Code</Label>
+          <form onSubmit={handleLoginCodeSubmit} className="space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="loginCode" className="text-center block text-lg font-semibold">
+                Access Code
+              </Label>
               <Input
                 id="loginCode"
                 type="text"
-                placeholder="Enter your login code"
+                placeholder="8D0LS9"
                 value={loginCode}
                 onChange={(e) => setLoginCode(e.target.value.toUpperCase())}
-                className="text-center text-lg tracking-wider font-mono"
+                className="text-center text-2xl tracking-widest font-mono h-16 border-2 focus:border-blue-500"
                 maxLength={10}
                 disabled={loading}
+                autoFocus
+                autoComplete="off"
               />
+              <p className="text-xs text-center text-gray-500">
+                Example: 8D0LS9
+              </p>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              disabled={loading || !loginCode.trim()}
+            >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Logging in...
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Verifying Code...
                 </>
               ) : (
                 <>
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Login with Code
+                  <LogIn className="w-5 h-5 mr-2" />
+                  Enter Dashboard
                 </>
               )}
             </Button>
@@ -172,9 +184,20 @@ export default function TechAuth() {
             Login with Email & Password
           </Button>
 
-          <div className="text-center text-xs text-gray-500 dark:text-gray-400 space-y-2">
-            <p>Don't have a login code? Contact your franchise manager.</p>
-            <p>Need to set up your account? Check your email for the setup link.</p>
+          <div className="text-center space-y-3">
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                Quick Access Instructions:
+              </p>
+              <ol className="text-xs text-blue-700 dark:text-blue-300 mt-2 space-y-1 text-left">
+                <li>1. Enter your 6-digit code (e.g., 8D0LS9)</li>
+                <li>2. Press "Enter Dashboard"</li>
+                <li>3. Start submitting jobs immediately</li>
+              </ol>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Don't have a code? Contact your franchise manager.
+            </p>
           </div>
         </CardContent>
       </Card>

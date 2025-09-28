@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
         name: technician.name,
         email: technician.email,
         phone: technician.phone,
+        image_url: technician.image_url || null,
         franchisee: {
           id: technician.franchisees.id,
           business_name: technician.franchisees.business_name
@@ -145,6 +146,7 @@ export async function GET(request: NextRequest) {
         name: technician.name,
         email: technician.email,
         phone: technician.phone,
+        image_url: technician.image_url || null,
         franchisee: {
           id: technician.franchisees.id,
           business_name: technician.franchisees.business_name

@@ -1,15 +1,15 @@
 {
-  "name": "Pop-A-Lock Job Report",
-  "short_name": "Job Report",
-  "description": "View your completed Pop-A-Lock service report and leave a review",
+  "name": "Pop-A-Lock Content Manager",
+  "short_name": "PAL Content",
+  "description": "Pop-A-Lock job submission and content management app for technicians and customers",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e293b",
-  "theme_color": "#3b82f6",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
   "orientation": "portrait",
   "scope": "/",
   "lang": "en",
-  "categories": ["business", "productivity"],
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -30,6 +30,54 @@
     }
   ],
   "shortcuts": [
+    {
+      "name": "Quick Submit",
+      "short_name": "Submit Job",
+      "description": "Quickly submit a new job",
+      "url": "/quick-submit",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Tech Dashboard",
+      "short_name": "Dashboard",
+      "description": "Go to tech dashboard",
+      "url": "/tech/dashboard",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "My Photos",
+      "short_name": "Photos",
+      "description": "View submitted photos",
+      "url": "/tech/photos",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Customer Submit",
+      "short_name": "Customer",
+      "description": "Submit photos and feedback as a customer",
+      "url": "/customer-submit",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
     {
       "name": "Write Review",
       "short_name": "Review",

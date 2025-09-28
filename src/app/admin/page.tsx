@@ -325,40 +325,6 @@ export default function AdminDashboard() {
         </div>
       </BlurFade>
 
-      {/* Quick Actions */}
-      <BlurFade delay={1.0}>
-        <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-          <CardHeader className="relative">
-            <CardTitle className="text-xl">Quick Actions</CardTitle>
-            <CardDescription>
-              Frequently used administrative tasks and shortcuts for efficient management.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="relative">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {quickActions.map((action, index) => {
-                const Icon = action.icon;
-                return (
-                  <Button
-                    key={action.title}
-                    variant="outline"
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-sm border-gray-100 dark:border-gray-800 hover:shadow-sm transition-all duration-300 group"
-                  >
-                    <div className={`p-2 rounded-full bg-gradient-to-br ${action.color} opacity-80 group-hover:opacity-100 transition-opacity`}>
-                      <Icon className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="text-center">
-                      <span className="text-sm font-medium">{action.title}</span>
-                      <p className="text-xs text-muted-foreground mt-1">{action.description}</p>
-                    </div>
-                  </Button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </BlurFade>
     </div>
   );
 }

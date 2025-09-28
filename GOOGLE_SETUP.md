@@ -80,9 +80,7 @@ Once approved, enable all **8 required APIs**:
 3. Choose **Web application**
 4. Add **Authorized redirect URIs**:
    ```
-   http://localhost:3000/api/google-my-business/callback
-   https://yourdomain.com/api/google-my-business/callback
-   ```
+
 5. Save and copy your **Client ID** and **Client Secret**
 
 ## Step 6: Update Environment Variables

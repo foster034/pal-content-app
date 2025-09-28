@@ -81,13 +81,6 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
       ),
     },
     {
-      label: "Marketing Dashboard",
-      href: "/admin/marketing-dashboard",
-      icon: (
-        <IconCalendar className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-      ),
-    },
-    {
       label: "Analytics",
       href: "/admin/analytics",
       icon: (
@@ -121,33 +114,31 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
           </div>
           <div className="mt-auto space-y-4">
             {userProfile && (
-              <Link href="/admin/profile">
-                <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-neutral-700/50 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer">
-                  <Avatar className="h-8 w-8">
+              <Link href="/admin/profile" className="block">
+                <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-gray-50 dark:bg-neutral-700/50 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer touch-manipulation select-none">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarImage src={userProfile.avatar_url} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
                       {userProfile.full_name?.charAt(0) || userProfile.email?.charAt(0) || 'A'}
                     </AvatarFallback>
                   </Avatar>
-                  {open && (
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {userProfile.full_name}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {userProfile.full_name || 'Admin User'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {userProfile.email}
                       </p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {userProfile.email}
-                        </p>
-                        <Badge variant="secondary" className="text-xs px-1 py-0">
-                          {userProfile.role}
-                        </Badge>
-                      </div>
+                      <Badge variant="secondary" className="text-xs px-1 py-0 flex-shrink-0">
+                        {userProfile.role}
+                      </Badge>
                     </div>
-                  )}
+                  </div>
                 </div>
               </Link>
             )}
-            <LogoutButton variant="ghost" className="w-full justify-start" />
+            <LogoutButton variant="ghost" className="w-full justify-start touch-manipulation" />
           </div>
         </SidebarBody>
       </Sidebar>

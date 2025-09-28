@@ -845,7 +845,7 @@ export default function FranchiseeTechsPage() {
 
 
       {/* Technician Table */}
-      <Card>
+      <Card className="border-0 shadow-none">
         <CardHeader>
           <CardTitle>Your Technician Team</CardTitle>
           <CardDescription>

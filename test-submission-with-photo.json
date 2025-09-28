@@ -1,0 +1,26 @@
+{
+  "technicianId": "f95f54d7-51be-4f55-a081-2d3b692ff5d9",
+  "franchiseeId": "4c8b70f3-797b-4384-869e-e1fb3919f615",
+  "client": {
+    "name": "Test Customer With Photo",
+    "phone": "555-123-4567",
+    "email": "test@example.com",
+    "preferredContactMethod": "phone",
+    "consentToContact": true,
+    "consentToShare": true
+  },
+  "service": {
+    "category": "Residential",
+    "type": "Home Lockout",
+    "location": "Springwater, Springwater, CA-ON",
+    "date": "2025-09-24",
+    "duration": 30,
+    "satisfaction": 5,
+    "description": "Test job submission with photo and corrected IDs"
+  },
+  "media": {
+    "beforePhotos": [],
+    "afterPhotos": [],
+    "processPhotos": ["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD//2wBDAABAgEBAgEBAAICAgICAgIDBQMDAwMDBgQEAwUHBgcHBwYHBwgJCwkICAoIBwcKDQoKCwwMDAwHCQ4PDQwOCwwMDP/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDP/wAARCABkAGQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD+f+iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/Z"]
+  }
+}

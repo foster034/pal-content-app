@@ -22,8 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, User, Mail, Phone, MapPin, Building, Calendar } from "lucide-react";
+import { Upload, User, Mail, Phone, MapPin, Building, Calendar, Loader2 } from "lucide-react";
 import BlurFade from "@/components/ui/blur-fade";
+import { createClientComponentClient } from '@/lib/supabase-client';
+import { useToast } from "@/hooks/use-toast";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -59,43 +61,135 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const supabase = createClientComponentClient();
+  const { toast } = useToast();
 
   const handleInputChange = (field: keyof ProfileData, value: string) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
+    if (file && file.type.startsWith('image/')) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image under 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setUploading(true);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setProfileData(prev => ({ ...prev, avatar: e.target?.result as string }));
+      try {
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('User not authenticated');
+        }
+
+        // Create a unique file name
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const filePath = `profile-avatars/${fileName}`;
+
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, file, {
+            upsert: true
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        // Get the public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        // Update local state with the uploaded URL
+        setProfileData(prev => ({ ...prev, avatar: publicUrl }));
+
+        // Update profile in database immediately
+        const response = await fetch('/api/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatar_url: publicUrl })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update profile');
+        }
+
+        toast({
+          title: "Profile photo updated",
+          description: "Your profile photo has been uploaded successfully"
+        });
+      } catch (error) {
+        console.error('Error uploading avatar:', error);
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload profile photo. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
         setUploading(false);
-      };
-      reader.readAsDataURL(file);
+      }
     }
   };
 
-  const handleDrop = (event: React.DragEvent) => {
+  const handleDrop = async (event: React.DragEvent) => {
     event.preventDefault();
     setDragOver(false);
     const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      setUploading(true);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setProfileData(prev => ({ ...prev, avatar: e.target?.result as string }));
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
+      // Create a synthetic event to reuse handleFileUpload logic
+      const syntheticEvent = {
+        target: {
+          files: [file]
+        }
+      } as React.ChangeEvent<HTMLInputElement>;
+      await handleFileUpload(syntheticEvent);
     }
   };
 
-  const handleSave = () => {
-    // Here you would typically save to your backend
-    console.log("Saving profile data:", profileData);
-    onClose();
+  const handleSave = async () => {
+    setSavingProfile(true);
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: `${profileData.firstName} ${profileData.lastName}`.trim(),
+          phone: profileData.phone,
+          bio: profileData.bio,
+          avatar_url: profileData.avatar // Avatar URL (from Supabase storage)
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully"
+      });
+      onClose();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast({
+        title: "Save failed",
+        description: "Failed to save profile. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   return (
@@ -147,11 +241,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
                 <div className="text-center space-y-2">
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                  {uploading ? (
+                    <Loader2 className="h-8 w-8 mx-auto text-muted-foreground animate-spin" />
+                  ) : (
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                  )}
                   <p className="text-sm font-medium">
-                    {uploading ? "Uploading..." : "Drop image here or click to upload"}
+                    {uploading ? "Uploading to storage..." : "Drop image here or click to upload"}
                   </p>
-                  <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
+                  <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB - saves to Supabase storage</p>
                 </div>
               </div>
             </div>
@@ -304,16 +402,24 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
         <DialogFooter className="gap-3">
           <BlurFade delay={0.7}>
-            <Button variant="outline" onClick={onClose} className="px-6">
+            <Button variant="outline" onClick={onClose} className="px-6" disabled={savingProfile || uploading}>
               Cancel
             </Button>
           </BlurFade>
           <BlurFade delay={0.75}>
-            <Button 
+            <Button
               onClick={handleSave}
+              disabled={savingProfile || uploading}
               className="px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg"
             >
-              Save Changes
+              {savingProfile ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </BlurFade>
         </DialogFooter>

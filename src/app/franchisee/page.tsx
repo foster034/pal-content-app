@@ -462,23 +462,6 @@ export default function FranchiseeDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Link href="/franchisee/marketing">
-              <Button className="w-full" variant="default">
-                Review Job Pics
-              </Button>
-            </Link>
-            <Link href="/franchisee/reports">
-              <Button className="w-full" variant="outline">
-                Generate Report
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
 
         <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardHeader>

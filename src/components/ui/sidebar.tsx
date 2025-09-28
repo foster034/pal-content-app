@@ -103,6 +103,19 @@ export const MobileSidebar = ({
   ...props
 }: React.ComponentProps<"div">) => {
   const { open, setOpen } = useSidebar();
+
+  // Handle backdrop click to close sidebar
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      setOpen(false);
+    }
+  };
+
+  // Close sidebar on link click
+  const handleLinkClick = () => {
+    setOpen(false);
+  };
+
   return (
     <>
       <div
@@ -114,7 +127,8 @@ export const MobileSidebar = ({
         <div className="z-20 flex w-full justify-end">
           <button
             onClick={() => setOpen(!open)}
-            className="text-neutral-800 dark:text-neutral-200"
+            className="p-2 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-md transition-colors"
+            aria-label="Toggle menu"
           >
             <svg
               className="h-6 w-6"
@@ -135,38 +149,56 @@ export const MobileSidebar = ({
         <AnimatePresence>
           {open && (
             <motion.div
-              initial={{ x: "-100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "-100%", opacity: 0 }}
-              transition={{
-                duration: 0.3,
-                ease: "easeInOut",
-              }}
-              className={cn(
-                "fixed inset-0 z-[100] flex h-full w-full flex-col justify-between bg-white p-10 dark:bg-neutral-900",
-                className
-              )}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[9999] bg-black/50"
+              onClick={handleBackdropClick}
             >
-              <div
-                className="absolute right-10 top-10 z-50 text-neutral-800 dark:text-neutral-200"
-                onClick={() => setOpen(!open)}
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{
+                  duration: 0.3,
+                  ease: "easeInOut",
+                }}
+                className={cn(
+                  "h-full w-80 max-w-[80vw] flex flex-col bg-white shadow-2xl dark:bg-neutral-900",
+                  className
+                )}
+                onClick={(e) => e.stopPropagation()}
               >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </div>
-              {children}
+                {/* Close button */}
+                <div className="flex justify-end p-4">
+                  <button
+                    onClick={() => setOpen(false)}
+                    className="p-2 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-md transition-colors"
+                    aria-label="Close menu"
+                  >
+                    <svg
+                      className="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Content wrapper with click handler to close on link clicks */}
+                <div className="flex-1 px-4 pb-4" onClick={handleLinkClick}>
+                  {children}
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -192,7 +224,7 @@ export const SidebarLink = ({
   return (
     <div
       className={cn(
-        "group/sidebar flex items-center justify-start gap-2 py-2",
+        "group/sidebar flex items-center justify-start gap-2 py-3 px-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer select-none",
         className
       )}
       {...props}

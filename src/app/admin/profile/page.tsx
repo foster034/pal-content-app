@@ -824,26 +824,6 @@ export default function AdminProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Quick Actions Card */}
-            <Card className="shadow-lg border-0">
-              <CardHeader>
-                <CardTitle className="text-lg">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button variant="outline" className="w-full justify-start">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Download Profile Data
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Security Settings
-                </Button>
-                <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700">
-                  <User className="w-4 h-4 mr-2" />
-                  Deactivate Account
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, XCircle, Flag, Eye, Settings } from 'lucide-react';
+import { CheckCircle, XCircle, Flag, Eye, Settings, Archive, Trash2 } from 'lucide-react';
 import { useTable } from '@/contexts/table-context';
 import ImageModal from '@/components/ImageModal';
 
@@ -28,6 +28,8 @@ interface FranchiseePhoto {
   service_location: string;
   service_date: string;
   job_description: string;
+  full_ai_report?: string;
+  ai_report_generated_at?: string;
   status: 'pending' | 'approved' | 'denied' | 'flagged';
   reviewed_at?: string;
   review_notes?: string;
@@ -52,13 +54,14 @@ export default function FranchiseePhotosPage() {
   const [reviewNotes, setReviewNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'denied' | 'flagged'>('pending');
 
   // Fetch franchisee photos
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/franchisee-photos?franchiseeId=bd452dd2-aade-4c4b-a112-5ad3a07f4013');
+        const response = await fetch('/api/franchisee-photos?franchiseeId=4c8b70f3-797b-4384-869e-e1fb3919f615');
         if (!response.ok) {
           throw new Error('Failed to fetch photos');
         }
@@ -77,11 +80,12 @@ export default function FranchiseePhotosPage() {
 
   const filteredPhotos = useMemo(() => {
     return photos.filter(photo => {
-      if (selectedStatus !== 'All' && photo.status !== selectedStatus) return false;
+      // Filter by active tab first
+      if (activeTab !== 'all' && photo.status !== activeTab) return false;
       if (selectedCategory !== 'All' && photo.service_category !== selectedCategory) return false;
       return true;
     });
-  }, [photos, selectedStatus, selectedCategory]);
+  }, [photos, activeTab, selectedCategory]);
 
   const handleReviewPhoto = async (photoId: string, status: 'approved' | 'denied' | 'flagged') => {
     try {
@@ -162,29 +166,73 @@ export default function FranchiseePhotosPage() {
   const pendingCount = photos.filter(p => p.status === 'pending').length;
   const approvedCount = photos.filter(p => p.status === 'approved').length;
   const deniedCount = photos.filter(p => p.status === 'denied').length;
+  const flaggedCount = photos.filter(p => p.status === 'flagged').length;
+
+  // Action functions
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm('Are you sure you want to delete this photo? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const response = await fetch('/api/franchisee-photos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete photo');
+      }
+
+      setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+      alert('✅ Photo deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      alert('❌ Failed to delete photo. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleArchivePhoto = async (photoId: string) => {
+    try {
+      setProcessing(true);
+      const response = await fetch('/api/franchisee-photos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoId,
+          archived: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to archive photo');
+      }
+
+      const updatedPhoto = await response.json();
+      setPhotos(prev => prev.map(photo =>
+        photo.id === photoId ? { ...photo, ...updatedPhoto } : photo
+      ));
+      alert('✅ Photo archived successfully.');
+    } catch (error) {
+      console.error('Error archiving photo:', error);
+      alert('❌ Failed to archive photo. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Job Submissions</h1>
-          <p className="text-muted-foreground">Review and approve photo submissions from your technicians</p>
+          <p className="text-muted-foreground">Review and manage photo submissions from your technicians</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold text-amber-600">{pendingCount}</div>
-              <div className="text-sm text-gray-600">Pending</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-600">{approvedCount}</div>
-              <div className="text-sm text-gray-600">Approved</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-red-600">{deniedCount}</div>
-              <div className="text-sm text-gray-600">Denied</div>
-            </div>
-          </div>
           <Button variant="outline" onClick={() => alert('Settings coming soon!')}>
             <Settings className="w-4 h-4 mr-2" />
             Auto-Approve Settings
@@ -192,45 +240,151 @@ export default function FranchiseePhotosPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'pending'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
           >
-            <option value="All">All Status</option>
-            <option value="pending">Pending Review</option>
-            <option value="approved">Approved</option>
-            <option value="denied">Denied</option>
-            <option value="flagged">Flagged</option>
-          </select>
-        </div>
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Pending
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                activeTab === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {pendingCount}
+              </span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('approved')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'approved'
+                ? 'border-green-500 text-green-600 dark:text-green-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Approved
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                activeTab === 'approved' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {approvedCount}
+              </span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('denied')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'denied'
+                ? 'border-red-500 text-red-600 dark:text-red-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Denied
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                activeTab === 'denied' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {deniedCount}
+              </span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('flagged')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'flagged'
+                ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+              </svg>
+              Flagged
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                activeTab === 'flagged' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {flaggedCount}
+              </span>
+            </div>
+          </button>
+        </nav>
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Job Type</label>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="All">All Categories</option>
+            <option value="All">All Job Types</option>
             <option value="Commercial">Commercial</option>
             <option value="Residential">Residential</option>
             <option value="Automotive">Automotive</option>
             <option value="Roadside">Roadside</option>
           </select>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Technician</label>
+          <select
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="All">All Technicians</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
+          <select
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="All">All Categories</option>
+            <option value="Before">Before</option>
+            <option value="After">After</option>
+            <option value="Process">Process</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
+          <input
+            type="text"
+            placeholder="Search photos..."
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </div>
 
       <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
-          <CardTitle>Photo Submissions</CardTitle>
+          <CardTitle>
+            {activeTab === 'pending' && 'Pending Submissions'}
+            {activeTab === 'approved' && 'Approved Submissions'}
+            {activeTab === 'denied' && 'Denied Submissions'}
+            {activeTab === 'flagged' && 'Flagged Submissions'}
+          </CardTitle>
           <CardDescription>
-            {photos.length === 0
-              ? "No photo submissions yet."
-              : `Managing photo submissions from technicians. Showing ${filteredPhotos.length} of ${photos.length} photos.`
+            {filteredPhotos.length === 0
+              ? `No ${activeTab} photo submissions found.`
+              : `Managing ${activeTab} photo submissions from technicians. Showing ${filteredPhotos.length} photo${filteredPhotos.length !== 1 ? 's' : ''}.`
             }
           </CardDescription>
         </CardHeader>
@@ -353,7 +507,9 @@ export default function FranchiseePhotosPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {photo.status === 'pending' && (
+
+                          {/* Pending tab actions */}
+                          {activeTab === 'pending' && (
                             <>
                               <button
                                 onClick={() => handleReviewPhoto(photo.id, 'approved')}
@@ -381,6 +537,38 @@ export default function FranchiseePhotosPage() {
                               </button>
                             </>
                           )}
+
+                          {/* Approved tab actions */}
+                          {activeTab === 'approved' && (
+                            <>
+                              <button
+                                onClick={() => handleArchivePhoto(photo.id)}
+                                disabled={processing}
+                                className="p-2 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded-full transition-colors"
+                                title="Archive"
+                              >
+                                <Archive className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setReviewingPhoto(photo)}
+                                disabled={processing}
+                                className="p-2 text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-full transition-colors"
+                                title="Flag"
+                              >
+                                <Flag className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+
+                          {/* Universal delete action */}
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            disabled={processing}
+                            className="p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -482,9 +670,11 @@ export default function FranchiseePhotosPage() {
           location: viewingPhoto.service_location,
           dateUploaded: new Date(viewingPhoto.created_at).toLocaleDateString(),
           status: getStatusText(viewingPhoto.status),
-          serviceDescription: viewingPhoto.job_description,
+          serviceDescription: viewingPhoto.full_ai_report || viewingPhoto.job_description,
           tags: [viewingPhoto.service_type, viewingPhoto.photo_type],
-          technicianName: viewingPhoto.technician?.name
+          technicianName: viewingPhoto.technician?.name,
+          aiReport: viewingPhoto.full_ai_report,
+          aiReportGeneratedAt: viewingPhoto.ai_report_generated_at
         } : undefined}
       />
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { X, MapPin, Calendar, Tag, CheckCircle, XCircle, Clock, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, MapPin, Calendar, Tag, CheckCircle, XCircle, Clock, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface JobPhotoDetails {
   imageUrl: string;
@@ -12,6 +12,9 @@ interface JobPhotoDetails {
   serviceDescription: string;
   tags?: string[];
   technicianName?: string;
+  allImages?: string[];
+  aiReport?: string;
+  aiReportGeneratedAt?: string;
 }
 
 interface ImageModalProps {
@@ -23,24 +26,50 @@ interface ImageModalProps {
 }
 
 export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDetails }: ImageModalProps) {
-  // Close modal on Escape key press
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Get all images or fallback to single image
+  const allImages = jobDetails?.allImages || [imageUrl];
+  const currentImage = allImages[currentImageIndex];
+
+  // Navigation functions
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+  };
+
+  // Close modal on Escape key press and handle arrow keys
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
+      } else if (e.key === 'ArrowLeft') {
+        prevImage();
+      } else if (e.key === 'ArrowRight') {
+        nextImage();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
+      document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
+
+  // Reset image index when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentImageIndex(0);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -157,13 +186,37 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
             <div className="lg:col-span-3 bg-gray-50 relative">
               <div className="aspect-[4/3] flex items-center justify-center p-8">
                 <img
-                  src={imageUrl}
+                  src={currentImage}
                   alt={altText}
                   className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
                 />
               </div>
+
+              {/* Navigation arrows - only show if multiple images */}
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-black/20 hover:bg-black/40 text-white rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-black/20 hover:bg-black/40 text-white rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+
+                  {/* Image counter */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-3 py-1 rounded-full backdrop-blur-sm">
+                    {currentImageIndex + 1} / {allImages.length}
+                  </div>
+                </>
+              )}
+
               <button
-                onClick={() => window.open(imageUrl, '_blank')}
+                onClick={() => window.open(currentImage, '_blank')}
                 className="absolute top-4 right-4 inline-flex items-center gap-2 px-3 py-2 bg-white/90 backdrop-blur-sm text-gray-700 text-sm font-medium rounded-lg hover:bg-white transition-all duration-200 shadow-sm"
               >
                 <ExternalLink className="w-4 h-4" />
@@ -225,7 +278,7 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
                   <h4 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
                     Service Description
                   </h4>
-                  <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="bg-gray-50 rounded-xl p-4 max-h-96 overflow-y-auto">
                     <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
                       {jobDetails.serviceDescription}
                     </p>
@@ -251,22 +304,38 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
                     </div>
                   </div>
                 )}
+
+                {/* AI Job Report */}
+                {jobDetails.aiReport && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 bg-gradient-to-r from-purple-500 to-pink-500 rounded flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                        </svg>
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-900">AI Job Report</h4>
+                      {jobDetails.aiReportGeneratedAt && (
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                          Generated {new Date(jobDetails.aiReportGeneratedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200/50 max-h-96 overflow-y-auto">
+                      <div className="prose prose-sm max-w-none">
+                        {jobDetails.aiReport.split('\n').map((paragraph, index) => (
+                          paragraph.trim() && (
+                            <p key={index} className="text-gray-700 leading-relaxed mb-2 last:mb-0">
+                              {paragraph.trim()}
+                            </p>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Footer Actions */}
-              <div className="border-t border-gray-100 bg-gray-50 px-8 py-4">
-                <div className="flex items-center justify-center">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => window.open(imageUrl, '_blank')}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200 shadow-sm border border-gray-200"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      View Original
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

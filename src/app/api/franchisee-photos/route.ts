@@ -16,14 +16,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('franchisee_photos')
-      .select(`
-        *,
-        technicians (
-          name,
-          image_url,
-          rating
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     // Filter by technician if provided
@@ -51,15 +44,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform the data to match the expected format
-    const transformedData = data?.map(photo => ({
-      ...photo,
-      technician: photo.technicians ? {
-        name: photo.technicians.name,
-        image_url: photo.technicians.image_url,
-        rating: photo.technicians.rating
-      } : null
-    })) || [];
+    // Return simplified data - joins can be added back later if needed
+    const transformedData = data || [];
 
     return NextResponse.json(transformedData);
 
@@ -81,24 +67,34 @@ export async function PATCH(request: NextRequest) {
     );
 
     const body = await request.json();
-    const { photoId, status, reviewNotes } = body;
+    const { photoId, status, reviewNotes, archived } = body;
 
-    if (!photoId || !status) {
+    if (!photoId || (!status && archived === undefined)) {
       return NextResponse.json(
-        { error: 'Photo ID and status are required' },
+        { error: 'Photo ID and either status or archived flag are required' },
         { status: 400 }
       );
     }
 
-    // Update photo status
+    // Build update object
+    const updateData: any = {};
+
+    if (status) {
+      updateData.status = status;
+      updateData.reviewed_at = new Date().toISOString();
+      updateData.review_notes = reviewNotes || null;
+      updateData.tech_notified = false; // Reset notification flag
+    }
+
+    if (archived !== undefined) {
+      updateData.archived = archived;
+      updateData.archived_at = archived ? new Date().toISOString() : null;
+    }
+
+    // Update photo
     const { data, error } = await supabase
       .from('franchisee_photos')
-      .update({
-        status,
-        reviewed_at: new Date().toISOString(),
-        review_notes: reviewNotes || null,
-        tech_notified: false // Reset notification flag
-      })
+      .update(updateData)
       .eq('id', photoId)
       .select()
       .single();
@@ -146,10 +142,89 @@ export async function PATCH(request: NextRequest) {
       console.log('⚠️ Notification creation skipped:', notifError);
     }
 
+    // Photo approval automatically makes it available in admin media archive
+    if (status === 'approved') {
+      console.log('✅ Photo approved - now available in admin media archive for marketing use');
+    }
+
     return NextResponse.json(data);
 
   } catch (error) {
     console.error('Error updating photo status:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Use service role client to bypass RLS
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const body = await request.json();
+    const { photoId } = body;
+
+    if (!photoId) {
+      return NextResponse.json(
+        { error: 'Photo ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get photo info before deletion for notification
+    const { data: photoData } = await supabase
+      .from('franchisee_photos')
+      .select('*')
+      .eq('id', photoId)
+      .single();
+
+    // Delete photo
+    const { error } = await supabase
+      .from('franchisee_photos')
+      .delete()
+      .eq('id', photoId);
+
+    if (error) {
+      console.error('Error deleting photo:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete photo' },
+        { status: 500 }
+      );
+    }
+
+    // Create notification for technician if photo existed
+    if (photoData) {
+      try {
+        const notificationData = {
+          user_id: photoData.technician_id,
+          user_type: 'tech',
+          title: 'Photo Deleted',
+          message: `Your photo submission for ${photoData.service_category} at ${photoData.service_location} has been deleted by the franchisee`,
+          type: 'photo_deleted',
+          related_id: photoId,
+          related_type: 'franchisee_photo',
+          read: false
+        };
+
+        await supabase
+          .from('notifications')
+          .insert([notificationData]);
+
+        console.log('✅ Deletion notification created for technician');
+      } catch (notifError) {
+        console.log('⚠️ Deletion notification creation skipped:', notifError);
+      }
+    }
+
+    return NextResponse.json({ success: true });
+
+  } catch (error) {
+    console.error('Error deleting photo:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

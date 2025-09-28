@@ -1,14 +1,14 @@
-// Simple service worker for PWA functionality
-const CACHE_NAME = 'pop-a-lock-job-report-v1';
+const CACHE_NAME = 'pal-content-v1';
 const urlsToCache = [
   '/',
-  '/manifest.json',
-  '/icon-192x192.png',
-  '/icon-512x512.png',
-  '/apple-touch-icon.png'
+  '/tech/dashboard',
+  '/quick-submit',
+  '/customer-submit',
+  '/tech/photos',
+  '/manifest.json'
 ];
 
-// Install event
+// Install event - cache resources
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -19,19 +19,22 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Fetch event
+// Fetch event - serve cached content when offline
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
       }
     )
   );
 });
 
-// Activate event
+// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -45,4 +48,46 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+});
+
+// Handle push notifications (future feature)
+self.addEventListener('push', (event) => {
+  if (event.data) {
+    const data = event.data.json();
+
+    const options = {
+      body: data.body,
+      icon: '/icon-192x192.png',
+      badge: '/icon-192x192.png',
+      vibrate: [200, 100, 200],
+      data: {
+        url: data.url || '/tech/dashboard'
+      },
+      actions: [
+        {
+          action: 'open',
+          title: 'Open App'
+        },
+        {
+          action: 'close',
+          title: 'Close'
+        }
+      ]
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'Pop-A-Lock', options)
+    );
+  }
+});
+
+// Handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  if (event.action === 'open' || !event.action) {
+    event.waitUntil(
+      clients.openWindow(event.notification.data.url || '/tech/dashboard')
+    );
+  }
 });

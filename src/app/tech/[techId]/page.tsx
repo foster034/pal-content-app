@@ -121,7 +121,6 @@ export default function TechMarketingDashboard() {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [showPhotoCamera, setShowPhotoCamera] = useState(false);
   const [photoCameraStream, setPhotoCameraStream] = useState<MediaStream | null>(null);
-  const [aiGenerating, setAiGenerating] = useState(false);
   const [contentForm, setContentForm] = useState({
     category: '' as MarketingContent['category'] | '',
     service: '',
@@ -652,59 +651,6 @@ export default function TechMarketingDashboard() {
     }
   };
 
-  const generateAISummary = async () => {
-    if (!contentForm.service || !contentForm.category) {
-      alert('Please select service category and type first');
-      return;
-    }
-
-    setAiGenerating(true);
-    
-    try {
-      // Prepare context for AI generation
-      const context = {
-        category: contentForm.category,
-        service: contentForm.service,
-        location: contentForm.location,
-        description: contentForm.description, // The tech's description/comments to enhance
-        jobDuration: contentForm.jobDuration,
-        vehicle: contentForm.vehicleYear && contentForm.vehicleMake && contentForm.vehicleModel ? 
-          `${contentForm.vehicleYear} ${contentForm.vehicleMake} ${contentForm.vehicleModel}` : null,
-        techName: tech?.name,
-        photoCount: contentForm.photos.length
-      };
-
-      // Call the OpenAI API endpoint
-      const response = await fetch('/api/generate-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(context),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate summary');
-      }
-
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setContentForm(prev => ({
-        ...prev,
-        description: data.summary
-      }));
-
-    } catch (error) {
-      console.error('AI generation error:', error);
-      alert('Unable to generate summary with AI. Please try again or write manually.');
-    } finally {
-      setAiGenerating(false);
-    }
-  };
 
   const getAvailableServices = () => {
     if (!contentForm.category) return [];
@@ -1638,28 +1584,7 @@ export default function TechMarketingDashboard() {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">Description *</label>
-                    <button
-                      type="button"
-                      onClick={generateAISummary}
-                      disabled={aiGenerating || !contentForm.service || !contentForm.category}
-                      className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-400 transition-colors flex items-center gap-1 text-xs"
-                      title="Generate AI marketing summary using form data"
-                    >
-                      {aiGenerating ? (
-                        <>
-                          <span className="animate-spin">⏳</span>
-                          <span>Generating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>🤖</span>
-                          <span>AI Generate</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
                   <textarea
                     value={contentForm.description}
                     onChange={(e) => setContentForm(prev => ({ ...prev, description: e.target.value }))}
@@ -1668,12 +1593,7 @@ export default function TechMarketingDashboard() {
                     placeholder="Describe the service provided, challenges encountered, work performed, tools used, resolution details, or any technical notes..."
                     required
                   />
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-xs text-gray-500">Add your technical notes - AI will help format into a professional service report</p>
-                    {!aiGenerating && (contentForm.service && contentForm.category) && (
-                      <p className="text-xs text-purple-600">💡 Click "AI Generate" to format your notes into a professional service report</p>
-                    )}
-                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Describe the service provided, challenges encountered, work performed, tools used, resolution details, or any technical notes...</p>
                 </div>
 
 
