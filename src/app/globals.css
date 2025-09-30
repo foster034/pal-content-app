@@ -61,8 +61,8 @@ body {
     --card-foreground: oklch(0.141 0.005 285.823);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.141 0.005 285.823);
-    --primary: oklch(0.705 0.213 47.604);
-    --primary-foreground: oklch(0.98 0.016 73.684);
+    --primary: oklch(0.62 0.27 35);
+    --primary-foreground: oklch(1 0 0);
     --secondary: oklch(0.967 0.001 286.375);
     --secondary-foreground: oklch(0.21 0.006 285.885);
     --muted: oklch(0.967 0.001 286.375);
@@ -131,15 +131,51 @@ body {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Ensure proper touch targets on mobile */
+  /* Enhanced touch targets for mobile */
   @media (max-width: 768px) {
+    /* Primary interactive elements */
     button,
     a,
     [role="button"],
-    .cursor-pointer {
+    .cursor-pointer,
+    .clickable {
       min-height: 44px;
+      min-width: 44px;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
+      padding: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Form controls with proper touch targets */
+    input[type="checkbox"],
+    input[type="radio"] {
+      min-height: 44px;
+      min-width: 44px;
+      transform: scale(1.5);
+      margin: 0.5rem;
+    }
+
+    /* File input styling for mobile */
+    input[type="file"] {
+      min-height: 44px;
+      padding: 0.75rem;
+    }
+
+    /* Image gallery touch optimization */
+    .image-gallery img,
+    .photo-grid img {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Modal and overlay touch handling */
+    .modal-overlay,
+    .overlay {
+      touch-action: none;
     }
 
     /* Prevent 300ms tap delay on mobile */
@@ -147,19 +183,157 @@ body {
       touch-action: manipulation;
     }
 
-    /* Improve mobile scrolling */
+    /* Improve mobile scrolling performance */
     .overflow-y-auto,
-    .overflow-auto {
+    .overflow-auto,
+    .scrollable {
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
 
     /* Fix iOS zoom on input focus */
     input[type="text"],
     input[type="email"],
     input[type="password"],
+    input[type="number"],
+    input[type="tel"],
     textarea,
     select {
       font-size: 16px;
+      -webkit-appearance: none;
+      border-radius: var(--radius);
+    }
+
+    /* Mobile-specific spacing and layout */
+    .mobile-spacing {
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Bottom navigation safe area */
+    .bottom-nav-safe {
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+    }
+
+    /* Prevent text selection on mobile UI elements */
+    .ui-element,
+    .sidebar,
+    .navigation,
+    .toolbar {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    /* Photo submission modal mobile optimization */
+    .photo-modal {
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .photo-upload-area {
+      min-height: 120px;
+      border: 2px dashed;
+      border-radius: var(--radius);
+      touch-action: manipulation;
+    }
+
+    /* Swipe gesture support for photo galleries */
+    .swipeable {
+      touch-action: pan-x;
+      user-select: none;
+    }
+
+    /* Enhanced mobile forms */
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    /* Mobile button groups */
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .button-group button {
+      flex: 1;
+      min-width: 120px;
+    }
+  }
+
+  /* Tablet-specific optimizations */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .tablet-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    .tablet-spacing {
+      padding: 1.5rem;
+    }
+  }
+
+  /* PWA and mobile app enhancements */
+  @media (display-mode: standalone) {
+    /* PWA status bar handling */
+    .status-bar-safe {
+      padding-top: env(safe-area-inset-top);
+    }
+
+    /* Hide browser chrome elements in PWA */
+    .browser-only {
+      display: none;
+    }
+
+    /* PWA navigation */
+    .pwa-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      background: var(--background);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+
+  /* Performance optimizations for mobile */
+  .mobile-optimized {
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  /* Loading states for mobile */
+  .mobile-loading {
+    touch-action: none;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  /* Accessibility improvements for mobile */
+  @media (prefers-reduced-motion: no-preference) {
+    .mobile-animation {
+      transition: all 0.2s ease-out;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-animation {
+      transition: none;
     }
   }
 

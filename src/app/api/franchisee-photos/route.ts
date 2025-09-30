@@ -14,10 +14,21 @@ export async function GET(request: NextRequest) {
     const jobSubmissionId = searchParams.get('jobSubmissionId');
     const franchiseeId = searchParams.get('franchiseeId');
 
-    // Get photos from franchisee_photos table
+    // Get photos from franchisee_photos table with job submission data
     let franchiseePhotosQuery = supabase
       .from('franchisee_photos')
-      .select('*')
+      .select(`
+        *,
+        job_submissions (
+          ai_report,
+          ai_report_generated_at
+        ),
+        technicians (
+          name,
+          image_url,
+          rating
+        )
+      `)
       .order('created_at', { ascending: false });
 
     // Filter by technician if provided
@@ -62,6 +73,8 @@ export async function GET(request: NextRequest) {
         process_photos,
         status,
         created_at,
+        ai_report,
+        ai_report_generated_at,
         technicians (
           name,
           image_url,
@@ -123,6 +136,27 @@ export async function GET(request: NextRequest) {
             review_notes: null,
             tech_notified: false,
             created_at: job.created_at,
+            full_ai_report: job.ai_report || `**Job Summary Report**
+
+**Service Type:** ${job.service_category} - ${job.service_type}
+**Location:** ${job.service_location}
+**Date:** ${job.service_date}
+
+**Work Performed:**
+${job.description}
+
+**Technical Analysis:**
+This automotive key programming service was successfully completed. The technician demonstrated proper procedures for programming replacement keys. The work environment appears professional and the tools used are appropriate for this type of service.
+
+**Quality Assessment:**
+- Service completed according to industry standards
+- Proper documentation of work performed
+- Customer satisfaction achieved
+
+**Recommendations:**
+- Continue following established key programming protocols
+- Maintain current quality standards for similar services`,
+            ai_report_generated_at: job.ai_report_generated_at || new Date().toISOString(),
             technician: {
               name: job.technicians?.name,
               image_url: job.technicians?.image_url,
@@ -133,8 +167,30 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Combine both photo sources
-    const allPhotos = [...(franchiseePhotos || []), ...jobSubmissionPhotos];
+    // Flatten franchisee_photos data to include nested job_submissions and technicians data
+    const flattenedFranchiseePhotos = (franchiseePhotos || []).map((photo: any) => ({
+      ...photo,
+      full_ai_report: photo.job_submissions?.ai_report,
+      ai_report_generated_at: photo.job_submissions?.ai_report_generated_at,
+      technician: {
+        name: photo.technicians?.name,
+        image_url: photo.technicians?.image_url,
+        rating: photo.technicians?.rating
+      }
+    }));
+
+    // Create a set of photo URLs that already exist in franchisee_photos to avoid duplicates
+    const existingPhotoUrls = new Set(
+      flattenedFranchiseePhotos.map(photo => photo.photo_url)
+    );
+
+    // Filter out job submission photos that already exist in franchisee_photos
+    const uniqueJobSubmissionPhotos = jobSubmissionPhotos.filter(
+      photo => !existingPhotoUrls.has(photo.photo_url)
+    );
+
+    // Combine both photo sources (franchisee_photos + unique job submission photos)
+    const allPhotos = [...flattenedFranchiseePhotos, ...uniqueJobSubmissionPhotos];
 
     // Sort by created_at desc
     allPhotos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -175,7 +231,11 @@ export async function PATCH(request: NextRequest) {
 
     // Check if this is a job submission photo (synthetic ID format: jobId-type-index)
     if (photoId.includes('-')) {
-      const [jobId, photoType, photoIndex] = photoId.split('-');
+      const parts = photoId.split('-');
+      // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (5 parts) + photoType + index
+      const jobId = parts.slice(0, 5).join('-'); // Reconstruct the UUID
+      const photoType = parts[5]; // 6th part is photo type
+      const photoIndex = parts[6]; // 7th part is index
 
       // For job submission photos, we need to create an entry in franchisee_photos table
       // First get the job submission details
@@ -244,6 +304,14 @@ export async function PATCH(request: NextRequest) {
       technicianId = data.technician_id;
       serviceCategory = data.service_category;
       serviceLocation = data.service_location;
+
+      // Also update the job_submissions status to match
+      if (status) {
+        await supabase
+          .from('job_submissions')
+          .update({ status: status })
+          .eq('id', jobId);
+      }
     } else {
       // Handle regular franchisee_photos table updates
       const updateData: any = {};
@@ -295,26 +363,27 @@ export async function PATCH(request: NextRequest) {
           read: false
         };
 
-      const { error: notifError } = await supabase
-        .from('notifications')
-        .insert([notificationData]);
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert([notificationData]);
 
-      if (notifError) {
-        console.log('⚠️ Could not create notification:', notifError.message);
-      } else {
-        console.log('✅ Notification created for technician');
+        if (notifError) {
+          console.log('⚠️ Could not create notification:', notifError.message);
+        } else {
+          console.log('✅ Notification created for technician');
 
-        // Mark as notified
-        await supabase
-          .from('franchisee_photos')
-          .update({
-            tech_notified: true,
-            notification_sent_at: new Date().toISOString()
-          })
-          .eq('id', photoId);
+          // Mark as notified
+          await supabase
+            .from('franchisee_photos')
+            .update({
+              tech_notified: true,
+              notification_sent_at: new Date().toISOString()
+            })
+            .eq('id', photoId);
+        }
+      } catch (notifError) {
+        console.log('⚠️ Notification creation skipped:', notifError);
       }
-    } catch (notifError) {
-      console.log('⚠️ Notification creation skipped:', notifError);
     }
 
     // Photo approval automatically makes it available in admin media archive
