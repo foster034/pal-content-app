@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTheme } from '@/contexts/theme-context';
 import { useLogo } from '@/contexts/logo-context';
-import StorageImageUploader from '@/components/StorageImageUploader';
+import ImageUploader from '@/components/ImageUploader';
 import Image from 'next/image';
 
 export default function FranchiseeSettingsPage() {
@@ -264,13 +264,10 @@ export default function FranchiseeSettingsPage() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">🎨 Branding</h3>
           <div className="space-y-4">
             <div>
-              <StorageImageUploader
+              <ImageUploader
                 label="Logo"
                 currentImage={brandingSettings.logo}
                 onImageUploaded={handleLogoUploaded}
-                enableCrop={false}
-                userType="franchisee"
-                userId={franchiseeId}
               />
             </div>
             <div>

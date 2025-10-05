@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, MessageCircle, Eye, Send, Edit, Trash2, Settings } from "lucide-react";
-import StorageImageUploader from "@/components/StorageImageUploader";
+import ImageUploader from "@/components/ImageUploader";
 import ImageModal from "@/components/ImageModal";
 import { DetailModal } from "@/components/DetailModal";
 import '../../../styles/animations.css';
@@ -350,14 +350,10 @@ export default function TechsPage() {
                 </select>
               </div>
 
-              <StorageImageUploader
+              <ImageUploader
                 label="Technician Photo"
                 currentImage={formData.image}
                 onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image: imageUrl }))}
-                enableCrop={true}
-                cropAspect={1}
-                userType="tech"
-                userId={editingTech?.id ? String(editingTech.id) : `temp-tech-${Date.now()}`}
               />
 
               <div>

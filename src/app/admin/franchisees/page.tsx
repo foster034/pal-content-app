@@ -20,8 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import StorageImageUploader from "@/components/StorageImageUploader";
 import ImageModal from "@/components/ImageModal";
+import ImageUploader from "@/components/ImageUploader";
 import { DetailModal } from "@/components/DetailModal";
 import { Mail, Phone, Bell, MoreHorizontal, Eye, Send, Edit, Trash2, Settings, Search, X } from "lucide-react";
 import '../../../styles/animations.css';
@@ -632,13 +632,10 @@ export default function FranchiseesPage() {
                 </div>
               </div>
 
-              <StorageImageUploader
+              <ImageUploader
                 label="Main Franchise Image"
                 currentImage={formData.image}
                 onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image: imageUrl }))}
-                enableCrop={false}
-                userType="franchisee"
-                userId={editingFranchisee?.id || `temp-${Date.now()}`}
               />
 
               {/* Auth User Creation Section */}
@@ -764,13 +761,10 @@ export default function FranchiseesPage() {
                       />
                     </div>
                     <div className="col-span-2">
-                      <StorageImageUploader
+                      <ImageUploader
                         label="Owner Image"
                         currentImage={currentOwner.image}
                         onImageUploaded={(imageUrl) => setCurrentOwner(prev => ({ ...prev, image: imageUrl }))}
-                        cropAspect={1}
-                        userType="franchisee"
-                        userId={currentOwner.id ? String(currentOwner.id) : `temp-owner-${Date.now()}`}
                       />
                     </div>
                   </div>
