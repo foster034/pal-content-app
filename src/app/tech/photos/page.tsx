@@ -485,18 +485,18 @@ export default function TechPhotosPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Marketing Photos</h1>
-          <p className="text-muted-foreground">Manage your job photos for marketing approval</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Marketing Photos</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your job photos for marketing approval</p>
         </div>
-        <div className="flex gap-3">
-          <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700 min-h-[44px] touch-manipulation w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             Submit Job
           </Button>
-          <Button variant="outline" onClick={handleSubmitJob}>
+          <Button variant="outline" onClick={handleSubmitJob} className="min-h-[44px] touch-manipulation w-full sm:w-auto">
             <Camera className="w-4 h-4 mr-2" />
             Upload Photo
           </Button>
@@ -509,7 +509,7 @@ export default function TechPhotosPage() {
           <select
             value={selectedJobType}
             onChange={(e) => setSelectedJobType(e.target.value)}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 min-h-[44px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
           >
             <option value="All">All Job Types</option>
             <option value="Commercial">Commercial</option>
@@ -532,9 +532,125 @@ export default function TechPhotosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className={tableClasses.wrapper}>
-            <table className={tableClasses.table}>
-              <thead className={tableClasses.header}>
+          {/* Mobile Card View */}
+          <div className="block md:hidden space-y-4">
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="flex flex-col items-center justify-center space-y-4">
+                  <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Loading your photos...</p>
+                </div>
+              </div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="flex flex-col items-center justify-center space-y-4">
+                  <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No jobs yet</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm px-4">
+                      Submit jobs from the dashboard to see your job submissions here for marketing approval.
+                    </p>
+                  </div>
+                  <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700 min-h-[44px]">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Submit Your First Job
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              filteredJobs.map((job) => (
+                <div
+                  key={job.id}
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 touch-manipulation"
+                  onClick={() => {
+                    setSelectedImageModal({
+                      imageUrl: job.photos[0],
+                      jobDetails: convertToImageModalData(job)
+                    });
+                  }}
+                >
+                  {/* Photo Preview */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-16 h-16 relative rounded-lg overflow-hidden flex-shrink-0">
+                      <img
+                        src={job.photos[0]}
+                        alt={job.jobDescription}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getJobTypeVariant(job.jobType)}`}>
+                          {job.jobType}
+                        </span>
+                        {job.photoCount > 1 && (
+                          <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs font-medium px-2 py-0.5 rounded-full">
+                            +{job.photoCount - 1} photos
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                        📍 {job.jobLocation}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">
+                        {job.tags && job.tags.length > 0 && job.tags.join(', ')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Job Info */}
+                  <div className="text-sm space-y-1">
+                    <div className="text-gray-700 dark:text-gray-300">
+                      <strong>Tech:</strong> {job.technicianName || 'Unknown Tech'}
+                    </div>
+                    <div className="text-gray-600 dark:text-gray-400">
+                      <strong>Date:</strong> {job.dateUploaded}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2 border-t dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => setSelectedImageModal({
+                        imageUrl: job.photos[0],
+                        jobDetails: convertToImageModalData(job)
+                      })}
+                      className="flex-1 min-h-[44px] p-2 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors font-medium text-sm"
+                    >
+                      👁 View
+                    </button>
+                    <button
+                      onClick={() => openEditModal(job)}
+                      className="flex-1 min-h-[44px] p-2 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors font-medium text-sm"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => deleteJob(job.id)}
+                      disabled={job.status === 'approved'}
+                      className={`flex-1 min-h-[44px] p-2 rounded-lg transition-colors font-medium text-sm ${
+                        job.status === 'approved'
+                          ? 'text-gray-300 dark:text-gray-700 cursor-not-allowed'
+                          : 'text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
+                      }`}
+                    >
+                      🗑 Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
+            <div className={tableClasses.wrapper}>
+              <table className={tableClasses.table}>
+                <thead className={tableClasses.header}>
                 <tr>
                   <th scope="col" className="p-4">
                     <div className="flex items-center">
@@ -711,6 +827,7 @@ export default function TechPhotosPage() {
                 )}
               </tbody>
             </table>
+          </div>
           </div>
         </CardContent>
       </Card>

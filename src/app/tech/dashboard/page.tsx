@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getTechSession } from '@/lib/tech-auth';
 import ModernJobSubmissionModal from '@/components/ModernJobSubmissionModal';
+import PhotoEditor from '@/components/PhotoEditor';
 
 // Dynamic stats calculation function
 const getPhotoStats = (submittedContent: MarketingContent[]) => {
@@ -153,6 +154,8 @@ function TechDashboardContent() {
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
   const [showCameraGuide, setShowCameraGuide] = useState(false);
+  const [capturedPhotoForEditing, setCapturedPhotoForEditing] = useState<string | null>(null);
+  const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [deviceType, setDeviceType] = useState<'ios' | 'android' | 'unknown'>('unknown');
   const [loading, setLoading] = useState(true);
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
@@ -952,77 +955,63 @@ function TechDashboardContent() {
     console.log('Video ready for capture:', video.videoWidth, 'x', video.videoHeight);
 
     if (video && ctx) {
-      const originalWidth = video.videoWidth;
-      const originalHeight = video.videoHeight;
-      const originalAspectRatio = originalWidth / originalHeight;
-      
-      let targetWidth: number, targetHeight: number;
-      
-      switch (socialMediaFormat) {
-        case 'instagram':
-          targetWidth = targetHeight = 1080;
-          break;
-        case 'facebook':
-          targetWidth = 1200;
-          targetHeight = 630;
-          break;
-        case 'auto':
-        default:
-          if (originalAspectRatio >= 1.5) {
-            targetWidth = 1200;
-            targetHeight = 630;
-          } else if (originalAspectRatio >= 1.1) {
-            targetWidth = 1200;
-            targetHeight = 630;
-          } else if (originalAspectRatio >= 0.9) {
-            targetWidth = targetHeight = 1080;
-          } else if (originalAspectRatio >= 0.6) {
-            targetWidth = targetHeight = 1080;
-          } else {
-            targetWidth = targetHeight = 1080;
-          }
-          break;
-      }
-      
-      const targetAspectRatio = targetWidth / targetHeight;
-      
-      let sourceX = 0, sourceY = 0, sourceWidth = originalWidth, sourceHeight = originalHeight;
-      
-      if (originalAspectRatio > targetAspectRatio) {
-        sourceWidth = originalHeight * targetAspectRatio;
-        sourceX = (originalWidth - sourceWidth) / 2;
-      } else if (originalAspectRatio < targetAspectRatio) {
-        sourceHeight = originalWidth / targetAspectRatio;
-        sourceY = (originalHeight - sourceHeight) / 4;
-      }
+      // Capture full resolution image for editing
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
+      ctx.drawImage(video, 0, 0);
 
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      
-      ctx.drawImage(
-        video,
-        sourceX, sourceY, sourceWidth, sourceHeight,
-        0, 0, targetWidth, targetHeight
-      );
-      
-      const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.90);
-      
-      setContentForm(prev => ({
-        ...prev,
-        photos: [...prev.photos, optimizedDataUrl]
-      }));
+      const capturedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
 
-      console.log('Photo captured successfully and added to form');
+      console.log('Photo captured, opening editor');
 
+      // Show photo editor instead of directly adding to form
+      setCapturedPhotoForEditing(capturedDataUrl);
+      setShowPhotoEditor(true);
       stopPhotoCamera();
     }
   };
 
   const handleCameraCapture = () => {
     startPhotoCamera();
+  };
+
+  const handlePhotoEditorSave = async (croppedBlob: Blob, aspectRatio: 'landscape' | 'square') => {
+    try {
+      // Convert blob to data URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+
+        // Add cropped photo to form
+        setContentForm(prev => ({
+          ...prev,
+          photos: [...prev.photos, dataUrl]
+        }));
+
+        // Convert blob to File for potential upload
+        const file = new File([croppedBlob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setContentForm(prev => ({
+          ...prev,
+          photoFiles: [...prev.photoFiles, file]
+        }));
+
+        console.log('Cropped photo added to form:', aspectRatio);
+      };
+      reader.readAsDataURL(croppedBlob);
+
+      // Close editor
+      setShowPhotoEditor(false);
+      setCapturedPhotoForEditing(null);
+    } catch (error) {
+      console.error('Error saving cropped photo:', error);
+      alert('Failed to save photo. Please try again.');
+    }
+  };
+
+  const handlePhotoEditorCancel = () => {
+    setShowPhotoEditor(false);
+    setCapturedPhotoForEditing(null);
   };
 
   const removePhoto = (index: number) => {
@@ -2156,6 +2145,15 @@ function TechDashboardContent() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Photo Editor Modal */}
+      {showPhotoEditor && capturedPhotoForEditing && (
+        <PhotoEditor
+          imageUrl={capturedPhotoForEditing}
+          onSave={handlePhotoEditorSave}
+          onCancel={handlePhotoEditorCancel}
+        />
+      )}
 
       {/* Photo Viewer Modal */}
       {selectedPhoto && (

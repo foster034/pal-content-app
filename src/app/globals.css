@@ -364,3 +364,94 @@ body {
     display: none !important;
   }
 }
+
+/* Tech Pages Mobile Optimization */
+@media (max-width: 768px) {
+  /* Ensure all touch targets are at least 44x44px (Apple guideline) */
+  .tech-touch-target,
+  button:not(.tech-button-small),
+  a[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mobile-friendly spacing for tech dashboard */
+  .tech-mobile-card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Optimize photo capture button for mobile */
+  .camera-button {
+    min-height: 56px;
+    font-size: 1.125rem;
+    padding: 0.75rem 1.5rem;
+  }
+
+  /* Photo editor full-screen on mobile */
+  .photo-editor-mobile {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+  }
+
+  /* Improve form inputs on mobile */
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  textarea,
+  select {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 44px;
+  }
+
+  /* Mobile-optimized grid for stats */
+  .stats-grid-mobile {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  /* Safe area support for notched devices */
+  .safe-area-inset {
+    padding-top: max(env(safe-area-inset-top), 0px);
+    padding-bottom: max(env(safe-area-inset-bottom), 16px);
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+
+  /* Prevent iOS zoom on double-tap */
+  .no-zoom {
+    touch-action: manipulation;
+  }
+}
+
+/* Landscape orientation optimizations for phones */
+@media (max-height: 500px) and (orientation: landscape) {
+  .tech-header {
+    padding: 0.5rem;
+  }
+
+  .tech-stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+/* Large touch devices (tablets) */
+@media (min-width: 768px) and (max-width: 1024px) and (hover: none) {
+  button, a[role="button"] {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* PWA standalone mode optimizations */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .tech-header {
+    padding-top: calc(env(safe-area-inset-top) + 1rem);
+  }
+}

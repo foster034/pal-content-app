@@ -404,27 +404,27 @@ export default function TechProfilePage() {
     : 'Recently';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-safe">
       {/* Header Section */}
       <div className="relative">
         {/* Simple header background */}
-        <div className="h-32 bg-white dark:bg-gray-800 border-b"></div>
+        <div className="h-24 sm:h-32 bg-white dark:bg-gray-800 border-b"></div>
 
         {/* Profile Header Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative -mt-16">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6">
+          <div className="relative -mt-12 sm:-mt-16">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6">
                 {/* Avatar Section */}
                 <div className="relative">
-                  <Avatar className="h-32 w-32 border-4 border-white dark:border-gray-800 shadow-xl">
+                  <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-white dark:border-gray-800 shadow-xl">
                     <AvatarImage src={isEditing ? formData.avatar_url : userProfile.avatar_url} />
-                    <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-3xl font-bold">
+                    <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-2xl sm:text-3xl font-bold">
                       {userProfile.full_name?.charAt(0) || 'T'}
                     </AvatarFallback>
                   </Avatar>
                   {isEditing && (
-                    <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2">
+                    <div className="absolute -bottom-2 sm:-bottom-4 left-1/2 transform -translate-x-1/2">
                       <Button
                         size="sm"
                         onClick={() => {
@@ -433,7 +433,7 @@ export default function TechProfilePage() {
                           fileInput?.click();
                         }}
                         disabled={uploadingAvatar}
-                        className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
+                        className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 min-h-[44px] min-w-[44px]"
                       >
                         {uploadingAvatar ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -447,10 +447,10 @@ export default function TechProfilePage() {
 
                 {/* Profile Info */}
                 <div className="flex-1 text-center sm:text-left">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                     {userProfile.full_name}
                   </h1>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1 break-words">
                     {userProfile.email}
                   </p>
                   <div className="mt-2">
@@ -458,29 +458,30 @@ export default function TechProfilePage() {
                       {userProfile.role}
                     </Badge>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2">
                     Member since {memberSince}
                   </p>
                 </div>
 
                 {/* Edit Button */}
-                <div>
+                <div className="w-full sm:w-auto">
                   {!isEditing ? (
-                    <Button onClick={() => setIsEditing(true)} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => setIsEditing(true)} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px]">
                       <Edit className="h-4 w-4 mr-2" />
                       Edit Profile
                     </Button>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full">
                       <Button
                         onClick={handleCancel}
                         variant="outline"
+                        className="w-full sm:w-auto min-h-[44px]"
                       >
                         Cancel
                       </Button>
                       <Button
                         onClick={handleSave}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px]"
                         disabled={saving}
                       >
                         {saving ? (
@@ -502,10 +503,10 @@ export default function TechProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 sm:mt-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="flex -mb-px">
+          <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <nav className="flex -mb-px min-w-min">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -513,22 +514,22 @@ export default function TechProfilePage() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`
-                      flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors
+                      flex items-center gap-2 px-4 sm:px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap min-h-[44px] touch-manipulation
                       ${activeTab === tab.id
                         ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
                         : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                       }
                     `}
                   >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="hidden sm:inline">{tab.label}</span>
                   </button>
                 );
               })}
             </nav>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {/* Personal Info Tab */}
             {activeTab === 'personal' && (
               <div className="space-y-6">
@@ -569,6 +570,7 @@ export default function TechProfilePage() {
                             fileInput?.click();
                           }}
                           disabled={uploadingAvatar}
+                          className="min-h-[44px]"
                         >
                           {uploadingAvatar ? (
                             <>
