@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getTechSession } from '@/lib/tech-auth';
+import ModernJobSubmissionModal from '@/components/ModernJobSubmissionModal';
 
 // Dynamic stats calculation function
 const getPhotoStats = (submittedContent: MarketingContent[]) => {
@@ -136,6 +137,7 @@ interface MarketingContent {
 function TechDashboardContent() {
   const searchParams = useSearchParams();
   const [showContentForm, setShowContentForm] = useState(false);
+  const [showModernJobForm, setShowModernJobForm] = useState(false);
   const [formStep, setFormStep] = useState(1); // Progressive form steps
   const [submittedContent, setSubmittedContent] = useState<MarketingContent[]>([]); // Store submitted marketing content
   const [techSession, setTechSession] = useState<any>(null); // Store technician session data
@@ -177,7 +179,15 @@ function TechDashboardContent() {
   useEffect(() => {
     const loadJobSubmissions = async () => {
       try {
-        const response = await fetch('/api/job-submissions');
+        // Get current tech session to filter by technician
+        const session = await getTechSession();
+        if (!session) {
+          console.warn('⚠️ No tech session found, cannot load job submissions');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`/api/job-submissions?technicianId=${session.id}`);
         if (response.ok) {
           const jobs = await response.json();
 
@@ -255,7 +265,7 @@ function TechDashboardContent() {
   useEffect(() => {
     const openForm = searchParams.get('openForm');
     if (openForm === 'true') {
-      setShowContentForm(true);
+      setShowModernJobForm(true);
     }
   }, [searchParams]);
 
@@ -569,6 +579,112 @@ function TechDashboardContent() {
     } catch (error) {
       console.error('Error submitting content:', error);
       alert('Failed to submit content. Please try again.');
+    }
+  };
+
+  const handleModernJobSubmission = async (data: any) => {
+    try {
+      if (!techSession?.id) {
+        alert('Unable to submit: No technician session found. Please log in again.');
+        return;
+      }
+
+      const jobSubmissionData = {
+        technicianId: techSession.id,
+        franchiseeId: '4c8b70f3-797b-4384-869e-e1fb3919f615',
+        client: {
+          name: data.customerName || 'Not provided',
+          phone: data.customerPhone || '',
+          email: data.customerEmail || '',
+          preferredContactMethod: data.preferredContact || 'phone',
+          consentToContact: data.customerPermission || false,
+          consentToShare: data.customerPermission || false
+        },
+        service: {
+          category: data.category,
+          type: data.service,
+          location: data.location,
+          date: new Date().toISOString().split('T')[0],
+          duration: data.jobDuration || 30,
+          satisfaction: 5,
+          description: data.description
+        },
+        vehicle: data.category === 'Automotive' ? {
+          year: data.vehicleYear || '',
+          make: data.vehicleMake || '',
+          model: data.vehicleModel || ''
+        } : undefined
+      };
+
+      const response = await fetch('/api/job-submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jobSubmissionData)
+      });
+
+      if (!response.ok) throw new Error('Failed to create job submission');
+
+      const savedJob = await response.json();
+
+      if (data.photos && data.photos.length > 0) {
+        // Group photos by type
+        const photosByType: { [key: string]: File[] } = {
+          before: [],
+          after: [],
+          process: []
+        };
+
+        data.photos.forEach((photo: File, index: number) => {
+          const photoType = data.photoTypes[index] || 'process';
+          photosByType[photoType].push(photo);
+        });
+
+        // Upload each photo type separately
+        for (const [photoType, photos] of Object.entries(photosByType)) {
+          if (photos.length === 0) continue;
+
+          const typeFormData = new FormData();
+          typeFormData.append('jobId', savedJob.id);
+          typeFormData.append('technicianId', techSession.id);
+          typeFormData.append('franchiseeId', '4c8b70f3-797b-4384-869e-e1fb3919f615');
+          typeFormData.append('photoType', photoType);
+
+          photos.forEach(photo => {
+            typeFormData.append('photos', photo);
+          });
+
+          const photoResponse = await fetch('/api/upload-job-photos', {
+            method: 'POST',
+            body: typeFormData
+          });
+
+          if (!photoResponse.ok) {
+            console.error(`Failed to upload ${photoType} photos:`, await photoResponse.text());
+            throw new Error(`Failed to upload ${photoType} photos`);
+          }
+
+          const uploadResult = await photoResponse.json();
+          console.log(`Successfully uploaded ${uploadResult.uploadedUrls?.length || 0} ${photoType} photos`);
+        }
+      }
+
+      const newContent = {
+        id: savedJob.id,
+        title: `${savedJob.service.category} - ${savedJob.service.type}`,
+        description: savedJob.service.description,
+        submittedBy: savedJob.technician.name,
+        submittedAt: savedJob.submittedAt,
+        status: 'Submitted' as const,
+        location: savedJob.service.location,
+        photos: []
+      };
+
+      setSubmittedContent(prev => [newContent, ...prev]);
+      alert('Job submitted successfully! 🎉');
+
+    } catch (error) {
+      console.error('Error submitting job:', error);
+      alert('Failed to submit job. Please try again.');
     }
   };
 
@@ -1048,7 +1164,7 @@ function TechDashboardContent() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative mobile-spacing">
       {/* Background Effects */}
       <div className="fixed inset-0 bg-gradient-to-br from-background via-background to-muted/20 -z-10" />
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent -z-10" />
@@ -1065,10 +1181,10 @@ function TechDashboardContent() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              size="sm" 
-              onClick={() => setShowContentForm(true)}
-              className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg"
+            <Button
+              size="sm"
+              onClick={() => setShowModernJobForm(true)}
+              className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg touch-manipulation clickable mobile-animation"
             >
               <Plus className="h-4 w-4 mr-2" />
               Submit Content
@@ -1161,7 +1277,7 @@ function TechDashboardContent() {
                     Start submitting job photos to build your portfolio and get marketing approvals.
                   </p>
                   <Button
-                    onClick={() => setShowContentForm(true)}
+                    onClick={() => setShowModernJobForm(true)}
                     className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -1259,7 +1375,7 @@ function TechDashboardContent() {
           socialMediaFormat === 'instagram' ? 'max-w-2xl' :
           socialMediaFormat === 'facebook' ? 'max-w-5xl' :
           'max-w-4xl'
-        } max-h-[90vh] overflow-hidden bg-white dark:bg-gray-950 border-0 shadow-xl transition-all duration-300`}>
+        } max-h-[90vh] overflow-hidden bg-white dark:bg-gray-950 border-0 shadow-xl transition-all duration-300 photo-modal mobile-optimized`}>
           <div className="overflow-y-auto max-h-[calc(90vh-2rem)]">
             <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pb-6 border-b border-gray-100 dark:border-gray-800">
               <div className="flex items-start justify-between">
@@ -1893,7 +2009,7 @@ function TechDashboardContent() {
           socialMediaFormat === 'instagram' ? 'max-w-2xl' :
           socialMediaFormat === 'facebook' ? 'max-w-4xl' :
           'max-w-3xl'
-        } max-h-[90vh] overflow-hidden bg-white dark:bg-gray-950 border-0 shadow-xl transition-all duration-300`}>
+        } max-h-[90vh] overflow-hidden bg-white dark:bg-gray-950 border-0 shadow-xl transition-all duration-300 photo-modal mobile-optimized`}>
           <div className="overflow-y-auto max-h-[calc(90vh-2rem)]">
             <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pb-4 border-b border-gray-100 dark:border-gray-800">
               <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-3">
@@ -2059,6 +2175,14 @@ function TechDashboardContent() {
           </div>
         </div>
       )}
+
+      {/* Modern Job Submission Modal */}
+      <ModernJobSubmissionModal
+        isOpen={showModernJobForm}
+        onClose={() => setShowModernJobForm(false)}
+        onSubmit={handleModernJobSubmission}
+        serviceCategories={serviceCategories}
+      />
 
     </div>
   );

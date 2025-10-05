@@ -259,6 +259,15 @@ export function JobPicModal({
                   </div>
                 )}
               </div>
+
+              {jobData.description && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Service Description
+                  </label>
+                  <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{jobData.description}</p>
+                </div>
+              )}
               
               {jobData.workPerformed && (
                 <div className="mt-4">

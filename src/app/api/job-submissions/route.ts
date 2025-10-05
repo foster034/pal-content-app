@@ -10,14 +10,9 @@ export async function GET(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Skip authentication for now
-    // const { data: { session } } = await supabase.auth.getSession();
-    // if (!session) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
-
     const { searchParams } = new URL(request.url);
     const franchiseeId = searchParams.get('franchiseeId');
+    const technicianId = searchParams.get('technicianId');
     const status = searchParams.get('status');
 
     let query = supabase
@@ -38,6 +33,11 @@ export async function GET(request: NextRequest) {
     // Filter by franchisee if provided
     if (franchiseeId) {
       query = query.eq('franchisee_id', franchiseeId);
+    }
+
+    // Filter by technician if provided
+    if (technicianId) {
+      query = query.eq('technician_id', technicianId);
     }
 
     // Filter by status if provided
@@ -156,9 +156,9 @@ export async function POST(request: NextRequest) {
       vehicle_model: body.vehicleModel || body.vehicle?.model || null,
       vehicle_color: body.vehicleColor || body.vehicle?.color || null,
       vehicle_vin: body.vehicleVin || body.vehicle?.vin || null,
-      before_photos: body.media.beforePhotos || [],
-      after_photos: body.media.afterPhotos || [],
-      process_photos: body.media.processPhotos || [],
+      before_photos: body.media?.beforePhotos || [],
+      after_photos: body.media?.afterPhotos || [],
+      process_photos: body.media?.processPhotos || [],
       status: 'pending'
     };
 

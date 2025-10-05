@@ -11,6 +11,13 @@
       "env": {
         "SUPABASE_ACCESS_TOKEN": "<access-token>"
       }
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ]
     }
   }
 }

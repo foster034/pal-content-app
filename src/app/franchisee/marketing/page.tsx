@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +77,8 @@ interface JobSubmission {
 export default function JobPicsPage() {
   const { getTableClasses } = useTable();
   const tableClasses = getTableClasses();
+  const searchParams = useSearchParams();
+  const franchiseeId = searchParams.get('id'); // For admin viewing specific franchisee
 
   const [jobSubmissions, setJobSubmissions] = useState<JobSubmission[]>([]);
   const [selectedJob, setSelectedJob] = useState<JobSubmission | null>(null);
@@ -88,14 +91,17 @@ export default function JobPicsPage() {
   const [isEditingInModal, setIsEditingInModal] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState({ before: '', after: '', process: '' });
 
-  // Fetch job submissions from Supabase
+  // Fetch job submissions - let the API determine the franchisee ID from the session
   useEffect(() => {
     const fetchJobSubmissions = async () => {
       try {
-        // In a real app, you'd pass the actual franchisee ID
-        const franchiseeId = '550e8400-e29b-41d4-a716-446655440001'; // Pop-A-Lock Barrie
+        // If we have a franchiseeId from URL (admin viewing), use it
+        // Otherwise, let the API determine from the user's session
+        const url = franchiseeId
+          ? `/api/job-submissions?franchiseeId=${franchiseeId}`
+          : '/api/job-submissions';
 
-        const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`);
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
           setJobSubmissions(data);
@@ -109,10 +115,8 @@ export default function JobPicsPage() {
       }
     };
 
-
-    // Fetch real data from API
     fetchJobSubmissions();
-  }, []);
+  }, [franchiseeId]);
 
   const handleJobReview = (job: JobSubmission) => {
     setSelectedJob(job);
@@ -123,6 +127,7 @@ export default function JobPicsPage() {
     const defaultMsg = `Hi ${job.client.name}! Your Pop-A-Lock service is complete. View your job report and leave us a review at the link we're sending you. Thank you for choosing us!`;
     setCustomMessage(defaultMsg);
   };
+
 
   const handleModalEdit = () => {
     setIsEditingInModal(true);

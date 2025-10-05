@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { RecentActivity } from './components/RecentActivity';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,69 +12,138 @@ import { AnimatedChart } from "@/components/ui/animated-chart";
 import { Plus, Download, RefreshCw, TrendingUp, Users, Building2, Wrench, Activity, Zap, Globe, Target } from 'lucide-react';
 import Link from 'next/link';
 
-const statsData = [
-  {
-    title: "Total Franchisees",
-    value: 0,
-    change: "Getting started",
-    trend: "up",
-    icon: Building2,
-    color: "from-blue-500 to-cyan-500"
-  },
-  {
-    title: "Active Technicians",
-    value: 0,
-    change: "No technicians yet",
-    trend: "up",
-    icon: Wrench,
-    color: "from-emerald-500 to-teal-500"
-  },
-  {
-    title: "Total Users",
-    value: 0,
-    change: "No users yet",
-    trend: "up",
-    icon: Users,
-    color: "from-purple-500 to-pink-500"
-  },
-  {
-    title: "Content Submissions",
-    value: 0,
-    change: "No submissions yet",
-    trend: "up",
-    icon: Activity,
-    color: "from-orange-500 to-red-500"
-  }
-];
-
-const quickActions = [
-  {
-    title: "Add Franchisee",
-    icon: Building2,
-    description: "Register new franchise",
-    color: "from-blue-500 to-cyan-500"
-  },
-  {
-    title: "Add Technician",
-    icon: Wrench,
-    description: "Onboard new tech",
-    color: "from-emerald-500 to-teal-500"
-  },
-  {
-    title: "Manage Users",
-    icon: Users,
-    description: "User administration",
-    color: "from-purple-500 to-pink-500"
-  },
-  {
-    title: "Export Data",
-    icon: Download,
-    description: "Download reports",
-    color: "from-orange-500 to-red-500"
-  }
-];
-
 export default function AdminDashboard() {
+  const [statsData, setStatsData] = useState([
+    {
+      title: "Total Franchisees",
+      value: 0,
+      change: "Loading...",
+      trend: "up",
+      icon: Building2,
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      title: "Active Technicians",
+      value: 0,
+      change: "Loading...",
+      trend: "up",
+      icon: Wrench,
+      color: "from-emerald-500 to-teal-500"
+    },
+    {
+      title: "Total Users",
+      value: 0,
+      change: "Loading...",
+      trend: "up",
+      icon: Users,
+      color: "from-purple-500 to-pink-500"
+    },
+    {
+      title: "Content Submissions",
+      value: 0,
+      change: "Loading...",
+      trend: "up",
+      icon: Activity,
+      color: "from-orange-500 to-red-500"
+    }
+  ]);
+
+  // Load real analytics data
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      try {
+        // Load franchisees
+        const franchiseesResponse = await fetch('/api/franchisees');
+        const franchisees = franchiseesResponse.ok ? await franchiseesResponse.json() : [];
+
+        // Load technicians
+        const techniciansResponse = await fetch('/api/technicians');
+        const technicians = techniciansResponse.ok ? await techniciansResponse.json() : [];
+
+        // Load job submissions
+        const jobsResponse = await fetch('/api/job-submissions');
+        const jobs = jobsResponse.ok ? await jobsResponse.json() : [];
+
+        // Update stats with real data
+        setStatsData([
+          {
+            title: "Total Franchisees",
+            value: franchisees.length,
+            change: franchisees.length === 0 ? "No franchisees yet" : `${franchisees.length} franchisee${franchisees.length !== 1 ? 's' : ''}`,
+            trend: "up",
+            icon: Building2,
+            color: "from-blue-500 to-cyan-500"
+          },
+          {
+            title: "Active Technicians",
+            value: technicians.length,
+            change: technicians.length === 0 ? "No technicians yet" : `${technicians.length} technician${technicians.length !== 1 ? 's' : ''}`,
+            trend: "up",
+            icon: Wrench,
+            color: "from-emerald-500 to-teal-500"
+          },
+          {
+            title: "Total Users",
+            value: franchisees.length + technicians.length,
+            change: (franchisees.length + technicians.length) === 0 ? "No users yet" : `${franchisees.length + technicians.length} total users`,
+            trend: "up",
+            icon: Users,
+            color: "from-purple-500 to-pink-500"
+          },
+          {
+            title: "Content Submissions",
+            value: jobs.length,
+            change: jobs.length === 0 ? "No submissions yet" : `${jobs.length} submission${jobs.length !== 1 ? 's' : ''}`,
+            trend: "up",
+            icon: Activity,
+            color: "from-orange-500 to-red-500"
+          }
+        ]);
+
+        console.log('📊 Analytics loaded:', {
+          franchisees: franchisees.length,
+          technicians: technicians.length,
+          jobs: jobs.length
+        });
+
+      } catch (error) {
+        console.error('Error loading analytics:', error);
+      }
+    };
+
+    loadAnalytics();
+  }, []);
+
+  const quickActions = [
+    {
+      title: "Add Franchisee",
+      icon: Building2,
+      href: "/admin/franchisees",
+      description: "Register new franchise",
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      title: "Add Technician",
+      icon: Wrench,
+      href: "/admin/techs",
+      description: "Onboard new tech",
+      color: "from-emerald-500 to-teal-500"
+    },
+    {
+      title: "Content Review",
+      icon: Activity,
+      href: "/admin/marketing",
+      description: "Review marketing content",
+      color: "from-purple-500 to-pink-500"
+    },
+    {
+      title: "Export Data",
+      icon: Download,
+      href: "#",
+      description: "Download reports",
+      color: "from-orange-500 to-red-500"
+    }
+  ];
   return (
     <div className="relative">
       {/* Background Effects */}
@@ -178,50 +250,9 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="relative">
               <div className="space-y-3">
-                {[].map((tech, index) => (
-                  <Link key={tech.name} href={`/tech/${tech.id}`} className="block transition-all duration-200 hover:scale-102 hover:shadow-sm">
-                    <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800 hover:from-background/70 hover:to-background/40 cursor-pointer">
-                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-bold shrink-0">
-                        #{tech.rank}
-                      </div>
-                      <div className="w-8 h-8 relative rounded-full overflow-hidden shrink-0">
-                        <img
-                          src={tech.image}
-                          alt={tech.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {tech.name}
-                          </p>
-                          <Badge variant="secondary" className="text-xs">
-                            {tech.marketingScore}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{tech.photoSubmissions} sent</span>
-                          <span>{tech.approved} approved</span>
-                          <span>{Math.round((tech.approved / tech.photoSubmissions) * 100)}%</span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-700"
-                            style={{ width: `${tech.marketingScore}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <Button variant="outline" size="sm" className="w-full bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm border-gray-100 dark:border-gray-800">
-                  View All Technicians
-                </Button>
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No technician data available yet
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -241,89 +272,15 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="relative">
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
-                  <div className="w-2 h-2 rounded-full bg-green-500 shrink-0"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground">New photo submission approved</p>
-                    <p className="text-xs text-muted-foreground">Alex Rodriguez • Dallas Downtown • 2 min ago</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground">Magic link sent to technician</p>
-                    <p className="text-xs text-muted-foreground">Sofia Martinez • Austin Central • 5 min ago</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
-                  <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground">New franchisee registered</p>
-                    <p className="text-xs text-muted-foreground">Fort Worth East • 15 min ago</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground">Marketing report generated</p>
-                    <p className="text-xs text-muted-foreground">Houston West • 22 min ago</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-background/50 to-background/20 backdrop-blur-sm rounded-lg border-gray-100 dark:border-gray-800">
-                  <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground">Photo submission denied</p>
-                    <p className="text-xs text-muted-foreground">Mike Johnson • Quality review • 28 min ago</p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <Button variant="outline" size="sm" className="w-full bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm border-gray-100 dark:border-gray-800">
-                  View Activity Log
-                </Button>
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No recent activity
+                </p>
               </div>
             </CardContent>
           </Card>
         </BlurFade>
       </div>
 
-      {/* System Status */}
-      <BlurFade delay={0.9}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-emerald-500/10 to-teal-500/5 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">System Health</CardTitle>
-              <Zap className="h-4 w-4 text-emerald-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">99.9%</div>
-              <p className="text-xs text-emerald-600/80">Uptime this month</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-blue-500/10 to-cyan-500/5 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">Global Reach</CardTitle>
-              <Globe className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">24</div>
-              <p className="text-xs text-blue-600/80">States & provinces</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-100 dark:border-gray-800 shadow-sm bg-gradient-to-br from-purple-500/10 to-pink-500/5 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-400">Success Rate</CardTitle>
-              <Target className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">97.3%</div>
-              <p className="text-xs text-purple-600/80">Job completion</p>
-            </CardContent>
-          </Card>
-        </div>
-      </BlurFade>
 
     </div>
   );

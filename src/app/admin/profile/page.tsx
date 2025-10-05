@@ -6,15 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import ImageUploader from "@/components/ImageUploader";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { createClientComponentClient } from '@/lib/supabase-client';
 import {
   User, Mail, Phone, MapPin, Calendar, Save, Edit, Camera,
   Building, Globe, FileText, Shield, Settings, ChevronRight,
   Briefcase, Home, Map, Bell, Smartphone, MessageSquare,
-  AlertTriangle, CheckCircle, Clock, Users, Camera as CameraIcon
+  AlertTriangle, CheckCircle, Clock, Users, Camera as CameraIcon,
+  Loader2
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserProfile {
   id: string;
@@ -37,7 +40,9 @@ export default function AdminProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const supabase = createClientComponentClient();
+  const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -109,6 +114,62 @@ export default function AdminProfilePage() {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const uploadAvatar = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingAvatar(true);
+
+      // Get current user ID from session
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Create FormData for server-side upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+      formData.append('userType', 'admin');
+
+      // Upload via server-side API (bypasses RLS issues)
+      const response = await fetch('/api/upload-avatar', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      return result.avatarUrl;
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload profile photo. Please try again.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    const uploadedUrl = await uploadAvatar(file);
+    if (uploadedUrl) {
+      // Update both formData and userProfile immediately
+      setFormData(prev => ({ ...prev, avatar_url: uploadedUrl }));
+      setUserProfile(prev => prev ? { ...prev, avatar_url: uploadedUrl } : null);
+
+      toast({
+        title: "Photo uploaded",
+        description: "Your profile photo has been uploaded successfully"
+      });
     }
   };
 
@@ -204,14 +265,21 @@ export default function AdminProfilePage() {
                   </Avatar>
                   {isEditing && (
                     <div className="absolute bottom-0 right-0">
-                      <ImageUploader
-                        label=""
-                        currentImage={formData.avatar_url}
-                        onImageSelected={(imageDataUrl) => setFormData(prev => ({ ...prev, avatar_url: imageDataUrl }))}
-                        cropAspect={1}
-                      />
-                      <Button size="sm" variant="secondary" className="rounded-full h-10 w-10 p-0 shadow-lg">
-                        <Camera className="h-4 w-4" />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          // Trigger the hidden file input
+                          const fileInput = document.getElementById('avatar-upload-input') as HTMLInputElement;
+                          fileInput?.click();
+                        }}
+                        disabled={uploadingAvatar}
+                        className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0"
+                      >
+                        {uploadingAvatar ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   )}
@@ -826,6 +894,21 @@ export default function AdminProfilePage() {
 
           </div>
         </div>
+
+        {/* Hidden file input for avatar upload */}
+        <input
+          id="avatar-upload-input"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={async (e) => {
+            if (e.target.files && e.target.files[0]) {
+              await handleAvatarUpload(e.target.files[0]);
+              // Clear the input so the same file can be selected again if needed
+              e.target.value = '';
+            }
+          }}
+        />
       </div>
     </div>
   );

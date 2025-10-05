@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('📝 Received POST request body:', JSON.stringify(body, null, 2));
+
     const {
       photo_id,
       media_archive_id,
@@ -67,35 +69,59 @@ export async function POST(request: NextRequest) {
       metadata
     } = body;
 
-    if (!photo_id || !content) {
+    // Require either photo_id or media_archive_id, and content
+    if ((!photo_id && !media_archive_id) || !content) {
+      console.error('❌ Validation failed - missing required fields');
       return NextResponse.json(
-        { error: 'Photo ID and content are required' },
+        { error: 'Either photo_id or media_archive_id and content are required' },
         { status: 400 }
       );
     }
 
+    const insertData: any = {
+      content,
+      content_type,
+      platform,
+      status,
+      metadata,
+      generated_at: new Date().toISOString()
+    };
+
+    // Only include photo_id if it's provided
+    if (photo_id) {
+      insertData.photo_id = photo_id;
+    }
+
+    // Only include media_archive_id if it's provided
+    if (media_archive_id) {
+      insertData.media_archive_id = media_archive_id;
+    }
+
+    console.log('📊 Insert data:', JSON.stringify(insertData, null, 2));
+
     const { data, error } = await supabase
       .from('generated_content')
-      .insert({
-        photo_id,
-        media_archive_id,
-        content,
-        content_type,
-        platform,
-        status,
-        metadata,
-        generated_at: new Date().toISOString()
-      })
+      .insert(insertData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Supabase error:', JSON.stringify(error, null, 2));
+      throw error;
+    }
 
+    console.log('✅ Successfully created generated content:', data.id);
     return NextResponse.json(data);
-  } catch (error) {
-    console.error('Error creating generated content:', error);
+  } catch (error: any) {
+    console.error('❌ Error creating generated content:', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+      full: error
+    });
     return NextResponse.json(
-      { error: 'Failed to create generated content' },
+      { error: 'Failed to create generated content', details: error?.message || error },
       { status: 500 }
     );
   }
@@ -173,4 +199,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}// Force recompile

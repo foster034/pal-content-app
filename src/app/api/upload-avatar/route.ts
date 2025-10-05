@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const userId = formData.get('userId') as string;
-    const userType = formData.get('userType') as string; // 'tech' or 'user'
+    const userType = formData.get('userType') as string; // 'tech', 'franchisee', 'admin', or 'user'
 
     if (!file || !userId) {
       return NextResponse.json({ error: 'File and userId are required' }, { status: 400 });
@@ -32,10 +32,23 @@ export async function POST(request: NextRequest) {
     const fileName = `${userId}-${Date.now()}.${fileExt}`;
 
     // Determine folder based on user type
-    const folder = userType === 'tech' ? 'tech-avatars' : 'profile-avatars';
+    let folder;
+    switch (userType) {
+      case 'tech':
+        folder = 'tech-avatars';
+        break;
+      case 'franchisee':
+        folder = 'franchisee-avatars';
+        break;
+      case 'admin':
+        folder = 'admin-avatars';
+        break;
+      default:
+        folder = 'profile-avatars'; // fallback for any other user types
+    }
     const filePath = `${folder}/${fileName}`;
 
-    console.log('Uploading avatar:', { filePath, fileName, userId, userType });
+    console.log('Uploading avatar:', { filePath, fileName, userId, userType, folder });
 
     // Convert File to ArrayBuffer for Supabase upload
     const fileBuffer = await file.arrayBuffer();

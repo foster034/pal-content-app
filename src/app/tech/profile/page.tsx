@@ -14,7 +14,6 @@ import {
   Download, ShieldCheck, UserCog, Key, Loader2
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import ImageUploader from "@/components/ImageUploader";
 import { useToast } from "@/hooks/use-toast";
 
 interface TechProfile {

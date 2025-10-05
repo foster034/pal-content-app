@@ -6,12 +6,9 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { createClient } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@/lib/supabase-client';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClientComponentClient();
 
 interface GMBPost {
   name: string;
@@ -39,6 +36,9 @@ interface JobSubmission {
   status: string;
   created_at: string;
   technician_id: string;
+  before_photos?: string[];
+  after_photos?: string[];
+  process_photos?: string[];
 }
 
 interface Analytics {
@@ -110,19 +110,23 @@ export default function FranchiseeDashboard() {
 
   const loadAnalytics = async (franchiseeId: string) => {
     try {
-      const { data: submissions, error } = await supabase
-        .from('job_submissions')
-        .select('id, status, created_at')
-        .eq('franchisee_id', franchiseeId);
-
-      if (error) {
-        console.error('Error loading analytics:', error);
+      // Use API endpoint instead of direct Supabase query
+      const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`);
+      if (!response.ok) {
+        console.error('Error loading analytics: API response not ok');
         return;
       }
 
+      const submissions = await response.json();
+      console.log('📊 Franchisee analytics loaded:', {
+        franchiseeId,
+        totalSubmissions: submissions?.length || 0,
+        submissions: submissions
+      });
+
       const total = submissions?.length || 0;
-      const pending = submissions?.filter(s => s.status === 'pending').length || 0;
-      const approved = submissions?.filter(s => s.status === 'approved').length || 0;
+      const pending = submissions?.filter((s: any) => s.status === 'pending').length || 0;
+      const approved = submissions?.filter((s: any) => s.status === 'approved').length || 0;
       const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
 
       setAnalytics({
@@ -161,17 +165,17 @@ export default function FranchiseeDashboard() {
 
   const loadRecentSubmissions = async (franchiseeId: string) => {
     try {
-      const { data: submissions, error } = await supabase
-        .from('job_submissions')
-        .select('id, status, created_at, technician_id')
-        .eq('franchisee_id', franchiseeId)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (error) {
-        console.error('Error loading recent submissions:', error);
+      // Use API endpoint instead of direct Supabase query
+      const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`);
+      if (!response.ok) {
+        console.error('Error loading recent submissions: API response not ok');
         return;
       }
+
+      const allSubmissions = await response.json();
+      // Get the 5 most recent submissions (API already orders by created_at desc)
+      const submissions = allSubmissions.slice(0, 5);
+
 
       setRecentPhotoSubmissions(submissions || []);
     } catch (error) {
@@ -181,19 +185,47 @@ export default function FranchiseeDashboard() {
 
   const loadTechLeaderboard = async (franchiseeId: string) => {
     try {
-      const { data: technicians, error } = await supabase
-        .from('technicians')
-        .select('id, name, email, rating')
-        .eq('franchisee_id', franchiseeId)
-        .order('rating', { ascending: false })
-        .limit(10);
+      // Load technicians and job submissions
+      const [techResponse, submissionsResponse] = await Promise.all([
+        fetch(`/api/technicians?franchiseeId=${franchiseeId}`),
+        fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`)
+      ]);
 
-      if (error) {
-        console.error('Error loading technicians:', error);
+      if (!techResponse.ok || !submissionsResponse.ok) {
+        console.error('Error loading technician data');
         return;
       }
 
-      setTechLeaderboard(technicians || []);
+      const technicians = await techResponse.json();
+      const submissions = await submissionsResponse.json();
+
+      // Calculate metrics for each technician
+      const techWithMetrics = (technicians || []).map((tech: any) => {
+        const techSubmissions = submissions.filter((s: any) => s.technician_id === tech.id);
+        const approvedSubmissions = techSubmissions.filter((s: any) => s.status === 'approved');
+        const totalSubmissions = techSubmissions.length;
+        const approvalRate = totalSubmissions > 0 ? Math.round((approvedSubmissions.length / totalSubmissions) * 100) : 0;
+
+        return {
+          ...tech,
+          photoSubmissions: totalSubmissions,
+          approved: approvedSubmissions.length,
+          marketingScore: approvalRate > 0 ? `${approvalRate}%` : 'undefined',
+          reviews: {
+            completed: Math.floor(Math.random() * 20) + 5, // Mock data for now
+            averageRating: (tech.rating || 4.0).toFixed(1),
+            conversionRate: approvalRate,
+            aiUsageRate: Math.floor(Math.random() * 60) + 20 // Mock data for now
+          }
+        };
+      });
+
+      // Sort by approval rate (highest first) and limit to 10
+      const sortedTechs = techWithMetrics
+        .sort((a: any, b: any) => (b.approved - a.approved) || (b.photoSubmissions - a.photoSubmissions))
+        .slice(0, 10);
+
+      setTechLeaderboard(sortedTechs);
     } catch (error) {
       console.error('Error loading technicians:', error);
     }
@@ -307,8 +339,39 @@ export default function FranchiseeDashboard() {
               <div className="space-y-4">
                 {recentPhotoSubmissions.map((submission) => (
                   <div key={submission.id} className="flex items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                    <div className="w-12 h-12 relative rounded-full overflow-hidden shrink-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 relative rounded-lg overflow-hidden shrink-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      {(() => {
+                        // Get all photos from the submission media object
+                        const media = (submission as any).media || {};
+                        const allPhotos = [
+                          ...(media.beforePhotos || []),
+                          ...(media.afterPhotos || []),
+                          ...(media.processPhotos || [])
+                        ];
+                        const firstPhoto = allPhotos[0];
+
+                        return firstPhoto ? (
+                          <img
+                            src={firstPhoto}
+                            alt={`Job #${submission.id.slice(-6)}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to icon if image fails to load
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null;
+                      })()}
+                      <svg className={`w-6 h-6 text-gray-400 ${(() => {
+                        const media = (submission as any).media || {};
+                        const allPhotos = [
+                          ...(media.beforePhotos || []),
+                          ...(media.afterPhotos || []),
+                          ...(media.processPhotos || [])
+                        ];
+                        return allPhotos[0] ? 'hidden' : '';
+                      })()} `} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
@@ -328,9 +391,25 @@ export default function FranchiseeDashboard() {
                           {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
                         </Badge>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Tech ID: {submission.technician_id.slice(-6)}
-                      </p>
+                      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <span>Tech ID: {submission.technician_id ? submission.technician_id.slice(-6) : 'N/A'}</span>
+                        {(() => {
+                          const media = (submission as any).media || {};
+                          const photoCount = [
+                            ...(media.beforePhotos || []),
+                            ...(media.afterPhotos || []),
+                            ...(media.processPhotos || [])
+                          ].length;
+                          return photoCount > 0 ? (
+                            <span className="flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {photoCount} photo{photoCount !== 1 ? 's' : ''}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs text-gray-400 dark:text-gray-500">
@@ -341,13 +420,6 @@ export default function FranchiseeDashboard() {
                 ))}
               </div>
             )}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Link href="/franchisee/marketing">
-                <Button variant="outline" className="w-full">
-                  View All Submissions
-                </Button>
-              </Link>
-            </div>
           </CardContent>
         </Card>
 
@@ -359,16 +431,18 @@ export default function FranchiseeDashboard() {
             </CardDescription>
             <div className="flex gap-2 mt-3">
               <Button
-                variant={!showReviewMetrics ? "default" : "outline"}
+                variant={!showReviewMetrics ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setShowReviewMetrics(false)}
+                className={!showReviewMetrics ? "" : "hover:bg-gray-100 dark:hover:bg-gray-800"}
               >
                 📸 Photo Metrics
               </Button>
               <Button
-                variant={showReviewMetrics ? "default" : "outline"}
+                variant={showReviewMetrics ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setShowReviewMetrics(true)}
+                className={showReviewMetrics ? "" : "hover:bg-gray-100 dark:hover:bg-gray-800"}
               >
                 ⭐ Review Metrics
               </Button>
@@ -394,19 +468,29 @@ export default function FranchiseeDashboard() {
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-600 dark:text-gray-400">
                     #{index + 1}
                   </div>
-                  <div className="w-10 h-10 relative rounded-full overflow-hidden shrink-0">
-                    <img
-                      src={tech.image}
-                      alt={tech.name}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-10 h-10 relative rounded-full overflow-hidden shrink-0 bg-gray-200 dark:bg-gray-700">
+                    {tech.image_url ? (
+                      <img
+                        src={tech.image_url}
+                        alt={tech.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Fallback to initials if image fails to load
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`${tech.image_url ? 'hidden' : 'flex'} w-full h-full items-center justify-center text-sm font-medium text-gray-600 dark:text-gray-300 bg-blue-100 dark:bg-blue-900`}>
+                      {tech.name ? tech.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'TN'}
+                    </div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {tech.name}
                       </p>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="secondary" className="text-xs border-0">
                         {showReviewMetrics ? `${tech.reviews.averageRating}⭐` : `Score: ${tech.marketingScore}`}
                       </Badge>
                     </div>
@@ -452,7 +536,7 @@ export default function FranchiseeDashboard() {
             )}
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Link href="/franchisee/techs">
-                <Button variant="outline" className="w-full">
+                <Button variant="ghost" className="w-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                   View All Technicians
                 </Button>
               </Link>
@@ -504,7 +588,11 @@ export default function FranchiseeDashboard() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={loadGMBPosts}
+                onClick={() => {
+                  if (franchiseeId) {
+                    loadGMBPosts(franchiseeId);
+                  }
+                }}
                 disabled={gmbLoading}
                 className="text-blue-600 hover:text-blue-700"
               >
@@ -552,7 +640,7 @@ export default function FranchiseeDashboard() {
             
             {!gmbLoading && gmbPosts.length > 0 && (
               <div className="space-y-4">
-                {gmbPosts.map((post, index) => (
+                {gmbPosts.map((post) => (
                   <div key={post.name} className="border-b border-gray-100 dark:border-gray-800 pb-4 last:border-b-0">
                     <div className="flex gap-3">
                       {post.media && post.media[0] && (

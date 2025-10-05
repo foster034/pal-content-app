@@ -177,10 +177,12 @@ export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
 
 export const Logo = () => {
   const { mainLogo } = useLogo();
-  
+  const searchParams = useSearchParams();
+  const franchiseeId = searchParams.get('id');
+
   return (
     <Link
-      href="/franchisee"
+      href={franchiseeId ? `/franchisee?id=${franchiseeId}` : "/franchisee"}
       className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black"
     >
       <Image
@@ -203,10 +205,12 @@ export const Logo = () => {
 
 export const LogoIcon = () => {
   const { mainLogo } = useLogo();
-  
+  const searchParams = useSearchParams();
+  const franchiseeId = searchParams.get('id');
+
   return (
     <Link
-      href="/franchisee"
+      href={franchiseeId ? `/franchisee?id=${franchiseeId}` : "/franchisee"}
       className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black"
     >
       <Image

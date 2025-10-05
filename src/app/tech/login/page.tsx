@@ -142,7 +142,7 @@ export default function TechLogin() {
                   placeholder="Enter your 6-digit code"
                   value={loginCode}
                   onChange={(e) => setLoginCode(e.target.value.toUpperCase())}
-                  className="text-center text-lg font-mono tracking-wider"
+                  className="text-center text-lg font-mono tracking-wider h-12 min-h-[44px] touch-manipulation"
                   maxLength={6}
                   autoComplete="off"
                   disabled={loading}
@@ -159,7 +159,7 @@ export default function TechLogin() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white shadow-lg"
+                className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white shadow-lg h-12 min-h-[44px] touch-manipulation clickable mobile-animation"
                 disabled={loading || !loginCode.trim()}
               >
                 {loading ? (

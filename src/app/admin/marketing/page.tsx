@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useTable } from '@/contexts/table-context';
+import MarketingOnboardingModal from '@/components/MarketingOnboardingModal';
 
 interface ArchivedMedia {
   id: number;
@@ -150,11 +151,17 @@ export default function MediaArchivePage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<string>('');
   const [copySuccess, setCopySuccess] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'approved' | 'archived' | 'generated'>('approved');
+  const [activeTab, setActiveTab] = useState<'approved' | 'archived' | 'generated' | 'scheduled' | 'published'>('approved');
   const [editingMedia, setEditingMedia] = useState<ArchivedMedia | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [generatedContentList, setGeneratedContentList] = useState<any[]>([]);
   const [loadingGenerated, setLoadingGenerated] = useState(false);
+  const [showGeneratedContentModal, setShowGeneratedContentModal] = useState(false);
+  const [selectedGeneratedContent, setSelectedGeneratedContent] = useState<any | null>(null);
+  const [scheduledPosts, setScheduledPosts] = useState<any[]>([]);
+  const [publishedPosts, setPublishedPosts] = useState<any[]>([]);
+  const [loadingScheduled, setLoadingScheduled] = useState(false);
+  const [loadingPublished, setLoadingPublished] = useState(false);
 
   const filteredMedia = useMemo(() => {
     return archivedMedia.filter(media => {
@@ -222,6 +229,16 @@ export default function MediaArchivePage() {
     setShowEditModal(false);
   };
 
+  const openGeneratedContentModal = (content: any) => {
+    setSelectedGeneratedContent(content);
+    setShowGeneratedContentModal(true);
+  };
+
+  const closeGeneratedContentModal = () => {
+    setSelectedGeneratedContent(null);
+    setShowGeneratedContentModal(false);
+  };
+
   const saveMediaEdit = async (updatedMedia: ArchivedMedia) => {
     try {
       // Update the local state
@@ -263,23 +280,69 @@ export default function MediaArchivePage() {
     setSelectedMedia(media);
     setShowModal(false); // Close details modal if open
     setShowAIMarketing(true);
-    // Initialize AI conversation with job context
-    setAiConversation([{
-      role: 'ai',
-      message: "Hey there! I'm your AI Marketing Specialist! I see you want to create some amazing content from this " + media.jobType.toLowerCase() + " job by " + media.techName + ".\n\nAs both a social media expert AND a professional locksmith specialist, I can help you create engaging posts for:\n\n**Social Platforms:** Instagram, Facebook, LinkedIn, TikTok, Twitter, YouTube, Pinterest\n**Post Types:** Success stories, educational content, behind-the-scenes, customer testimonials, tips & tricks\n**Locksmith Expertise:** " + media.jobType + " services, tools showcase, safety tips, industry insights\n\n**Job Details I'm Working With:**\n- Service: " + media.jobDescription + "\n- Location: " + media.jobLocation + "\n- Technician: " + media.techName + "\n- Notes: " + (media.notes || 'No additional notes') + "\n\nWhat kind of post are you thinking? I can ask you a few quick questions to create the perfect content!"
-    }]);
   };
 
   const closeAIMarketing = () => {
     setSelectedMedia(null);
     setShowAIMarketing(false);
-    setAiConversation([]);
-    setSelectedPlatform('');
-    setSelectedPostType('');
-    setShowPreview(false);
-    setShowPreviewModal(false);
-    setGeneratedContent('');
-    setCopySuccess('');
+  };
+
+  const handleMarketingComplete = async (data: any) => {
+    try {
+      console.log('Marketing content generated:', data);
+
+      // Save generated content to database
+      const saveResponse = await fetch('/api/generated-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          media_archive_id: selectedMedia?.id,
+          content_type: data.postType,
+          content: data.content,
+          status: data.status,
+          platform: data.platform,
+          metadata: {
+            postType: data.postType,
+            details: data.details,
+            mediaUrl: selectedMedia?.photoUrl,
+            jobType: selectedMedia?.jobType,
+            jobDescription: selectedMedia?.jobDescription,
+            techName: selectedMedia?.techName,
+            location: selectedMedia?.jobLocation,
+          }
+        }),
+      });
+
+      if (saveResponse.ok) {
+        const savedContent = await saveResponse.json();
+        console.log('Saved content response:', savedContent);
+
+        // Create marketing content for scheduling
+        if (data.status === 'approved') {
+          await createMarketingContent(
+            savedContent.id,
+            selectedMedia!,
+            data.content,
+            data.platform
+          );
+        }
+
+        console.log('✅ Content saved successfully!');
+
+        // Refresh the generated content list
+        await fetchGeneratedContent();
+
+        closeAIMarketing();
+      } else {
+        const errorData = await saveResponse.json();
+        console.error('Failed to save content:', errorData);
+        alert('Failed to save generated content. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving marketing content:', error);
+    }
   };
 
   const fetchGeneratedContent = async () => {
@@ -302,7 +365,11 @@ export default function MediaArchivePage() {
     }
   };
 
-  // Fetch generated content when the generated tab is selected
+  // Fetch generated content on initial load and when the generated tab is selected
+  useEffect(() => {
+    fetchGeneratedContent();
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'generated') {
       fetchGeneratedContent();
@@ -1012,6 +1079,48 @@ export default function MediaArchivePage() {
               </span>
             </div>
           </button>
+
+          <button
+            onClick={() => setActiveTab('scheduled')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'scheduled'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Scheduled Posts
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                activeTab === 'scheduled' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {scheduledPosts.length}
+              </span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('published')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'published'
+                ? 'border-green-500 text-green-600 dark:text-green-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Published Posts
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                activeTab === 'published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {publishedPosts.length}
+              </span>
+            </div>
+          </button>
         </nav>
       </div>
 
@@ -1080,7 +1189,7 @@ export default function MediaArchivePage() {
         </div>
       </div>
 
-      <Card>
+      <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardHeader>
           <CardTitle>
             {activeTab === 'approved' && 'Approved Submissions'}
@@ -1259,7 +1368,7 @@ export default function MediaArchivePage() {
             </table>
           </div>
           ) : (
-            /* Generated Content Section */
+            /* Generated Content Section - Table Format */
             <div className="space-y-4">
               {loadingGenerated ? (
                 <div className="flex items-center justify-center py-8">
@@ -1281,71 +1390,295 @@ export default function MediaArchivePage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {generatedContentList.map((content) => (
-                    <div key={content.id} className="border rounded-lg p-4 bg-white dark:bg-gray-800">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge className={`${
-                              content.status === 'draft' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
-                              content.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                              content.status === 'published' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                              'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                <div className={tableClasses.wrapper}>
+                  <table className={tableClasses.table}>
+                    <thead className={tableClasses.header}>
+                      <tr>
+                        <th scope="col" className="p-4">
+                          <div className="flex items-center">
+                            <input
+                              id="checkbox-all-generated"
+                              type="checkbox"
+                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <label htmlFor="checkbox-all-generated" className="sr-only">checkbox</label>
+                          </div>
+                        </th>
+                        <th scope="col" className="px-6 py-3">
+                          Media
+                        </th>
+                        <th scope="col" className="px-6 py-3">
+                          Job Details
+                        </th>
+                        <th scope="col" className="px-6 py-3">
+                          Technician
+                        </th>
+                        <th scope="col" className="px-6 py-3">
+                          Franchisee
+                        </th>
+                        <th scope="col" className="px-6 py-3">
+                          Category
+                        </th>
+                        <th scope="col" className="px-6 py-3">
+                          Archive Date
+                        </th>
+                        <th scope="col" className="px-6 py-3">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {generatedContentList.map((content) => (
+                        <tr key={content.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                          <td className="w-4 p-4">
+                            <div className="flex items-center">
+                              <input
+                                id={`checkbox-table-generated-${content.id}`}
+                                type="checkbox"
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                              <label htmlFor={`checkbox-table-generated-${content.id}`} className="sr-only">checkbox</label>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3">
+                            <div className="w-12 h-12 relative rounded-full overflow-hidden">
+                              {content.metadata?.mediaUrl ? (
+                                <img
+                                  src={content.metadata.mediaUrl}
+                                  alt="Generated content media"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <th scope="row" className="px-6 py-3 font-medium text-gray-900 dark:text-white">
+                            <div className="font-semibold text-sm mb-1">
+                              {content.content_type?.replace(/-/g, ' ') || 'Generated Content'}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              {content.content.split('\n')[0].substring(0, 50)}...
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {content.platform && (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 capitalize">
+                                  {content.platform.replace(/-/g, ' ')}
+                                </span>
+                              )}
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                content.status === 'draft' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                content.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                content.status === 'published' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                              }`}>
+                                {content.status.charAt(0).toUpperCase() + content.status.slice(1)}
+                              </span>
+                            </div>
+                          </th>
+                          <td className="px-6 py-3 text-sm">
+                            {content.metadata?.techName || content.platform?.replace(/-/g, ' ') || 'N/A'}
+                          </td>
+                          <td className="px-6 py-3 text-sm">
+                            {content.metadata?.franchiseeName || content.platform || 'N/A'}
+                          </td>
+                          <td className="px-6 py-3">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                              content.content_type === 'social_media_post'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border-blue-200'
+                                : content.content_type === 'blog_post'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 border-green-200'
+                                : content.content_type === 'email'
+                                ? 'bg-gray-900 text-white dark:bg-gray-700 dark:text-gray-100 border-gray-800'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border-gray-200'
                             }`}>
-                              {content.status.charAt(0).toUpperCase() + content.status.slice(1)}
-                            </Badge>
-                            {content.platform && (
-                              <Badge variant="outline">
-                                {content.platform.charAt(0).toUpperCase() + content.platform.slice(1)}
-                              </Badge>
-                            )}
-                            <span className="text-xs text-gray-500">
-                              {new Date(content.generated_at || content.created_at).toLocaleDateString()}
+                              {content.content_type?.replace(/-/g, ' ').replace(/_/g, ' ') || 'General'}
                             </span>
-                          </div>
+                          </td>
+                          <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {new Date(content.generated_at || content.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-3">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => openGeneratedContentModal(content)}
+                                className="p-2 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                                title="View Details"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  // Schedule post
+                                  const dateStr = prompt('Schedule for date (YYYY-MM-DD):');
+                                  const timeStr = prompt('Schedule for time (HH:MM):');
 
-                          <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3 mb-3">
-                            <p className="text-sm whitespace-pre-line">
-                              {content.content.length > 200 ?
-                                content.content.substring(0, 200) + '...' :
-                                content.content
-                              }
-                            </p>
-                          </div>
-                        </div>
+                                  if (dateStr && timeStr) {
+                                    try {
+                                      const response = await fetch('/api/scheduled-posts', {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                          generated_content_id: content.id,
+                                          media_archive_id: content.media_archive_id,
+                                          title: content.content.split('\n')[0].substring(0, 100),
+                                          content: content.content,
+                                          platform: content.platform || 'google-business',
+                                          post_type: 'image_post',
+                                          scheduled_date: `${dateStr}T${timeStr}:00`,
+                                          metadata: content.metadata
+                                        }),
+                                      });
 
-                        <div className="flex items-center gap-2 ml-4">
-                          {content.status === 'draft' && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                createMarketingContent(
-                                  content.id,
-                                  archivedMedia.find(m => m.id === content.photo_id) || archivedMedia[0],
-                                  content.content,
-                                  content.platform || 'general'
-                                );
-                              }}
-                              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                            >
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              Send to Marketing
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => fetchGeneratedContent()}
-                          >
-                            Refresh
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                                      if (response.ok) {
+                                        alert('Post scheduled successfully!');
+                                        // Switch to scheduled tab
+                                        setActiveTab('scheduled');
+                                      } else {
+                                        alert('Failed to schedule post. Please try again.');
+                                      }
+                                    } catch (error) {
+                                      console.error('Error scheduling post:', error);
+                                      alert('Failed to schedule post. Please try again.');
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                                title="Schedule Post"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  // Publish now
+                                  if (confirm('Publish this post now?')) {
+                                    try {
+                                      const response = await fetch('/api/published-posts', {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                          generated_content_id: content.id,
+                                          media_archive_id: content.media_archive_id,
+                                          title: content.content.split('\n')[0].substring(0, 100),
+                                          content: content.content,
+                                          platform: content.platform || 'google-business',
+                                          post_type: 'image_post',
+                                          published_at: new Date().toISOString(),
+                                          metadata: content.metadata
+                                        }),
+                                      });
+
+                                      if (response.ok) {
+                                        alert('Post published successfully!');
+                                        // Update generated content status
+                                        await fetch(`/api/generated-content/${content.id}`, {
+                                          method: 'PATCH',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                          },
+                                          body: JSON.stringify({
+                                            status: 'published'
+                                          }),
+                                        });
+                                        // Switch to published tab
+                                        setActiveTab('published');
+                                      } else {
+                                        alert('Failed to publish post. Please try again.');
+                                      }
+                                    } catch (error) {
+                                      console.error('Error publishing post:', error);
+                                      alert('Failed to publish post. Please try again.');
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors"
+                                title="Publish Now"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  // Archive content
+                                  if (confirm('Archive this generated content?')) {
+                                    try {
+                                      const response = await fetch(`/api/generated-content/${content.id}`, {
+                                        method: 'PATCH',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                          status: 'archived'
+                                        }),
+                                      });
+
+                                      if (response.ok) {
+                                        console.log('Content archived:', content.id);
+                                        await fetchGeneratedContent();
+                                      } else {
+                                        alert('Failed to archive content. Please try again.');
+                                      }
+                                    } catch (error) {
+                                      console.error('Error archiving content:', error);
+                                      alert('Failed to archive content. Please try again.');
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded-full transition-colors"
+                                title="Archive"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H7a2 2 0 01-2-2V8z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  // Delete content
+                                  if (confirm('Delete this generated content? This action cannot be undone.')) {
+                                    try {
+                                      const response = await fetch(`/api/generated-content/${content.id}`, {
+                                        method: 'DELETE',
+                                      });
+
+                                      if (response.ok) {
+                                        console.log('Content deleted:', content.id);
+                                        await fetchGeneratedContent();
+                                      } else {
+                                        alert('Failed to delete content. Please try again.');
+                                      }
+                                    } catch (error) {
+                                      console.error('Error deleting content:', error);
+                                      alert('Failed to delete content. Please try again.');
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                                title="Delete"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -1556,321 +1889,311 @@ export default function MediaArchivePage() {
         </div>
       )}
 
-      {/* AI Marketing Specialist Modal */}
-      {showAIMarketing && selectedMedia && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/20 backdrop-blur rounded-full">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      {/* Generated Content Details Modal */}
+      {showGeneratedContentModal && selectedGeneratedContent && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+          onClick={closeGeneratedContentModal}
+        >
+          {/* Modal Container */}
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div
+              className="relative w-full max-w-6xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-8 py-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    {/* Platform Badge */}
+                    <div className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                      selectedGeneratedContent.platform === 'facebook' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' :
+                      selectedGeneratedContent.platform === 'instagram' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' :
+                      selectedGeneratedContent.platform === 'twitter' ? 'bg-gradient-to-r from-sky-400 to-sky-600 text-white' :
+                      selectedGeneratedContent.platform === 'linkedin' ? 'bg-gradient-to-r from-blue-600 to-blue-800 text-white' :
+                      'bg-gradient-to-r from-gray-500 to-gray-600 text-white'
+                    }`}>
+                      {selectedGeneratedContent.platform?.charAt(0).toUpperCase() + selectedGeneratedContent.platform?.slice(1) || 'General'}
+                    </div>
+                    {/* Status Badge */}
+                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ring-1 ring-inset ${
+                      selectedGeneratedContent.status === 'draft' ? 'bg-yellow-50 text-yellow-700 ring-yellow-600/20' :
+                      selectedGeneratedContent.status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' :
+                      selectedGeneratedContent.status === 'published' ? 'bg-blue-50 text-blue-700 ring-blue-600/20' :
+                      'bg-gray-50 text-gray-700 ring-gray-600/20'
+                    }`}>
+                      <svg className={`w-5 h-5 ${
+                        selectedGeneratedContent.status === 'draft' ? 'text-yellow-500' :
+                        selectedGeneratedContent.status === 'approved' ? 'text-emerald-500' :
+                        selectedGeneratedContent.status === 'published' ? 'text-blue-500' :
+                        'text-gray-500'
+                      }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {selectedGeneratedContent.status === 'approved' && (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        )}
+                        {selectedGeneratedContent.status === 'draft' && (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        )}
+                        {selectedGeneratedContent.status === 'published' && (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        )}
+                      </svg>
+                      {selectedGeneratedContent.status?.charAt(0).toUpperCase() + selectedGeneratedContent.status?.slice(1)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={closeGeneratedContentModal}
+                    className="rounded-full p-2 text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-200"
+                    aria-label="Close modal"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold">AI Marketing Specialist</h2>
-                    <p className="text-white/90 text-sm">Your Social Media & Locksmith Expert</p>
-                  </div>
+                  </button>
                 </div>
-                <button
-                  onClick={closeAIMarketing}
-                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
               </div>
-            </div>
 
-            {/* Job Context Summary */}
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-lg">
-                  <img
-                    src={selectedMedia.photoUrl}
-                    alt={selectedMedia.jobDescription}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getJobTypeVariant(selectedMedia.jobType)}`}>
-                      {selectedMedia.jobType}
-                    </span>
-                    <span className="text-gray-400">-</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{selectedMedia.techName}</span>
-                    <span className="text-gray-400">-</span>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{selectedMedia.franchiseeName}</span>
+              {/* Content Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-0 max-h-[75vh] overflow-hidden">
+                {/* Image Section */}
+                <div className="lg:col-span-3 bg-gray-50 relative">
+                  <div className="aspect-[4/3] flex items-center justify-center p-8">
+                    {selectedGeneratedContent.metadata?.mediaUrl ? (
+                      <img
+                        src={selectedGeneratedContent.metadata.mediaUrl}
+                        alt="Generated content media"
+                        className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-xl">
+                        <div className="text-center">
+                          <svg className="w-24 h-24 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-gray-500 text-sm">No image attached</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{selectedMedia.jobDescription}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    {selectedMedia.jobLocation}
-                  </p>
-                  {selectedMedia.notes && (
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 italic">"{selectedMedia.notes}"</p>
+                  {selectedGeneratedContent.metadata?.mediaUrl && (
+                    <button
+                      className="absolute top-4 right-4 inline-flex items-center gap-2 px-3 py-1.5 bg-white/90 backdrop-blur-sm text-gray-700 text-sm font-medium rounded-lg hover:bg-white transition-all duration-200 shadow-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Full Size
+                    </button>
                   )}
                 </div>
-              </div>
-            </div>
-            
-            {/* Simple Form Interface */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-4xl mx-auto">
-                {/* Remote-style Split Layout */}
-                <div className="bg-white rounded-2xl overflow-hidden shadow-xl max-w-5xl mx-auto">
-                  <div className="flex min-h-[600px]">
-                    {/* Left Brand Side - Purple/Blue like Remote */}
-                    <div className="w-2/5 bg-gradient-to-br from-purple-600 to-blue-600 p-8 flex flex-col justify-center text-white relative overflow-hidden">
-                      {/* Decorative background pattern */}
-                      <div className="absolute bottom-0 left-0 w-full h-32 opacity-10">
-                        <svg viewBox="0 0 200 200" className="w-full h-full">
-                          <defs>
-                            <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-                              <circle cx="10" cy="10" r="3" fill="currentColor" />
-                            </pattern>
-                          </defs>
-                          <rect width="200" height="200" fill="url(#dots)" />
-                        </svg>
-                      </div>
 
-                      <div className="relative z-10">
-                        <div className="mb-6">
-                          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                          </div>
+                {/* Details Section */}
+                <div className="lg:col-span-2 bg-white flex flex-col max-h-[75vh]">
+                  <div className="flex-1 p-8 space-y-6 overflow-y-auto">
+                    <h3 className="text-lg font-semibold text-gray-900">Content Information</h3>
+
+                    {/* Content Details */}
+                    <div className="space-y-4">
+                      {/* Platform */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                          </svg>
                         </div>
-
-                        <h2 className="text-2xl font-bold mb-4">Generate AI Content</h2>
-                        <p className="text-white/90 mb-6">
-                          Creating professional social media content is complex. Our AI makes it simple.
-                        </p>
-
-                        <div className="space-y-3 text-sm">
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                            <span className="text-white/80">Platform-specific optimization</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                            <span className="text-white/80">Locksmith industry expertise</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                            <span className="text-white/80">Engaging content templates</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Form Side - Clean White */}
-                    <div className="w-3/5 p-8 flex flex-col justify-center">
-                      <div className="max-w-md mx-auto w-full">
-                        <div className="mb-8">
-                          <h3 className="text-2xl font-semibold text-gray-900 mb-2">Create Content ✨</h3>
-                          <p className="text-gray-600">Generate professional social media posts for your locksmith business.</p>
-                        </div>
-
-                        <div className="space-y-6">
-                          {/* Platform Selection */}
-                          <div>
-                            <label className="block text-sm text-gray-700 mb-2">Social Platform</label>
-                            <select
-                              value={selectedPlatform}
-                              onChange={(e) => setSelectedPlatform(e.target.value)}
-                              className="w-full h-12 border border-gray-300 rounded-xl px-4 bg-white text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                            >
-                              <option value="">Select platform</option>
-                              <option value="instagram">Instagram</option>
-                              <option value="facebook">Facebook</option>
-                              <option value="linkedin">LinkedIn</option>
-                              <option value="tiktok">TikTok</option>
-                              <option value="twitter">Twitter/X</option>
-                              <option value="youtube">YouTube</option>
-                              <option value="pinterest">Pinterest</option>
-                              <option value="google-business">Google My Business</option>
-                            </select>
-                          </div>
-
-                          {/* Content Type Selection */}
-                          <div>
-                            <label className="block text-sm text-gray-700 mb-2">Content Type</label>
-                            <select
-                              value={selectedPostType}
-                              onChange={(e) => setSelectedPostType(e.target.value)}
-                              className="w-full h-12 border border-gray-300 rounded-xl px-4 bg-white text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                            >
-                              <option value="">Select content type</option>
-                              <option value="success-story">Success Story</option>
-                              <option value="educational">Educational Content</option>
-                              <option value="behind-scenes">Behind the Scenes</option>
-                              <option value="testimonial">Customer Testimonial</option>
-                              <option value="tips-tricks">Tips & Tricks</option>
-                              <option value="tools-showcase">Tools Showcase</option>
-                              <option value="before-after">Before & After</option>
-                              <option value="promotional">Promotional</option>
-                            </select>
-                          </div>
-
-                          {/* Generate Button - Remote Blue Style */}
-                          <Button
-                            onClick={() => {
-                              if (selectedPlatform && selectedPostType) {
-                                const platformNames = {
-                                  instagram: 'Instagram',
-                                  facebook: 'Facebook',
-                                  linkedin: 'LinkedIn',
-                                  tiktok: 'TikTok',
-                                  twitter: 'Twitter/X',
-                                  youtube: 'YouTube',
-                                  pinterest: 'Pinterest',
-                                  'google-business': 'Google My Business'
-                                };
-                                const postTypeNames = {
-                                  'success-story': 'success story',
-                                  'educational': 'educational content',
-                                  'behind-scenes': 'behind the scenes content',
-                                  'testimonial': 'customer testimonial style',
-                                  'tips-tricks': 'tips and tricks',
-                                  'tools-showcase': 'tools showcase',
-                                  'before-after': 'before and after showcase',
-                                  'promotional': 'promotional content'
-                                };
-                                sendMessageToAI(`Create a ${postTypeNames[selectedPostType as keyof typeof postTypeNames]} post for ${platformNames[selectedPlatform as keyof typeof platformNames]}`);
-                              }
-                            }}
-                            disabled={!selectedPlatform || !selectedPostType}
-                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all"
-                          >
-                            Generate Content
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Generated Content Display - Remote Style */}
-                {generatedContent && (
-                  <div className="bg-white rounded-2xl shadow-xl max-w-5xl mx-auto mt-8">
-                    <div className="p-8">
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <h3 className="text-xl font-semibold text-gray-900">Content Generated ✨</h3>
-                          <p className="text-gray-600 mt-1">
-                            {selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1)} • {selectedPostType.split('-').join(' ')}
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">PLATFORM</p>
+                          <p className="text-sm font-medium text-gray-900 capitalize">
+                            {selectedGeneratedContent.platform?.replace(/-/g, ' ') || 'N/A'}
                           </p>
                         </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => copyToClipboard(generatedContent)}
-                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-                          >
-                            {copySuccess || 'Copy'}
-                          </button>
-                          <button
-                            onClick={() => setShowPreviewModal(true)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
-                          >
-                            Preview
-                          </button>
-                          <button
-                            onClick={() => {
-                              setGeneratedContent('');
-                              setSelectedPlatform('');
-                              setSelectedPostType('');
-                              setAiConversation([]);
-                            }}
-                            className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-                          >
-                            New
-                          </button>
+                      </div>
+
+                      {/* Generated Date */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
+                          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">GENERATED DATE</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {new Date(selectedGeneratedContent.generated_at || selectedGeneratedContent.created_at).toLocaleDateString()}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <div className="whitespace-pre-line text-gray-900 leading-relaxed">
-                          {generatedContent}
+                      {/* Content Type */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
+                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">CONTENT TYPE</p>
+                          <p className="text-sm font-medium text-gray-900 capitalize">
+                            {selectedGeneratedContent.content_type?.replace(/-/g, ' ').replace(/_/g, ' ') || 'General'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+                          <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">STATUS</p>
+                          <p className="text-sm font-medium text-gray-900 capitalize">
+                            {selectedGeneratedContent.status || 'Draft'}
+                          </p>
                         </div>
                       </div>
                     </div>
+
+                    {/* Generated Content */}
+                    <div className="space-y-3">
+                      <h4 className="text-base font-semibold text-gray-900">Generated Content</h4>
+                      <div className="bg-gray-50 rounded-lg p-4 max-h-80 overflow-y-auto">
+                        <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
+                          {selectedGeneratedContent.content}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Metadata Section */}
+                    {selectedGeneratedContent.metadata && (
+                      <div className="space-y-3">
+                        <h4 className="text-base font-semibold text-gray-900">Additional Information</h4>
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200/50">
+                          <div className="space-y-2 text-sm">
+                            {selectedGeneratedContent.metadata.techName && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Technician:</span>
+                                <span className="text-gray-900">{selectedGeneratedContent.metadata.techName}</span>
+                              </div>
+                            )}
+                            {selectedGeneratedContent.metadata.franchiseeName && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Franchisee:</span>
+                                <span className="text-gray-900">{selectedGeneratedContent.metadata.franchiseeName}</span>
+                              </div>
+                            )}
+                            {selectedGeneratedContent.metadata.location && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Location:</span>
+                                <span className="text-gray-900">{selectedGeneratedContent.metadata.location}</span>
+                              </div>
+                            )}
+                            {selectedGeneratedContent.metadata.jobType && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Job Type:</span>
+                                <span className="text-gray-900">{selectedGeneratedContent.metadata.jobType}</span>
+                              </div>
+                            )}
+                            {selectedGeneratedContent.metadata.jobDescription && (
+                              <div className="flex items-start gap-2 mt-3">
+                                <span className="font-medium text-gray-700">Description:</span>
+                                <span className="text-gray-900">{selectedGeneratedContent.metadata.jobDescription}</span>
+                              </div>
+                            )}
+                            {/* Hashtags/Tags */}
+                            {selectedGeneratedContent.metadata.hashtags && selectedGeneratedContent.metadata.hashtags.length > 0 && (
+                              <div className="mt-3">
+                                <p className="font-medium text-gray-700 mb-2">Hashtags:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {selectedGeneratedContent.metadata.hashtags.map((tag: string, index: number) => (
+                                    <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-white text-blue-700 border border-blue-200">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
-                )}
+
+                  {/* Footer Actions */}
+                  <div className="border-t border-gray-100 bg-gray-50/50 px-8 py-4">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Edit content
+                          const newContent = prompt('Edit content:', selectedGeneratedContent.content);
+                          if (newContent !== null && newContent !== selectedGeneratedContent.content) {
+                            console.log('Content updated:', newContent);
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Content
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Send to marketing
+                          createMarketingContent(
+                            selectedGeneratedContent.id,
+                            archivedMedia.find(m => m.id === selectedGeneratedContent.photo_id || m.id === selectedGeneratedContent.media_archive_id) || archivedMedia[0],
+                            selectedGeneratedContent.content,
+                            selectedGeneratedContent.platform || 'general'
+                          );
+                          closeGeneratedContentModal();
+                        }}
+                        className="text-xs"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Send to Marketing
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm('Delete this generated content? This action cannot be undone.')) {
+                            console.log('Content deleted:', selectedGeneratedContent.id);
+                            closeGeneratedContentModal();
+                          }
+                        }}
+                        className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Preview Modal */}
-      {showPreviewModal && generatedContent && selectedPlatform && selectedMedia && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            {/* Simple Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1)} Preview
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCreateMarketingPost}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-md hover:from-purple-700 hover:to-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Create Marketing Post
-                </button>
-                <button
-                  onClick={() => copyToClipboard(generatedContent)}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-                >
-                  {copySuccess || 'Copy'}
-                </button>
-                <button
-                  onClick={() => setShowPreviewModal(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <div className="space-y-6">
-                {/* Platform Preview */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Preview</h3>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 flex justify-center">
-                    <PlatformPreview platform={selectedPlatform} content={generatedContent} />
-                  </div>
-                </div>
-                
-                {/* Post Content */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Post Content</h3>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                    <div className="whitespace-pre-line text-gray-900 dark:text-white text-sm leading-relaxed">
-                      {generatedContent}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* AI Marketing Specialist Modal */}
+      <MarketingOnboardingModal
+        isOpen={showAIMarketing}
+        onClose={closeAIMarketing}
+        onComplete={handleMarketingComplete}
+        selectedMedia={selectedMedia!}
+      />
 
       {/* Edit Media Modal */}
       {showEditModal && editingMedia && (

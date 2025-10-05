@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTheme } from '@/contexts/theme-context';
 import { useLogo } from '@/contexts/logo-context';
+import StorageImageUploader from '@/components/StorageImageUploader';
 import Image from 'next/image';
 
 export default function FranchiseeSettingsPage() {
+  const searchParams = useSearchParams();
+  const franchiseeId = searchParams.get('id') || '';
   const { theme, setTheme } = useTheme();
   const { mainLogo, setMainLogo, resetLogo } = useLogo();
   
@@ -54,7 +58,6 @@ export default function FranchiseeSettingsPage() {
     accentColor: '#ff6600',
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFranchiseeChange = (key: string, value: string) => {
     setFranchiseeSettings(prev => ({ ...prev, [key]: value }));
@@ -140,10 +143,10 @@ export default function FranchiseeSettingsPage() {
 
   const saveFranchiseeSettings = async () => {
     try {
-      const response = await fetch('/api/franchisee/settings', {
+      const response = await fetch(`/api/franchisee/settings?id=${franchiseeId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(franchiseeSettings),
+        body: JSON.stringify({ ...franchiseeSettings, franchiseeId }),
       });
 
       const data = await response.json();
@@ -158,30 +161,8 @@ export default function FranchiseeSettingsPage() {
     }
   };
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const validTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg'];
-      if (!validTypes.includes(file.type)) {
-        alert('Please upload a valid image file (SVG, PNG, or JPEG)');
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
-        return;
-      }
-
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string;
-        setBrandingSettings(prev => ({ ...prev, logo: imageUrl }));
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleLogoUploaded = (imageUrl: string) => {
+    setBrandingSettings(prev => ({ ...prev, logo: imageUrl }));
   };
 
   return (
@@ -283,44 +264,14 @@ export default function FranchiseeSettingsPage() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">🎨 Branding</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Logo
-              </label>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-24 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600">
-                      {brandingSettings.logo ? (
-                        <Image
-                          src={brandingSettings.logo}
-                          alt="Logo Preview"
-                          width={80}
-                          height={40}
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-gray-400 text-xs">No logo</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".svg,.png,.jpg,.jpeg"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Upload Logo
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <StorageImageUploader
+                label="Logo"
+                currentImage={brandingSettings.logo}
+                onImageUploaded={handleLogoUploaded}
+                enableCrop={false}
+                userType="franchisee"
+                userId={franchiseeId}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

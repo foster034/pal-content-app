@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import ImageUploader from "@/components/ImageUploader";
+import StorageImageUploader from "@/components/StorageImageUploader";
 import ImageModal from "@/components/ImageModal";
 import { DetailModal } from "@/components/DetailModal";
 import { Mail, Phone, Bell, MoreHorizontal, Eye, Send, Edit, Trash2, Settings, Search, X } from "lucide-react";
@@ -81,6 +81,7 @@ interface Franchisee {
   image: string;
   owners: Owner[];
   notificationPreferences: NotificationPreferences;
+  techCount?: number;
 }
 
 const defaultNotificationPreferences: NotificationPreferences = {
@@ -117,7 +118,28 @@ export default function FranchiseesPage() {
       const response = await fetch('/api/franchisees');
       if (response.ok) {
         const data = await response.json();
-        // Map database fields to frontend format
+
+        // Fetch technician counts for all franchisees
+        const franchiseeIds = data.map((f: any) => f.id);
+        const techCountPromises = franchiseeIds.map(async (id: string) => {
+          try {
+            const techResponse = await fetch(`/api/technicians?franchiseeId=${id}`);
+            if (techResponse.ok) {
+              const techData = await techResponse.json();
+              return { franchiseeId: id, techCount: Array.isArray(techData) ? techData.length : 0 };
+            }
+            return { franchiseeId: id, techCount: 0 };
+          } catch {
+            return { franchiseeId: id, techCount: 0 };
+          }
+        });
+
+        const techCounts = await Promise.all(techCountPromises);
+        const techCountMap = Object.fromEntries(
+          techCounts.map(item => [item.franchiseeId, item.techCount])
+        );
+
+        // Map database fields to frontend format with tech counts
         const mappedData = data.map((f: any) => ({
           id: f.id,
           name: f.business_name,
@@ -130,7 +152,8 @@ export default function FranchiseesPage() {
           joinDate: f.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
           image: f.image || '',
           owners: f.owners || [],
-          notificationPreferences: f.notification_preferences || defaultNotificationPreferences
+          notificationPreferences: f.notification_preferences || defaultNotificationPreferences,
+          techCount: techCountMap[f.id] || 0
         }));
         setFranchisees(mappedData);
       }
@@ -609,11 +632,13 @@ export default function FranchiseesPage() {
                 </div>
               </div>
 
-              <ImageUploader
+              <StorageImageUploader
                 label="Main Franchise Image"
                 currentImage={formData.image}
-                onImageSelected={(imageDataUrl) => setFormData(prev => ({ ...prev, image: imageDataUrl }))}
+                onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image: imageUrl }))}
                 enableCrop={false}
+                userType="franchisee"
+                userId={editingFranchisee?.id || `temp-${Date.now()}`}
               />
 
               {/* Auth User Creation Section */}
@@ -739,11 +764,13 @@ export default function FranchiseesPage() {
                       />
                     </div>
                     <div className="col-span-2">
-                      <ImageUploader
+                      <StorageImageUploader
                         label="Owner Image"
                         currentImage={currentOwner.image}
-                        onImageSelected={(imageDataUrl) => setCurrentOwner(prev => ({ ...prev, image: imageDataUrl }))}
+                        onImageUploaded={(imageUrl) => setCurrentOwner(prev => ({ ...prev, image: imageUrl }))}
                         cropAspect={1}
+                        userType="franchisee"
+                        userId={currentOwner.id ? String(currentOwner.id) : `temp-owner-${Date.now()}`}
                       />
                     </div>
                   </div>
