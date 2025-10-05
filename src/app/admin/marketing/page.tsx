@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useTable } from '@/contexts/table-context';
-import SimpleMarketingModal from '@/components/SimpleMarketingModal';
+import MarketingOnboardingModal from '@/components/MarketingOnboardingModal';
 
 interface ArchivedMedia {
   id: number;
@@ -2188,14 +2188,12 @@ export default function MediaArchivePage() {
       )}
 
       {/* AI Marketing Specialist Modal */}
-      {showAIMarketing && selectedMedia && (
-        <SimpleMarketingModal
-          isOpen={showAIMarketing}
-          onClose={closeAIMarketing}
-          onComplete={handleMarketingComplete}
-          selectedMedia={selectedMedia}
-        />
-      )}
+      <MarketingOnboardingModal
+        isOpen={showAIMarketing}
+        onClose={closeAIMarketing}
+        onComplete={handleMarketingComplete}
+        selectedMedia={selectedMedia}
+      />
 
       {/* Edit Media Modal */}
       {showEditModal && editingMedia && (
