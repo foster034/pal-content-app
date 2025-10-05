@@ -85,7 +85,10 @@ export default function ModernJobSubmissionModal({
     vehicleYear: '',
     vehicleMake: '',
     vehicleModel: '',
-    jobDuration: undefined
+    jobDuration: undefined,
+    customerConcern: '',
+    customerReaction: '',
+    specialChallenges: ''
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -654,16 +657,60 @@ export default function ModernJobSubmissionModal({
             {/* Step 3: Description */}
             {currentStep === 3 && (
               <div className="space-y-4">
-                <Textarea
-                  placeholder="Describe the work completed..."
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={8}
-                  className="border-gray-300 rounded-lg focus:border-gray-900 resize-none"
-                />
-                <p className="text-xs text-gray-500">
-                  Include details about the service, challenges faced, and the final outcome.
-                </p>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    What issue was the customer experiencing?
+                  </Label>
+                  <Textarea
+                    placeholder="e.g., Locked out of their car, needed new keys, broken lock..."
+                    value={formData.customerConcern}
+                    onChange={(e) => setFormData(prev => ({ ...prev, customerConcern: e.target.value }))}
+                    rows={3}
+                    className="border-gray-300 rounded-lg focus:border-gray-900 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    How did the customer react?
+                  </Label>
+                  <Textarea
+                    placeholder="e.g., Very relieved, extremely satisfied, mentioned they'll recommend us..."
+                    value={formData.customerReaction}
+                    onChange={(e) => setFormData(prev => ({ ...prev, customerReaction: e.target.value }))}
+                    rows={3}
+                    className="border-gray-300 rounded-lg focus:border-gray-900 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Any unique difficulties or interesting aspects?
+                  </Label>
+                  <Textarea
+                    placeholder="e.g., Emergency lockout at night, complex key programming, difficult access..."
+                    value={formData.specialChallenges}
+                    onChange={(e) => setFormData(prev => ({ ...prev, specialChallenges: e.target.value }))}
+                    rows={3}
+                    className="border-gray-300 rounded-lg focus:border-gray-900 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Work completed summary
+                  </Label>
+                  <Textarea
+                    placeholder="Describe the work completed..."
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={4}
+                    className="border-gray-300 rounded-lg focus:border-gray-900 resize-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Include technical details about the service and final outcome.
+                  </p>
+                </div>
               </div>
             )}
 

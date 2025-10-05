@@ -92,6 +92,11 @@ export async function GET(request: NextRequest) {
           color: job.vehicle_color,
           vin: job.vehicle_vin
         },
+        contentFields: {
+          customerConcern: job.customer_concern,
+          customerReaction: job.customer_reaction,
+          specialChallenges: job.special_challenges
+        },
         media: {
           beforePhotos: job.before_photos || [],
           afterPhotos: job.after_photos || [],
@@ -156,6 +161,10 @@ export async function POST(request: NextRequest) {
       vehicle_model: body.vehicleModel || body.vehicle?.model || null,
       vehicle_color: body.vehicleColor || body.vehicle?.color || null,
       vehicle_vin: body.vehicleVin || body.vehicle?.vin || null,
+      // New content-focused fields
+      customer_concern: body.customerConcern || null,
+      customer_reaction: body.customerReaction || null,
+      special_challenges: body.specialChallenges || null,
       before_photos: body.media?.beforePhotos || [],
       after_photos: body.media?.afterPhotos || [],
       process_photos: body.media?.processPhotos || [],
@@ -265,6 +274,11 @@ export async function POST(request: NextRequest) {
         model: data.vehicle_model,
         color: data.vehicle_color,
         vin: data.vehicle_vin
+      },
+      contentFields: {
+        customerConcern: data.customer_concern,
+        customerReaction: data.customer_reaction,
+        specialChallenges: data.special_challenges
       },
       media: {
         beforePhotos: data.before_photos || [],
