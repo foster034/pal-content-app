@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useTable } from '@/contexts/table-context';
+import SimpleMarketingModal from '@/components/SimpleMarketingModal';
 
 interface ArchivedMedia {
   id: number;
@@ -2186,8 +2187,15 @@ export default function MediaArchivePage() {
         </div>
       )}
 
-      {/* AI Marketing Specialist Modal - Temporarily disabled */}
-      {/* TODO: Replace with new marketing modal component */}
+      {/* AI Marketing Specialist Modal */}
+      {showAIMarketing && selectedMedia && (
+        <SimpleMarketingModal
+          isOpen={showAIMarketing}
+          onClose={closeAIMarketing}
+          onComplete={handleMarketingComplete}
+          selectedMedia={selectedMedia}
+        />
+      )}
 
       {/* Edit Media Modal */}
       {showEditModal && editingMedia && (
