@@ -8,8 +8,9 @@ import { X, Check } from 'lucide-react';
 
 interface PhotoEditorProps {
   imageUrl: string;
-  onSave: (croppedImage: Blob, aspectRatio: 'landscape' | 'square') => void;
+  onSave: (croppedImage: Blob, aspectRatio: 'landscape' | 'square', photoTag: 'before' | 'after' | 'process') => void;
   onCancel: () => void;
+  initialTag?: 'before' | 'after' | 'process';
 }
 
 // GMB optimal dimensions
@@ -20,14 +21,15 @@ const CROP_PRESETS = {
 
 type GridType = 'none' | '2x2' | '3x3' | '4x4' | 'phi';
 
-export default function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
+export default function PhotoEditor({ imageUrl, onSave, onCancel, initialTag = 'before' }: PhotoEditorProps) {
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'landscape' | 'square'>('landscape');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'grid' | 'aspect'>('grid');
+  const [activeTab, setActiveTab] = useState<'grid' | 'aspect' | 'tag'>('tag');
   const [gridType, setGridType] = useState<GridType>('3x3');
+  const [photoTag, setPhotoTag] = useState<'before' | 'after' | 'process'>(initialTag);
 
   const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
@@ -83,7 +85,7 @@ export default function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorP
     try {
       const croppedImage = await getCroppedImg(imageUrl, croppedAreaPixels);
       if (croppedImage) {
-        onSave(croppedImage, aspectRatio);
+        onSave(croppedImage, aspectRatio, photoTag);
       }
     } catch (error) {
       console.error('Error cropping image:', error);
@@ -138,10 +140,20 @@ export default function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorP
       {/* Bottom Controls */}
       <div className="bg-black border-t border-white/10 px-6 py-4">
         {/* Tab Buttons */}
-        <div className="flex gap-4 mb-6 justify-center">
+        <div className="flex gap-2 sm:gap-4 mb-6 justify-center flex-wrap">
+          <button
+            onClick={() => setActiveTab('tag')}
+            className={`px-4 sm:px-6 py-2 text-sm font-medium transition-colors rounded-lg min-h-[44px] ${
+              activeTab === 'tag'
+                ? 'bg-yellow-500 text-black'
+                : 'text-white/70 hover:text-white'
+            }`}
+          >
+            TAG
+          </button>
           <button
             onClick={() => setActiveTab('grid')}
-            className={`px-6 py-2 text-sm font-medium transition-colors rounded-lg ${
+            className={`px-4 sm:px-6 py-2 text-sm font-medium transition-colors rounded-lg min-h-[44px] ${
               activeTab === 'grid'
                 ? 'bg-yellow-500 text-black'
                 : 'text-white/70 hover:text-white'
@@ -151,15 +163,77 @@ export default function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorP
           </button>
           <button
             onClick={() => setActiveTab('aspect')}
-            className={`px-6 py-2 text-sm font-medium transition-colors rounded-lg ${
+            className={`px-4 sm:px-6 py-2 text-sm font-medium transition-colors rounded-lg min-h-[44px] ${
               activeTab === 'aspect'
                 ? 'bg-yellow-500 text-black'
                 : 'text-white/70 hover:text-white'
             }`}
           >
-            ASPECT RATIO
+            ASPECT
           </button>
         </div>
+
+        {/* Tag Options */}
+        {activeTab === 'tag' && (
+          <div className="flex justify-center gap-4">
+            {/* Before Tag */}
+            <button
+              onClick={() => setPhotoTag('before')}
+              className="flex flex-col items-center gap-2 group"
+            >
+              <div
+                className={`w-20 h-20 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                  photoTag === 'before'
+                    ? 'border-yellow-500 bg-yellow-500/10'
+                    : 'border-white/30 hover:border-white/50'
+                }`}
+              >
+                <span className="text-3xl">📷</span>
+              </div>
+              <span className={`text-sm font-medium ${photoTag === 'before' ? 'text-yellow-500' : 'text-white/50'}`}>
+                BEFORE
+              </span>
+            </button>
+
+            {/* After Tag */}
+            <button
+              onClick={() => setPhotoTag('after')}
+              className="flex flex-col items-center gap-2 group"
+            >
+              <div
+                className={`w-20 h-20 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                  photoTag === 'after'
+                    ? 'border-yellow-500 bg-yellow-500/10'
+                    : 'border-white/30 hover:border-white/50'
+                }`}
+              >
+                <span className="text-3xl">✨</span>
+              </div>
+              <span className={`text-sm font-medium ${photoTag === 'after' ? 'text-yellow-500' : 'text-white/50'}`}>
+                AFTER
+              </span>
+            </button>
+
+            {/* Process Tag */}
+            <button
+              onClick={() => setPhotoTag('process')}
+              className="flex flex-col items-center gap-2 group"
+            >
+              <div
+                className={`w-20 h-20 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                  photoTag === 'process'
+                    ? 'border-yellow-500 bg-yellow-500/10'
+                    : 'border-white/30 hover:border-white/50'
+                }`}
+              >
+                <span className="text-3xl">🔧</span>
+              </div>
+              <span className={`text-sm font-medium ${photoTag === 'process' ? 'text-yellow-500' : 'text-white/50'}`}>
+                PROCESS
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Grid Options */}
         {activeTab === 'grid' && (

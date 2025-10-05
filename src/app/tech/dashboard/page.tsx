@@ -156,6 +156,7 @@ function TechDashboardContent() {
   const [showCameraGuide, setShowCameraGuide] = useState(false);
   const [capturedPhotoForEditing, setCapturedPhotoForEditing] = useState<string | null>(null);
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
+  const [currentPhotoTag, setCurrentPhotoTag] = useState<'before' | 'after' | 'process'>('before');
   const [deviceType, setDeviceType] = useState<'ios' | 'android' | 'unknown'>('unknown');
   const [loading, setLoading] = useState(true);
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
@@ -976,27 +977,32 @@ function TechDashboardContent() {
     startPhotoCamera();
   };
 
-  const handlePhotoEditorSave = async (croppedBlob: Blob, aspectRatio: 'landscape' | 'square') => {
+  const handlePhotoEditorSave = async (croppedBlob: Blob, aspectRatio: 'landscape' | 'square', photoTag: 'before' | 'after' | 'process') => {
     try {
       // Convert blob to data URL
       const reader = new FileReader();
       reader.onloadend = () => {
         const dataUrl = reader.result as string;
+        const newPhotoIndex = contentForm.photos.length;
 
-        // Add cropped photo to form
+        // Add cropped photo to form with tag
         setContentForm(prev => ({
           ...prev,
-          photos: [...prev.photos, dataUrl]
+          photos: [...prev.photos, dataUrl],
+          photoTypes: {
+            ...prev.photoTypes,
+            [newPhotoIndex]: photoTag
+          }
         }));
 
         // Convert blob to File for potential upload
-        const file = new File([croppedBlob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const file = new File([croppedBlob], `photo-${photoTag}-${Date.now()}.jpg`, { type: 'image/jpeg' });
         setContentForm(prev => ({
           ...prev,
           photoFiles: [...prev.photoFiles, file]
         }));
 
-        console.log('Cropped photo added to form:', aspectRatio);
+        console.log(`Cropped ${photoTag} photo added to form:`, aspectRatio);
       };
       reader.readAsDataURL(croppedBlob);
 
@@ -1937,11 +1943,11 @@ function TechDashboardContent() {
               </div>
               
               {/* Camera Controls */}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 sm:p-6 pb-safe">
                 <div className="flex items-center justify-center gap-4">
                   <Button
                     onClick={stopPhotoCamera}
-                    className="w-12 h-12 bg-gray-600 hover:bg-gray-500 text-white rounded-full flex items-center justify-center transition-colors"
+                    className="w-14 h-14 sm:w-12 sm:h-12 bg-gray-600 hover:bg-gray-500 text-white rounded-full flex items-center justify-center transition-colors min-h-[44px] min-w-[44px] touch-manipulation"
                     title="Cancel"
                   >
                     ❌
@@ -1950,20 +1956,20 @@ function TechDashboardContent() {
                   {availableCameras.length > 1 && (
                     <Button
                       onClick={switchCamera}
-                      className="w-12 h-12 bg-gray-600 hover:bg-gray-500 text-white rounded-full flex items-center justify-center transition-colors"
-                      title={`Switch Camera (${currentCameraIndex + 1}/${availableCameras.length})`}
+                      className="w-14 h-14 sm:w-12 sm:h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center transition-colors min-h-[44px] min-w-[44px] touch-manipulation"
+                      title={`Flip Camera (${currentCameraIndex + 1}/${availableCameras.length})`}
                     >
-                      🔄📷
+                      🔄
                     </Button>
                   )}
 
                   <Button
                     type="button"
                     onClick={capturePhoto}
-                    className="w-16 h-16 bg-white hover:bg-gray-200 text-black rounded-full flex items-center justify-center transition-colors border-4 border-gray-400"
+                    className="w-20 h-20 sm:w-16 sm:h-16 bg-white hover:bg-gray-200 text-black rounded-full flex items-center justify-center transition-colors border-4 border-gray-400 touch-manipulation"
                     title="Take Photo"
                   >
-                    <div className="w-12 h-12 bg-black rounded-full"></div>
+                    <div className="w-14 h-14 sm:w-12 sm:h-12 bg-black rounded-full"></div>
                   </Button>
 
                   <Button
@@ -2152,6 +2158,7 @@ function TechDashboardContent() {
           imageUrl={capturedPhotoForEditing}
           onSave={handlePhotoEditorSave}
           onCancel={handlePhotoEditorCancel}
+          initialTag={currentPhotoTag}
         />
       )}
 
