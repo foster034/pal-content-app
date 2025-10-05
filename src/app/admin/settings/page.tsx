@@ -510,16 +510,76 @@ export default function AdminSettingsPage() {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="bg-image">Background Image URL</Label>
+                  <div className="space-y-4">
+                    <Label>Background Image</Label>
+                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6">
+                      {loginConfig.staticImageUrl && (
+                        <div className="mb-4">
+                          <img
+                            src={loginConfig.staticImageUrl}
+                            alt="Login background preview"
+                            className="w-full h-48 object-cover rounded-lg"
+                          />
+                        </div>
+                      )}
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <Upload className="w-12 h-12 text-gray-400" />
+                        <div className="text-center">
+                          <label htmlFor="login-image-upload" className="cursor-pointer">
+                            <span className="text-blue-600 hover:text-blue-700 font-medium">
+                              Click to upload
+                            </span>
+                            <span className="text-gray-500"> or drag and drop</span>
+                          </label>
+                          <p className="text-xs text-gray-500 mt-1">
+                            PNG, JPG, WEBP up to 5MB
+                          </p>
+                        </div>
+                        <input
+                          id="login-image-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            const formData = new FormData();
+                            formData.append('file', file);
+
+                            try {
+                              const response = await fetch('/api/upload-login-image', {
+                                method: 'POST',
+                                body: formData,
+                              });
+
+                              const data = await response.json();
+
+                              if (response.ok) {
+                                setLoginConfig(prev => ({
+                                  ...prev,
+                                  staticImageUrl: data.url
+                                }));
+                                toast.success('Login image uploaded successfully!');
+                              } else {
+                                toast.error(data.error || 'Failed to upload image');
+                              }
+                            } catch (error) {
+                              toast.error('Error uploading image');
+                              console.error('Upload error:', error);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
                     <Input
-                      id="bg-image"
+                      id="bg-image-url"
                       value={loginConfig.staticImageUrl}
                       onChange={(e) =>
                         setLoginConfig(prev => ({ ...prev, staticImageUrl: e.target.value }))
                       }
+                      placeholder="Or enter image URL manually"
                       className="mt-2"
-                      placeholder="/login-bg.jpg"
                     />
                   </div>
 
