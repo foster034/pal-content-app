@@ -1,0 +1,118 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                  GMB LOCATION UPDATE - FIX INSTRUCTIONS                     ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+ISSUE: 500 error when saving GMB location ID in franchisee settings
+
+ROOT CAUSE: The 'selected_location_name' column is missing from the gmb_oauth_tokens table
+
+─────────────────────────────────────────────────────────────────────────────
+STEP 1: RUN SQL IN SUPABASE DASHBOARD (REQUIRED)
+─────────────────────────────────────────────────────────────────────────────
+
+The SQL has already been copied to your clipboard and the browser should be open.
+
+1. Go to: https://supabase.com/dashboard/project/hagfscurfkqfsjkczjyi/editor/sql
+
+2. Paste the SQL from your clipboard (or use the SQL below)
+
+3. Click "Run" or press Cmd+Enter
+
+SQL TO RUN:
+┌────────────────────────────────────────────────────────────────────────────┐
+│ ALTER TABLE gmb_oauth_tokens ADD COLUMN IF NOT EXISTS selected_location_name TEXT; │
+│                                                                            │
+│ COMMENT ON COLUMN gmb_oauth_tokens.selected_location_name IS              │
+│   'Default GMB location name for posting (e.g., accounts/123/locations/456)'; │
+│                                                                            │
+│ -- Verify column was added                                                │
+│ SELECT column_name, data_type, is_nullable                                │
+│ FROM information_schema.columns                                           │
+│ WHERE table_name = 'gmb_oauth_tokens' AND column_name = 'selected_location_name'; │
+│                                                                            │
+│ -- Test update                                                            │
+│ UPDATE gmb_oauth_tokens                                                   │
+│ SET selected_location_name = 'accounts/demo123456/locations/demo789012'   │
+│ WHERE franchisee_id = '4c8b70f3-797b-4384-869e-e1fb3919f615'             │
+│ AND is_active = true                                                      │
+│ RETURNING id, franchisee_id, google_email, selected_location_name;        │
+└────────────────────────────────────────────────────────────────────────────┘
+
+EXPECTED RESULTS:
+✓ ALTER TABLE: "Success"
+✓ COMMENT: "Success"
+✓ SELECT: 1 row with columns (selected_location_name | text | YES)
+✓ UPDATE: 1 row showing franchisee 4c8b70f3... with demo location
+
+─────────────────────────────────────────────────────────────────────────────
+STEP 2: VERIFY THE FIX
+─────────────────────────────────────────────────────────────────────────────
+
+Run these commands in your terminal:
+
+1. Verify column exists:
+   $ node add-selected-location-column.js
+
+   Expected: ✅ Column "selected_location_name" already exists!
+
+2. Test update operation:
+   $ node test-gmb-update.js
+
+   Expected: 🎉 All tests passed! GMB location update is working correctly.
+
+─────────────────────────────────────────────────────────────────────────────
+STEP 3: TEST IN THE UI
+─────────────────────────────────────────────────────────────────────────────
+
+1. Open: http://localhost:3000
+
+2. Login:
+   Email: admin@test.ca
+   Password: 123456
+
+3. Navigate to franchisee settings (franchisee ID: 4c8b70f3-797b-4384-869e-e1fb3919f615)
+
+4. In the GMB Connection Card:
+   - Click "Use Demo Location ID for Testing"
+   - Click "Save Test Location ID"
+
+5. Expected:
+   ✅ Success alert: "Default location saved successfully!"
+   ❌ NO 500 error
+
+─────────────────────────────────────────────────────────────────────────────
+FILES CREATED/MODIFIED
+─────────────────────────────────────────────────────────────────────────────
+
+CREATED:
+  ✓ /supabase/migrations/20251005105424_add_selected_location_name_to_gmb_oauth_tokens.sql
+  ✓ /add-column.sql
+  ✓ /test-gmb-update.js
+  ✓ /add-selected-location-column.js
+  ✓ /GMB_FIX_SUMMARY.md
+  ✓ /FIX_INSTRUCTIONS.txt
+
+FIXED:
+  ✓ /setup-gmb-table.js (added selected_location_name column)
+  ✓ /src/app/api/setup-gmb-table/route.ts (added selected_location_name column)
+
+─────────────────────────────────────────────────────────────────────────────
+SUMMARY OF WHAT I FOUND
+─────────────────────────────────────────────────────────────────────────────
+
+1. ✓ Read demo credentials from .env (admin@test.ca / 123456)
+2. ✓ Queried database - found GMB connection for franchisee
+3. ✓ Identified root cause - selected_location_name column missing
+4. ✓ Created migration file and SQL scripts
+5. ✓ Fixed setup scripts to prevent recurrence
+6. ⏳ WAITING: You need to run the SQL manually (Step 1 above)
+7. ⏳ PENDING: Test end-to-end after SQL is run (Steps 2-3 above)
+
+─────────────────────────────────────────────────────────────────────────────
+QUESTIONS?
+─────────────────────────────────────────────────────────────────────────────
+
+See GMB_FIX_SUMMARY.md for complete technical details.
+
+If the SQL runs successfully and the tests pass, the GMB location save
+feature will work correctly!

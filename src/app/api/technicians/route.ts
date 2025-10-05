@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       franchiseeName: tech.franchisees?.business_name || 'Unknown Franchise',
       user_id: tech.user_id,
       login_code: tech.login_code || `TEMP${String(index + 1).padStart(2, '0')}`, // Generate temporary code if missing
+      specialties: tech.specialties || [], // Include specialties from database
       created_at: tech.created_at,
       updated_at: tech.updated_at
     })) || [];
@@ -73,7 +74,8 @@ export async function POST(request: NextRequest) {
       image,
       createAuth,
       authMethod,
-      tempPassword
+      tempPassword,
+      specialties
     } = body;
 
     // Enhanced validation
@@ -190,7 +192,8 @@ export async function POST(request: NextRequest) {
           image_url: image || null,
           user_id: userId,
           rating: 0,
-          login_code: generateLoginCode()
+          login_code: generateLoginCode(),
+          specialties: specialties || []
         }
       ])
       .select('*, franchisees(business_name)')
@@ -230,7 +233,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, email, phone, role, image_url, rating, login_code } = body;
+    const { id, name, email, phone, role, image_url, rating, login_code, specialties } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
@@ -249,6 +252,11 @@ export async function PUT(request: NextRequest) {
     // Include login_code if provided
     if (login_code !== undefined) {
       updateData.login_code = login_code;
+    }
+
+    // Include specialties if provided
+    if (specialties !== undefined) {
+      updateData.specialties = specialties;
     }
 
     const { data, error } = await supabase

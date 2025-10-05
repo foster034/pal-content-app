@@ -26,6 +26,7 @@ interface ArchivedMedia {
   category: 'Before' | 'After' | 'Process' | 'Tools' | 'Documentation';
   notes?: string;
   archived: boolean;
+  franchisee_photo_id?: string;
   aiReport?: string;
   aiReportGeneratedAt?: string;
 }
@@ -94,38 +95,39 @@ export default function MediaArchivePage() {
 
   const [archivedMedia, setArchivedMedia] = useState<ArchivedMedia[]>([]);
 
-  // Load data from database and localStorage on component mount
-  useEffect(() => {
-    const fetchArchivedMedia = async () => {
-      try {
-        // First try to fetch from database
-        const response = await fetch('/api/media-archive');
-        if (response.ok) {
-          const databaseData = await response.json();
-          console.log('✅ Fetched archived media from database:', databaseData.length, 'items');
-          setArchivedMedia(databaseData);
-          return;
-        } else {
-          console.warn('⚠️ Failed to fetch from database, falling back to localStorage');
-        }
-      } catch (error) {
-        console.error('Error fetching from database:', error);
-      }
-
-      // Fallback to localStorage if database fails
-      const savedData = localStorage.getItem('marketing-archived-media');
-      if (savedData) {
-        try {
-          setArchivedMedia(JSON.parse(savedData));
-        } catch (error) {
-          console.error('Error loading saved data:', error);
-          setArchivedMedia(initialArchivedMedia);
-        }
+  // Fetch archived media from database
+  const fetchArchivedMedia = async () => {
+    try {
+      // First try to fetch from database
+      const response = await fetch('/api/media-archive');
+      if (response.ok) {
+        const databaseData = await response.json();
+        console.log('✅ Fetched archived media from database:', databaseData.length, 'items');
+        setArchivedMedia(databaseData);
+        return;
       } else {
+        console.warn('⚠️ Failed to fetch from database, falling back to localStorage');
+      }
+    } catch (error) {
+      console.error('Error fetching from database:', error);
+    }
+
+    // Fallback to localStorage if database fails
+    const savedData = localStorage.getItem('marketing-archived-media');
+    if (savedData) {
+      try {
+        setArchivedMedia(JSON.parse(savedData));
+      } catch (error) {
+        console.error('Error loading saved data:', error);
         setArchivedMedia(initialArchivedMedia);
       }
-    };
+    } else {
+      setArchivedMedia(initialArchivedMedia);
+    }
+  };
 
+  // Load data from database and localStorage on component mount
+  useEffect(() => {
     fetchArchivedMedia();
   }, []);
 
@@ -144,6 +146,9 @@ export default function MediaArchivePage() {
   const [selectedMedia, setSelectedMedia] = useState<ArchivedMedia | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showAIMarketing, setShowAIMarketing] = useState(false);
+  const [showGMBHelper, setShowGMBHelper] = useState(false);
+  const [selectedGMBMedia, setSelectedGMBMedia] = useState<ArchivedMedia | null>(null);
+  const [selectedGMBContent, setSelectedGMBContent] = useState<any | null>(null);
   const [aiConversation, setAiConversation] = useState<{role: string, message: string}[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('');
   const [selectedPostType, setSelectedPostType] = useState<string>('');
@@ -162,6 +167,13 @@ export default function MediaArchivePage() {
   const [publishedPosts, setPublishedPosts] = useState<any[]>([]);
   const [loadingScheduled, setLoadingScheduled] = useState(false);
   const [loadingPublished, setLoadingPublished] = useState(false);
+
+  // Checkbox selections for bulk actions
+  const [selectedApproved, setSelectedApproved] = useState<Set<number>>(new Set());
+  const [selectedArchived, setSelectedArchived] = useState<Set<number>>(new Set());
+  const [selectedGenerated, setSelectedGenerated] = useState<Set<string>>(new Set());
+  const [selectedScheduled, setSelectedScheduled] = useState<Set<string>>(new Set());
+  const [selectedPublished, setSelectedPublished] = useState<Set<string>>(new Set());
 
   const filteredMedia = useMemo(() => {
     return archivedMedia.filter(media => {
@@ -206,6 +218,179 @@ export default function MediaArchivePage() {
       setArchivedMedia(initialArchivedMedia);
       localStorage.setItem('marketing-archived-media', JSON.stringify(initialArchivedMedia));
       console.log('Demo data reset to original state');
+    }
+  };
+
+  // Checkbox helper functions
+  const toggleSelectApproved = (id: number) => {
+    setSelectedApproved(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllApproved = () => {
+    if (selectedApproved.size === filteredMedia.length && filteredMedia.length > 0) {
+      setSelectedApproved(new Set());
+    } else {
+      setSelectedApproved(new Set(filteredMedia.map(m => m.id)));
+    }
+  };
+
+  const toggleSelectArchived = (id: number) => {
+    setSelectedArchived(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllArchived = () => {
+    if (selectedArchived.size === filteredMedia.length && filteredMedia.length > 0) {
+      setSelectedArchived(new Set());
+    } else {
+      setSelectedArchived(new Set(filteredMedia.map(m => m.id)));
+    }
+  };
+
+  const toggleSelectGenerated = (id: string) => {
+    setSelectedGenerated(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllGenerated = () => {
+    if (selectedGenerated.size === generatedContentList.length && generatedContentList.length > 0) {
+      setSelectedGenerated(new Set());
+    } else {
+      setSelectedGenerated(new Set(generatedContentList.map(c => c.id)));
+    }
+  };
+
+  const toggleSelectScheduled = (id: string) => {
+    setSelectedScheduled(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllScheduled = () => {
+    if (selectedScheduled.size === scheduledPosts.length && scheduledPosts.length > 0) {
+      setSelectedScheduled(new Set());
+    } else {
+      setSelectedScheduled(new Set(scheduledPosts.map(p => p.id)));
+    }
+  };
+
+  const toggleSelectPublished = (id: string) => {
+    setSelectedPublished(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllPublished = () => {
+    if (selectedPublished.size === publishedPosts.length && publishedPosts.length > 0) {
+      setSelectedPublished(new Set());
+    } else {
+      setSelectedPublished(new Set(publishedPosts.map(p => p.id)));
+    }
+  };
+
+  // Bulk action functions
+  const bulkArchiveApproved = async () => {
+    if (selectedApproved.size === 0) return;
+
+    if (!confirm(`Archive ${selectedApproved.size} selected item(s)?`)) return;
+
+    const mediasToArchive = archivedMedia.filter(m => selectedApproved.has(m.id));
+
+    try {
+      // Archive all items in database
+      for (const media of mediasToArchive) {
+        if (media.franchisee_photo_id) {
+          await fetch('/api/media-archive', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mediaId: media.id,
+              franchiseePhotoId: media.franchisee_photo_id,
+              archived: true
+            }),
+          });
+        }
+      }
+
+      // Refresh archived media once after all items are archived
+      await fetchArchivedMedia();
+      console.log(`✅ Bulk archived ${mediasToArchive.length} items`);
+    } catch (error) {
+      console.error('Error in bulk archive:', error);
+    }
+
+    setSelectedApproved(new Set());
+  };
+
+  const bulkDeleteGenerated = async () => {
+    if (selectedGenerated.size === 0) return;
+
+    if (!confirm(`Delete ${selectedGenerated.size} selected generated content item(s)? This action cannot be undone.`)) return;
+
+    try {
+      for (const id of selectedGenerated) {
+        await fetch(`/api/generated-content/${id}`, {
+          method: 'DELETE',
+        });
+      }
+      await fetchGeneratedContent();
+      setSelectedGenerated(new Set());
+    } catch (error) {
+      console.error('Error deleting generated content:', error);
+      alert('Failed to delete some items. Please try again.');
+    }
+  };
+
+  const bulkDeletePublished = async () => {
+    if (selectedPublished.size === 0) return;
+
+    if (!confirm(`Delete ${selectedPublished.size} selected published post(s)? This action cannot be undone.`)) return;
+
+    try {
+      for (const id of selectedPublished) {
+        await fetch(`/api/published-posts/${id}`, {
+          method: 'DELETE',
+        });
+      }
+      await fetchPublishedPosts();
+      setSelectedPublished(new Set());
+    } catch (error) {
+      console.error('Error deleting published posts:', error);
+      alert('Failed to delete some items. Please try again.');
     }
   };
 
@@ -257,10 +442,31 @@ export default function MediaArchivePage() {
 
   const toggleArchiveStatus = async (media: ArchivedMedia) => {
     try {
+      if (!media.franchisee_photo_id) {
+        console.error('No franchisee_photo_id found for media:', media);
+        return;
+      }
+
+      const newArchivedStatus = !media.archived;
+
+      // Call API to update database
+      const response = await fetch('/api/media-archive', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          franchiseePhotoId: media.franchisee_photo_id,
+          archived: newArchivedStatus
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update archive status');
+      }
+
       const updatedMedia = {
         ...media,
-        archived: !media.archived,
-        dateArchived: !media.archived ? new Date().toISOString() : media.dateArchived
+        archived: newArchivedStatus,
+        dateArchived: newArchivedStatus ? new Date().toISOString() : media.dateArchived
       };
 
       // Update the local state
@@ -268,8 +474,10 @@ export default function MediaArchivePage() {
         m.id === media.id ? updatedMedia : m
       ));
 
-      // You can add API call here to save to database if needed
-      console.log(`Media ${media.archived ? 'unarchived' : 'archived'}:`, updatedMedia);
+      console.log(`✅ Media ${newArchivedStatus ? 'archived' : 'unarchived'} successfully`);
+
+      // Refresh the media list to reflect changes
+      await fetchArchivedMedia();
 
     } catch (error) {
       console.error('Error toggling archive status:', error);
@@ -285,6 +493,36 @@ export default function MediaArchivePage() {
   const closeAIMarketing = () => {
     setSelectedMedia(null);
     setShowAIMarketing(false);
+  };
+
+  // Helper function to archive media both in state and database
+  const archiveMedia = async (media: ArchivedMedia) => {
+    // Update database if franchisee_photo_id exists
+    if (media.franchisee_photo_id) {
+      try {
+        await fetch('/api/media-archive', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mediaId: media.id,
+            franchiseePhotoId: media.franchisee_photo_id,
+            archived: true
+          }),
+        });
+        console.log('✅ Media archived in database:', media.franchisee_photo_id);
+
+        // Refresh archived media from API to reflect database changes
+        await fetchArchivedMedia();
+      } catch (error) {
+        console.error('Error archiving media in database:', error);
+      }
+    }
+  };
+
+  const postToGMB = (media: ArchivedMedia) => {
+    // Open GMB post creation helper modal
+    setSelectedGMBMedia(media);
+    setShowGMBHelper(true);
   };
 
   const handleMarketingComplete = async (data: any) => {
@@ -310,6 +548,7 @@ export default function MediaArchivePage() {
             jobType: selectedMedia?.jobType,
             jobDescription: selectedMedia?.jobDescription,
             techName: selectedMedia?.techName,
+            franchiseeName: selectedMedia?.franchiseeName,
             location: selectedMedia?.jobLocation,
           }
         }),
@@ -330,6 +569,12 @@ export default function MediaArchivePage() {
         }
 
         console.log('✅ Content saved successfully!');
+
+        // Archive the approved media so it no longer shows in Approved tab
+        if (selectedMedia) {
+          await archiveMedia(selectedMedia);
+          console.log('✅ Approved media archived after content generation');
+        }
 
         // Refresh the generated content list
         await fetchGeneratedContent();
@@ -352,7 +597,36 @@ export default function MediaArchivePage() {
 
       if (response.ok) {
         const data = await response.json();
-        setGeneratedContentList(Array.isArray(data) ? data : []);
+
+        // Enrich generated content with franchisee info from archivedMedia if metadata is missing
+        const enrichedData = data.map((content: any) => {
+          // If franchiseeName is already in metadata, use it
+          if (content.metadata?.franchiseeName) {
+            return content;
+          }
+
+          // Otherwise, look up from archivedMedia using media_archive_id
+          if (content.media_archive_id) {
+            const media = archivedMedia.find(m => m.id === content.media_archive_id);
+            if (media) {
+              return {
+                ...content,
+                metadata: {
+                  ...content.metadata,
+                  franchiseeName: media.franchiseeName,
+                  techName: content.metadata?.techName || media.techName,
+                  jobType: content.metadata?.jobType || media.jobType,
+                  location: content.metadata?.location || media.jobLocation,
+                  mediaUrl: content.metadata?.mediaUrl || media.photoUrl,
+                }
+              };
+            }
+          }
+
+          return content;
+        });
+
+        setGeneratedContentList(Array.isArray(enrichedData) ? enrichedData : []);
       } else {
         console.warn('Failed to fetch generated content');
         setGeneratedContentList([]);
@@ -365,16 +639,40 @@ export default function MediaArchivePage() {
     }
   };
 
-  // Fetch generated content on initial load and when the generated tab is selected
+  // Fetch generated content and published posts on initial load
   useEffect(() => {
     fetchGeneratedContent();
+    fetchPublishedPosts();
   }, []);
 
   useEffect(() => {
     if (activeTab === 'generated') {
       fetchGeneratedContent();
     }
+    if (activeTab === 'published') {
+      fetchPublishedPosts();
+    }
   }, [activeTab]);
+
+  const fetchPublishedPosts = async () => {
+    try {
+      setLoadingPublished(true);
+      const response = await fetch('/api/published-posts');
+
+      if (response.ok) {
+        const data = await response.json();
+        setPublishedPosts(Array.isArray(data) ? data : []);
+      } else {
+        console.warn('Failed to fetch published posts');
+        setPublishedPosts([]);
+      }
+    } catch (error) {
+      console.error('Error fetching published posts:', error);
+      setPublishedPosts([]);
+    } finally {
+      setLoadingPublished(false);
+    }
+  };
 
   const createMarketingContent = async (generatedContentId: number, media: ArchivedMedia, content: string, platform: string) => {
     try {
@@ -986,31 +1284,6 @@ export default function MediaArchivePage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <Button onClick={resetDemoData} variant="outline">
-            Reset Demo Data
-          </Button>
-          <Button
-            onClick={() => {
-              const approvedItems = archivedMedia.filter(m => !m.archived);
-              if (approvedItems.length > 0) {
-                // Archive all approved items
-                setArchivedMedia(prev => prev.map(media =>
-                  !media.archived ? { ...media, archived: true, dateArchived: new Date().toISOString() } : media
-                ));
-                console.log(`Archived ${approvedItems.length} approved items`);
-              }
-            }}
-            variant="outline"
-            className="text-gray-600 border-gray-300 hover:bg-gray-50"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H7a2 2 0 01-2-2V8z" />
-            </svg>
-            Archive All Approved
-          </Button>
-          <Button>
-            Export Archive
-          </Button>
         </div>
       </div>
 
@@ -1206,21 +1479,310 @@ export default function MediaArchivePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {activeTab !== 'generated' ? (
-            <div className={tableClasses.wrapper}>
-              <table className={tableClasses.table}>
-                <thead className={tableClasses.header}>
-                  <tr>
-                    <th scope="col" className="p-4">
-                      <div className="flex items-center">
-                        <input
-                          id="checkbox-all"
-                          type="checkbox"
-                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                        />
-                        <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
-                      </div>
-                    </th>
+          {activeTab === 'scheduled' ? (
+            <div className="text-center py-12">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No Scheduled Posts</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Schedule posts from the Generated Content tab
+              </p>
+            </div>
+          ) : activeTab === 'published' ? (
+            loadingPublished ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+              </div>
+            ) : publishedPosts.length === 0 ? (
+              <div className="text-center py-12">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No Published Posts</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Publish posts from the Generated Content tab
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Bulk Action Toolbar for Published */}
+                {selectedPublished.size > 0 && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      {selectedPublished.size} item{selectedPublished.size !== 1 ? 's' : ''} selected
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          if (selectedPublished.size === 0) return;
+
+                          if (!confirm(`Archive ${selectedPublished.size} selected published post(s)?`)) return;
+
+                          try {
+                            for (const id of selectedPublished) {
+                              await fetch(`/api/published-posts/${id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ archived: true })
+                              });
+                            }
+                            await fetchPublishedPosts();
+                            setSelectedPublished(new Set());
+                            console.log('✅ Bulk archived published posts');
+                          } catch (error) {
+                            console.error('Error bulk archiving published posts:', error);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-gray-600 text-white text-sm font-medium rounded hover:bg-gray-700 transition-colors flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H7a2 2 0 01-2-2V8z" />
+                        </svg>
+                        Archive
+                      </button>
+                      <button
+                        onClick={bulkDeletePublished}
+                        className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => setSelectedPublished(new Set())}
+                        className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className={tableClasses.wrapper}>
+                  <table className={tableClasses.table}>
+                    <thead className={tableClasses.header}>
+                      <tr>
+                        <th scope="col" className="p-4">
+                          <div className="flex items-center">
+                            <input
+                              id="checkbox-all-published"
+                              type="checkbox"
+                              checked={selectedPublished.size === publishedPosts.length && publishedPosts.length > 0}
+                              onChange={toggleSelectAllPublished}
+                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <label htmlFor="checkbox-all-published" className="sr-only">checkbox</label>
+                          </div>
+                        </th>
+                      <th scope="col" className="px-6 py-3">
+                        Media
+                      </th>
+                      <th scope="col" className="px-6 py-3">
+                        Post Details
+                      </th>
+                      <th scope="col" className="px-6 py-3">
+                        Platform
+                      </th>
+                      <th scope="col" className="px-6 py-3">
+                        Published Date
+                      </th>
+                      <th scope="col" className="px-6 py-3">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {publishedPosts.map((post) => (
+                      <tr key={post.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <td className="w-4 p-4">
+                          <div className="flex items-center">
+                            <input
+                              id={`checkbox-table-published-${post.id}`}
+                              type="checkbox"
+                              checked={selectedPublished.has(post.id)}
+                              onChange={() => toggleSelectPublished(post.id)}
+                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <label htmlFor={`checkbox-table-published-${post.id}`} className="sr-only">checkbox</label>
+                          </div>
+                        </td>
+                        <td className="px-6 py-3">
+                          <div className="w-12 h-12 relative rounded-full overflow-hidden">
+                            {post.metadata?.mediaUrl ? (
+                              <img
+                                src={post.metadata.mediaUrl}
+                                alt="Published post media"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <th scope="row" className="px-6 py-3 font-medium text-gray-900 dark:text-white">
+                          <div className="font-semibold text-sm mb-1">
+                            {post.title}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                            {post.content.split('\n')[0].substring(0, 50)}...
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Published
+                            </span>
+                          </div>
+                        </th>
+                        <td className="px-6 py-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 capitalize">
+                              {post.platform.replace(/-/g, ' ')}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-3 text-sm text-gray-900 dark:text-white">
+                          {new Date(post.published_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td className="px-6 py-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                // View full content
+                                alert(`Title: ${post.title}\n\n${post.content}`);
+                              }}
+                              className="p-2 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                              title="View Details"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm('Archive this published post?')) {
+                                  try {
+                                    const response = await fetch(`/api/published-posts/${post.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ archived: true })
+                                    });
+
+                                    if (response.ok) {
+                                      console.log('✅ Post archived');
+                                      // Refresh the list
+                                      setPublishedPosts(prev => prev.filter(p => p.id !== post.id));
+                                    } else {
+                                      console.error('Failed to archive post');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error archiving post:', error);
+                                  }
+                                }
+                              }}
+                              className="p-2 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded-full transition-colors"
+                              title="Archive"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H7a2 2 0 01-2-2V8z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm('Delete this published post? This cannot be undone.')) {
+                                  try {
+                                    const response = await fetch(`/api/published-posts/${post.id}`, {
+                                      method: 'DELETE'
+                                    });
+
+                                    if (response.ok) {
+                                      console.log('✅ Post deleted');
+                                      // Refresh the list
+                                      setPublishedPosts(prev => prev.filter(p => p.id !== post.id));
+                                    } else {
+                                      console.error('Failed to delete post');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error deleting post:', error);
+                                  }
+                                }
+                              }}
+                              className="p-2 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                              title="Delete"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              </>
+            )
+          ) : activeTab !== 'generated' ? (
+            <>
+              {/* Bulk Action Toolbar for Approved/Archived */}
+              {activeTab === 'approved' && selectedApproved.size > 0 && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    {selectedApproved.size} item{selectedApproved.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={bulkArchiveApproved}
+                      className="px-3 py-1.5 bg-gray-600 text-white text-sm font-medium rounded hover:bg-gray-700 transition-colors flex items-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                      Archive
+                    </button>
+                    <button
+                      onClick={() => setSelectedApproved(new Set())}
+                      className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className={tableClasses.wrapper}>
+                <table className={tableClasses.table}>
+                  <thead className={tableClasses.header}>
+                    <tr>
+                      <th scope="col" className="p-4">
+                        <div className="flex items-center">
+                          <input
+                            id="checkbox-all"
+                            type="checkbox"
+                            checked={
+                              activeTab === 'approved'
+                                ? selectedApproved.size === filteredMedia.length && filteredMedia.length > 0
+                                : selectedArchived.size === filteredMedia.length && filteredMedia.length > 0
+                            }
+                            onChange={activeTab === 'approved' ? toggleSelectAllApproved : toggleSelectAllArchived}
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          />
+                          <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
+                        </div>
+                      </th>
                     <th scope="col" className="px-6 py-3">
                       Media
                     </th>
@@ -1249,9 +1811,15 @@ export default function MediaArchivePage() {
                   <tr key={media.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
                     <td className="w-4 p-4">
                       <div className="flex items-center">
-                        <input 
-                          id={`checkbox-table-${media.id}`} 
-                          type="checkbox" 
+                        <input
+                          id={`checkbox-table-${media.id}`}
+                          type="checkbox"
+                          checked={
+                            activeTab === 'approved'
+                              ? selectedApproved.has(media.id)
+                              : selectedArchived.has(media.id)
+                          }
+                          onChange={() => activeTab === 'approved' ? toggleSelectApproved(media.id) : toggleSelectArchived(media.id)}
                           className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                         />
                         <label htmlFor={`checkbox-table-${media.id}`} className="sr-only">checkbox</label>
@@ -1314,7 +1882,7 @@ export default function MediaArchivePage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
-                        <button 
+                        <button
                           onClick={() => openAIMarketing(media)}
                           className="p-2 text-purple-600 dark:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-full transition-colors"
                           title="AI Marketing Specialist"
@@ -1367,6 +1935,7 @@ export default function MediaArchivePage() {
               </tbody>
             </table>
           </div>
+          </>
           ) : (
             /* Generated Content Section - Table Format */
             <div className="space-y-4">
@@ -1390,20 +1959,48 @@ export default function MediaArchivePage() {
                   </p>
                 </div>
               ) : (
-                <div className={tableClasses.wrapper}>
-                  <table className={tableClasses.table}>
-                    <thead className={tableClasses.header}>
-                      <tr>
-                        <th scope="col" className="p-4">
-                          <div className="flex items-center">
-                            <input
-                              id="checkbox-all-generated"
-                              type="checkbox"
-                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                            />
-                            <label htmlFor="checkbox-all-generated" className="sr-only">checkbox</label>
-                          </div>
-                        </th>
+                <>
+                  {/* Bulk Action Toolbar for Generated Content */}
+                  {selectedGenerated.size > 0 && (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                      <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        {selectedGenerated.size} item{selectedGenerated.size !== 1 ? 's' : ''} selected
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={bulkDeleteGenerated}
+                          className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => setSelectedGenerated(new Set())}
+                          className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          Clear Selection
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className={tableClasses.wrapper}>
+                    <table className={tableClasses.table}>
+                      <thead className={tableClasses.header}>
+                        <tr>
+                          <th scope="col" className="p-4">
+                            <div className="flex items-center">
+                              <input
+                                id="checkbox-all-generated"
+                                type="checkbox"
+                                checked={selectedGenerated.size === generatedContentList.length && generatedContentList.length > 0}
+                                onChange={toggleSelectAllGenerated}
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                              <label htmlFor="checkbox-all-generated" className="sr-only">checkbox</label>
+                            </div>
+                          </th>
                         <th scope="col" className="px-6 py-3">
                           Media
                         </th>
@@ -1435,6 +2032,8 @@ export default function MediaArchivePage() {
                               <input
                                 id={`checkbox-table-generated-${content.id}`}
                                 type="checkbox"
+                                checked={selectedGenerated.has(content.id)}
+                                onChange={() => toggleSelectGenerated(content.id)}
                                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                               />
                               <label htmlFor={`checkbox-table-generated-${content.id}`} className="sr-only">checkbox</label>
@@ -1481,10 +2080,10 @@ export default function MediaArchivePage() {
                             </div>
                           </th>
                           <td className="px-6 py-3 text-sm">
-                            {content.metadata?.techName || content.platform?.replace(/-/g, ' ') || 'N/A'}
+                            {content.metadata?.techName || 'Unknown Tech'}
                           </td>
                           <td className="px-6 py-3 text-sm">
-                            {content.metadata?.franchiseeName || content.platform || 'N/A'}
+                            {content.metadata?.franchiseeName || 'Unknown Franchisee'}
                           </td>
                           <td className="px-6 py-3">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
@@ -1515,100 +2114,27 @@ export default function MediaArchivePage() {
                                 </svg>
                               </button>
                               <button
-                                onClick={async () => {
-                                  // Schedule post
-                                  const dateStr = prompt('Schedule for date (YYYY-MM-DD):');
-                                  const timeStr = prompt('Schedule for time (HH:MM):');
+                                onClick={() => {
+                                  // Open GMB helper with generated content
+                                  const mediaData = {
+                                    id: content.media_archive_id || 0,
+                                    photoUrl: content.metadata?.mediaUrl || '',
+                                    jobDescription: content.content,
+                                    franchiseeName: content.metadata?.franchiseeName || 'Unknown',
+                                    jobType: content.metadata?.jobType || 'General',
+                                    jobLocation: content.metadata?.location || 'N/A',
+                                  } as ArchivedMedia;
 
-                                  if (dateStr && timeStr) {
-                                    try {
-                                      const response = await fetch('/api/scheduled-posts', {
-                                        method: 'POST',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({
-                                          generated_content_id: content.id,
-                                          media_archive_id: content.media_archive_id,
-                                          title: content.content.split('\n')[0].substring(0, 100),
-                                          content: content.content,
-                                          platform: content.platform || 'google-business',
-                                          post_type: 'image_post',
-                                          scheduled_date: `${dateStr}T${timeStr}:00`,
-                                          metadata: content.metadata
-                                        }),
-                                      });
-
-                                      if (response.ok) {
-                                        alert('Post scheduled successfully!');
-                                        // Switch to scheduled tab
-                                        setActiveTab('scheduled');
-                                      } else {
-                                        alert('Failed to schedule post. Please try again.');
-                                      }
-                                    } catch (error) {
-                                      console.error('Error scheduling post:', error);
-                                      alert('Failed to schedule post. Please try again.');
-                                    }
-                                  }
+                                  setSelectedGMBMedia(mediaData);
+                                  setSelectedGMBContent(content); // Store generated content object
+                                  setShowGMBHelper(true);
                                 }}
-                                className="p-2 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors"
-                                title="Schedule Post"
+                                className="p-2 text-orange-600 dark:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-full transition-colors"
+                                title="Post to GMB"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  // Publish now
-                                  if (confirm('Publish this post now?')) {
-                                    try {
-                                      const response = await fetch('/api/published-posts', {
-                                        method: 'POST',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({
-                                          generated_content_id: content.id,
-                                          media_archive_id: content.media_archive_id,
-                                          title: content.content.split('\n')[0].substring(0, 100),
-                                          content: content.content,
-                                          platform: content.platform || 'google-business',
-                                          post_type: 'image_post',
-                                          published_at: new Date().toISOString(),
-                                          metadata: content.metadata
-                                        }),
-                                      });
-
-                                      if (response.ok) {
-                                        alert('Post published successfully!');
-                                        // Update generated content status
-                                        await fetch(`/api/generated-content/${content.id}`, {
-                                          method: 'PATCH',
-                                          headers: {
-                                            'Content-Type': 'application/json',
-                                          },
-                                          body: JSON.stringify({
-                                            status: 'published'
-                                          }),
-                                        });
-                                        // Switch to published tab
-                                        setActiveTab('published');
-                                      } else {
-                                        alert('Failed to publish post. Please try again.');
-                                      }
-                                    } catch (error) {
-                                      console.error('Error publishing post:', error);
-                                      alert('Failed to publish post. Please try again.');
-                                    }
-                                  }
-                                }}
-                                className="p-2 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors"
-                                title="Publish Now"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                               </button>
                               <button
@@ -1628,6 +2154,15 @@ export default function MediaArchivePage() {
 
                                       if (response.ok) {
                                         console.log('Content archived:', content.id);
+
+                                        // Archive the original media from approved tab
+                                        if (content.media_archive_id) {
+                                          const mediaToArchive = archivedMedia.find(m => m.id === content.media_archive_id);
+                                          if (mediaToArchive) {
+                                            await archiveMedia(mediaToArchive);
+                                          }
+                                        }
+
                                         await fetchGeneratedContent();
                                       } else {
                                         alert('Failed to archive content. Please try again.');
@@ -1680,6 +2215,7 @@ export default function MediaArchivePage() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           )}
@@ -2231,6 +2767,199 @@ export default function MediaArchivePage() {
                 onSave={saveMediaEdit}
                 onCancel={closeEditModal}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GMB Helper Modal */}
+      {showGMBHelper && selectedGMBMedia && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Post to Google My Business</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    For: {selectedGMBMedia.franchiseeName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowGMBHelper(false);
+                    setSelectedGMBMedia(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Image Preview */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Image to Post
+                </label>
+                <img
+                  src={selectedGMBMedia.photoUrl}
+                  alt="GMB Post"
+                  className="w-full h-64 object-cover rounded-lg"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  📥 <button
+                    onClick={() => window.open(selectedGMBMedia.photoUrl, '_blank')}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Download image
+                  </button> to upload to GMB
+                </p>
+              </div>
+
+              {/* Post Content */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Post Text (Ready to Copy)
+                  </label>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedGMBMedia.jobDescription);
+                      alert('✅ Copied to clipboard!');
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    📋 Copy Text
+                  </button>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                    {selectedGMBMedia.jobDescription}
+                  </p>
+                </div>
+              </div>
+
+              {/* Job Details */}
+              <div className="mb-6 grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Job Type
+                  </label>
+                  <p className="text-gray-900 dark:text-gray-100">{selectedGMBMedia.jobType}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Location
+                  </label>
+                  <p className="text-gray-900 dark:text-gray-100">{selectedGMBMedia.jobLocation}</p>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">📝 How to Post:</h3>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 dark:text-blue-200">
+                  <li>Download the image above</li>
+                  <li>Copy the post text</li>
+                  <li>Click "Open GMB" button below</li>
+                  <li>Upload the image and paste the text in GMB</li>
+                  <li>Click "Publish" in GMB</li>
+                </ol>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => {
+                    // Open Google Business Profile
+                    window.open('https://business.google.com/posts', '_blank');
+                  }}
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+                  </svg>
+                  Open GMB
+                </Button>
+                {selectedGMBContent && (
+                  <Button
+                    onClick={async () => {
+                      // Mark as published
+                      try {
+                        const response = await fetch('/api/published-posts', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            generated_content_id: selectedGMBContent.id,
+                            media_archive_id: selectedGMBContent.media_archive_id,
+                            title: selectedGMBContent.content.split('\n')[0].substring(0, 100),
+                            content: selectedGMBContent.content,
+                            platform: selectedGMBContent.platform || 'google-business',
+                            post_type: 'image_post',
+                            published_at: new Date().toISOString(),
+                            metadata: selectedGMBContent.metadata
+                          }),
+                        });
+
+                        if (response.ok) {
+                          // Update generated content status
+                          await fetch(`/api/generated-content/${selectedGMBContent.id}`, {
+                            method: 'PATCH',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              status: 'published'
+                            }),
+                          });
+
+                          // Archive the original media from approved tab
+                          if (selectedGMBContent.media_archive_id) {
+                            const mediaToArchive = archivedMedia.find(m => m.id === selectedGMBContent.media_archive_id);
+                            if (mediaToArchive) {
+                              await archiveMedia(mediaToArchive);
+                            }
+                          }
+
+                          // Refresh generated content list to remove this item
+                          await fetchGeneratedContent();
+
+                          alert('✅ Marked as published! Content moved to Published tab.');
+                          setShowGMBHelper(false);
+                          setSelectedGMBMedia(null);
+                          setSelectedGMBContent(null);
+                          setActiveTab('published');
+                        } else {
+                          alert('❌ Failed to mark as published. Please try again.');
+                        }
+                      } catch (error) {
+                        console.error('Error marking as published:', error);
+                        alert('❌ Error marking as published. Please try again.');
+                      }
+                    }}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Mark as Published
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    setShowGMBHelper(false);
+                    setSelectedGMBMedia(null);
+                    setSelectedGMBContent(null);
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>

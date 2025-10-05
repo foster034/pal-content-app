@@ -6,13 +6,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET - Fetch all published posts
+// GET - Fetch all published posts (excluding archived)
 export async function GET(request: NextRequest) {
   try {
-    const { data, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const franchiseeId = searchParams.get('franchiseeId');
+    const limit = searchParams.get('limit');
+
+    let query = supabase
       .from('published_posts')
       .select('*')
+      .neq('status', 'archived')  // Exclude archived posts
       .order('published_at', { ascending: false });
+
+    // Filter by franchisee if provided
+    if (franchiseeId) {
+      query = query.eq('franchisee_id', franchiseeId);
+    }
+
+    // Limit results if provided
+    if (limit) {
+      query = query.limit(parseInt(limit));
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('❌ Supabase error:', error);

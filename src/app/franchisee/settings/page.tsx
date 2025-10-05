@@ -1,27 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useTheme } from '@/contexts/theme-context';
-import { useLogo } from '@/contexts/logo-context';
-import ImageUploader from '@/components/ImageUploader';
-import Image from 'next/image';
+import GMBConnectionCard from '@/components/GMBConnectionCard';
 
 export default function FranchiseeSettingsPage() {
   const searchParams = useSearchParams();
-  const franchiseeId = searchParams.get('id') || '';
-  const { theme, setTheme } = useTheme();
-  const { mainLogo, setMainLogo, resetLogo } = useLogo();
-  
-  const [franchiseeSettings, setFranchiseeSettings] = useState({
-    businessName: '',
-    franchiseeId: '',
-    location: '',
-    phone: '',
-    email: '',
-    website: '',
-  });
+  const urlFranchiseeId = searchParams.get('id') || '';
+  const [franchiseeId, setFranchiseeId] = useState(urlFranchiseeId);
+  const [activeTab, setActiveTab] = useState('submissions');
 
+  // Fetch franchisee ID from session if not in URL
+  useEffect(() => {
+    if (!urlFranchiseeId) {
+      // Try to get franchisee ID from user session
+      fetch('/api/profile')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.franchiseeId) {
+            setFranchiseeId(data.franchiseeId);
+          }
+        })
+        .catch((err) => console.error('Error fetching franchisee ID:', err));
+    }
+  }, [urlFranchiseeId]);
+  
   const [clientOutreachSettings, setClientOutreachSettings] = useState({
     googleReviewUrl: '',
     businessName: '',
@@ -51,28 +54,12 @@ export default function FranchiseeSettingsPage() {
     notificationPhone: '',
   });
 
-  const [brandingSettings, setBrandingSettings] = useState({
-    logo: '',
-    primaryColor: '#0066cc',
-    secondaryColor: '#00aa44',
-    accentColor: '#ff6600',
-  });
-
-
-  const handleFranchiseeChange = (key: string, value: string) => {
-    setFranchiseeSettings(prev => ({ ...prev, [key]: value }));
-  };
-
   const handleClientOutreachChange = (key: string, value: string | boolean | number) => {
     setClientOutreachSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const handlePhotoSettingsChange = (key: string, value: string | boolean | number) => {
     setPhotoSettings(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleBrandingChange = (key: string, value: string) => {
-    setBrandingSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const validateGoogleReviewUrl = (url: string): boolean => {
@@ -141,183 +128,50 @@ export default function FranchiseeSettingsPage() {
     }
   };
 
-  const saveFranchiseeSettings = async () => {
-    try {
-      const response = await fetch(`/api/franchisee/settings?id=${franchiseeId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...franchiseeSettings, franchiseeId }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert('✅ Franchisee settings saved successfully!');
-      } else {
-        alert(`❌ Failed to save settings: ${data.error}`);
-      }
-    } catch (error) {
-      alert('❌ Error saving franchisee settings.');
-    }
-  };
-
-  const handleLogoUploaded = (imageUrl: string) => {
-    setBrandingSettings(prev => ({ ...prev, logo: imageUrl }));
-  };
+  const tabs = [
+    { id: 'submissions', label: 'Job Submissions', icon: '📸' },
+    { id: 'outreach', label: 'Client Outreach', icon: '🎯' },
+    { id: 'integrations', label: 'Integrations', icon: '🔗' },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Franchisee Settings</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Franchisee Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">🏢 Business Information</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Business Name *
-              </label>
-              <input
-                type="text"
-                value={franchiseeSettings.businessName}
-                onChange={(e) => handleFranchiseeChange('businessName', e.target.value)}
-                placeholder="Pop-A-Lock of [Your City]"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Franchisee ID
-              </label>
-              <input
-                type="text"
-                value={franchiseeSettings.franchiseeId}
-                onChange={(e) => handleFranchiseeChange('franchiseeId', e.target.value)}
-                placeholder="PAL-12345"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Location
-              </label>
-              <input
-                type="text"
-                value={franchiseeSettings.location}
-                onChange={(e) => handleFranchiseeChange('location', e.target.value)}
-                placeholder="City, State"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={franchiseeSettings.phone}
-                onChange={(e) => handleFranchiseeChange('phone', e.target.value)}
-                placeholder="(555) 123-4567"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={franchiseeSettings.email}
-                onChange={(e) => handleFranchiseeChange('email', e.target.value)}
-                placeholder="your-email@domain.com"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Website
-              </label>
-              <input
-                type="url"
-                value={franchiseeSettings.website}
-                onChange={(e) => handleFranchiseeChange('website', e.target.value)}
-                placeholder="https://your-website.com"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="pt-4">
+      {/* Tab Navigation */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <nav className="flex space-x-8 px-6" aria-label="Tabs">
+            {tabs.map((tab) => (
               <button
-                onClick={saveFranchiseeSettings}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
+                  ${activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  }
+                `}
               >
-                💾 Save Business Info
+                <span className="mr-2">{tab.icon}</span>
+                {tab.label}
               </button>
-            </div>
-          </div>
+            ))}
+          </nav>
         </div>
 
-        {/* Branding Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">🎨 Branding</h3>
-          <div className="space-y-4">
-            <div>
-              <ImageUploader
-                label="Logo"
-                currentImage={brandingSettings.logo}
-                onImageUploaded={handleLogoUploaded}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Primary Color
-              </label>
-              <input
-                type="color"
-                value={brandingSettings.primaryColor}
-                onChange={(e) => handleBrandingChange('primaryColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Secondary Color
-              </label>
-              <input
-                type="color"
-                value={brandingSettings.secondaryColor}
-                onChange={(e) => handleBrandingChange('secondaryColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Theme
-              </label>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'auto')}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="auto">Auto</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
+        <div className="p-6">
+          {/* Job Submissions Tab */}
+          {activeTab === 'submissions' && (
+            <div className="space-y-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Configure how photo submissions from your technicians are handled and forwarded to the admin marketing team
+              </p>
 
-      {/* Photo Submission Settings - Full Width */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">📸 Job Submission Settings</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          Configure how photo submissions from your technicians are handled and forwarded to the admin marketing team
-        </p>
-
-        <div className="space-y-6">
+              <div className="space-y-6">
           {/* Auto-Approval Settings */}
           <div>
             <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-4">🔄 Approval Workflow</h4>
@@ -508,29 +362,30 @@ export default function FranchiseeSettingsPage() {
             </div>
           </div>
 
-          {/* Save Button */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={savePhotoSettings}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                💾 Save Photo Settings
-              </button>
+                {/* Save Button */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={savePhotoSettings}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      💾 Save Settings
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Client Outreach & Google My Business - Full Width */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">🎯 Client Outreach & Google My Business</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          Configure automated client communication and review collection settings for your franchise
-        </p>
-        
-        <div className="space-y-6">
+          {/* Client Outreach Tab */}
+          {activeTab === 'outreach' && (
+            <div className="space-y-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Configure automated client communication and review collection settings for your franchise
+              </p>
+
+              <div className="space-y-6">
           {/* Google Review URL */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -705,18 +560,34 @@ export default function FranchiseeSettingsPage() {
             </div>
           </div>
 
-          {/* Save Button */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={saveClientOutreachSettings}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                💾 Save Outreach Settings
-              </button>
+                {/* Save Button */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={saveClientOutreachSettings}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      💾 Save Settings
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Integrations Tab */}
+          {activeTab === 'integrations' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Google My Business</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                  Connect your Google My Business account to post content directly to your business profile
+                </p>
+                {franchiseeId && <GMBConnectionCard franchiseeId={franchiseeId} />}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

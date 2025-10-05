@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { saveGMBTokens } from '@/lib/gmb-tokens';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,12 +12,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('OAuth error:', error);
-      const errorUrl = `/franchisee/marketing?gmb_error=${encodeURIComponent(error)}`;
+      const errorUrl = `/franchisee/settings?id=${state}&gmb_error=${encodeURIComponent(error)}`;
       return NextResponse.redirect(new URL(errorUrl, request.url));
     }
 
     if (!code || !state) {
-      const errorUrl = '/franchisee/marketing?gmb_error=missing_parameters';
+      const errorUrl = '/franchisee/settings?gmb_error=missing_parameters';
       return NextResponse.redirect(new URL(errorUrl, request.url));
     }
 
@@ -30,24 +31,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(errorUrl, request.url));
     }
 
-    // Store the tokens (in a real app, you'd save to database)
-    // For now, we'll simulate storing them
+    // Get GMB accounts/locations and user info
+    const [locationsResponse, userInfoResponse] = await Promise.all([
+      getGMBLocations(tokenResponse.data.access_token),
+      getGoogleUserInfo(tokenResponse.data.access_token)
+    ]);
+
+    const locations = locationsResponse.success ? locationsResponse.data : [];
+    const userInfo = userInfoResponse.success ? userInfoResponse.data : null;
+
     console.log('Tokens received for franchisee:', franchiseeId);
-    console.log('Access token length:', tokenResponse.data?.access_token?.length);
-    console.log('Refresh token available:', !!tokenResponse.data?.refresh_token);
+    console.log(`Found ${locations.length} GMB locations`);
+    console.log('Google email:', userInfo?.email);
 
-    // TODO: Save tokens to database
-    // await saveGMBTokens(franchiseeId, tokenResponse.data);
+    // Save tokens to database
+    const saveResult = await saveGMBTokens(
+      franchiseeId,
+      tokenResponse.data,
+      userInfo?.email,
+      userInfo?.id,
+      locations
+    );
 
-    // Get GMB accounts/locations for this user
-    const locationsResponse = await getGMBLocations(tokenResponse.data.access_token);
-    
-    if (locationsResponse.success) {
-      console.log(`Found ${locationsResponse.data.length} GMB locations`);
+    if (!saveResult.success) {
+      console.error('Failed to save GMB tokens:', saveResult.error);
+      const errorUrl = `/franchisee/settings?id=${franchiseeId}&gmb_error=save_failed`;
+      return NextResponse.redirect(new URL(errorUrl, request.url));
     }
 
-    // Redirect back to marketing page with success
-    const successUrl = '/franchisee/marketing?gmb_connected=true';
+    console.log('GMB tokens saved successfully');
+
+    // Redirect back to settings page with success
+    const successUrl = `/franchisee/settings?id=${franchiseeId}&gmb_connected=true`;
     return NextResponse.redirect(new URL(successUrl, request.url));
 
   } catch (error) {
@@ -125,11 +140,54 @@ async function getGMBLocations(accessToken: string) {
     }
 
     const locationsData = await locationsResponse.json();
-    const locations = locationsData.locations || [];
-    
+    const rawLocations = locationsData.locations || [];
+
+    // Format locations for storage
+    const locations = rawLocations.map((loc: any) => ({
+      name: loc.name, // Resource name (e.g., "accounts/123/locations/456")
+      title: loc.title || loc.locationName || 'Unnamed Location',
+      address: formatAddress(loc.storefrontAddress || loc.address),
+      placeId: loc.metadata?.placeId,
+    }));
+
     return { success: true, data: locations };
   } catch (error) {
     console.error('GMB locations error:', error);
     return { success: false, error: 'Network error getting locations' };
   }
+}
+
+async function getGoogleUserInfo(accessToken: string) {
+  try {
+    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to get user info:', errorText);
+      return { success: false, error: 'Failed to get user info' };
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('User info error:', error);
+    return { success: false, error: 'Network error getting user info' };
+  }
+}
+
+function formatAddress(address: any): string {
+  if (!address) return '';
+
+  const parts = [
+    address.addressLines?.join(', '),
+    address.locality,
+    address.administrativeArea,
+    address.postalCode,
+  ].filter(Boolean);
+
+  return parts.join(', ');
 }

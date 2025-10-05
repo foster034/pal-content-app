@@ -248,12 +248,6 @@ export default function FranchiseePhotosPage() {
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Job Submissions</h1>
           <p className="text-muted-foreground">Review and manage photo submissions from your technicians</p>
         </div>
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => alert('Settings coming soon!')}>
-            <Settings className="w-4 h-4 mr-2" />
-            Auto-Approve Settings
-          </Button>
-        </div>
       </div>
 
       {/* Tab Navigation */}

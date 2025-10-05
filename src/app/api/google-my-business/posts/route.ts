@@ -1,34 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getGMBTokens } from '@/lib/gmb-tokens';
 
 export async function POST(request: NextRequest) {
   try {
-    const { franchiseeId, locationName, postContent, mediaUrl } = await request.json();
-    
-    if (!franchiseeId || !locationName || !postContent) {
+    const { franchiseeId, summary, media, topicType } = await request.json();
+
+    if (!franchiseeId || !summary) {
       return NextResponse.json(
-        { error: 'Missing required fields: franchiseeId, locationName, postContent' },
+        { error: 'Missing required fields: franchiseeId, summary' },
         { status: 400 }
       );
     }
 
-    console.log('Creating GMB post:', { franchiseeId, locationName, postContent: postContent.substring(0, 100) + '...' });
+    console.log('Creating GMB post for franchisee:', franchiseeId);
 
-    // TODO: Get stored access token from database
-    // const tokens = await getGMBTokens(franchiseeId);
-    // const accessToken = tokens.access_token;
+    // Get stored access token from database
+    const tokenResult = await getGMBTokens(franchiseeId);
 
-    // For now, simulate the post creation
-    const mockResponse = {
-      success: true,
-      postName: `accounts/12345/locations/${locationName}/localPosts/98765`,
-      message: 'Post created successfully',
-      scheduledTime: new Date().toISOString()
-    };
+    if (!tokenResult.success || !tokenResult.data) {
+      return NextResponse.json(
+        { error: 'GMB account not connected. Please connect Google My Business in settings.' },
+        { status: 404 }
+      );
+    }
 
-    // TODO: Replace with real GMB API call
-    // const result = await createGMBPost(accessToken, locationName, postContent, mediaUrl);
+    const { access_token, selected_location_name } = tokenResult.data;
 
-    return NextResponse.json(mockResponse);
+    if (!selected_location_name) {
+      return NextResponse.json(
+        { error: 'No default location selected. Please select a location in GMB settings.' },
+        { status: 400 }
+      );
+    }
+
+    // Create the GMB post
+    const result = await createGMBPost(access_token, selected_location_name, summary, media, topicType);
+
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        postName: result.data.name,
+        message: 'Post created successfully',
+      });
+    } else {
+      return NextResponse.json(
+        { error: result.error || 'Failed to create GMB post' },
+        { status: 500 }
+      );
+    }
 
   } catch (error) {
     console.error('GMB Post Creation Error:', error);
@@ -40,26 +59,34 @@ export async function POST(request: NextRequest) {
 }
 
 // Helper function to create actual GMB post
-async function createGMBPost(accessToken: string, locationName: string, content: string, mediaUrl?: string) {
+async function createGMBPost(
+  accessToken: string,
+  locationName: string,
+  summary: string,
+  media?: Array<{ mediaFormat: string; sourceUrl: string }>,
+  topicType?: string
+) {
   try {
     const postData: any = {
       languageCode: 'en-US',
-      summary: content,
-      callToAction: {
-        actionType: 'LEARN_MORE',
-        url: 'https://popalock.com'
-      }
+      summary: summary,
+      topicType: topicType || 'STANDARD',
     };
 
     // Add media if provided
-    if (mediaUrl) {
-      postData.media = [{
-        mediaFormat: 'PHOTO',
-        sourceUrl: mediaUrl
-      }];
+    if (media && media.length > 0) {
+      postData.media = media;
     }
 
-    const response = await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}/localPosts`, {
+    console.log('Posting to GMB:', locationName);
+    console.log('Post data:', JSON.stringify(postData, null, 2));
+
+    // The correct API endpoint for creating posts
+    const apiUrl = `https://mybusiness.googleapis.com/v4/${locationName}/localPosts`;
+
+    console.log('API URL:', apiUrl);
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -70,11 +97,17 @@ async function createGMBPost(accessToken: string, locationName: string, content:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('GMB Post API Error:', errorText);
-      throw new Error(`GMB API Error: ${response.statusText}`);
+      console.error('GMB Post API Error:', response.status, errorText);
+
+      if (response.status === 403) {
+        return { success: false, error: 'quota exceeded or API not approved. Check GOOGLE_SETUP.md for approval status.' };
+      }
+
+      throw new Error(`GMB API Error: ${response.statusText} - ${errorText}`);
     }
 
     const result = await response.json();
+    console.log('GMB Post created:', result.name);
     return { success: true, data: result };
 
   } catch (error) {

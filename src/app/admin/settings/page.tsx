@@ -18,15 +18,23 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ElevenLabsVoice, ELEVEN_LABS_MODELS } from '@/lib/eleven-labs';
+import { useTheme } from '@/contexts/theme-context';
 
 export default function AdminSettingsPage() {
+  const { theme, setTheme } = useTheme();
   const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [testText, setTestText] = useState('Hello! This is a test of the text-to-speech system.');
-  const [activeTab, setActiveTab] = useState('text-to-speech');
+  const [activeTab, setActiveTab] = useState('appearance');
+
+  // Color Settings
+  const [colorSettings, setColorSettings] = useState({
+    primaryColor: '#0066cc',
+    secondaryColor: '#00aa44',
+  });
 
   // TTS Configuration State
   const [ttsConfig, setTtsConfig] = useState({
@@ -66,9 +74,98 @@ export default function AdminSettingsPage() {
     criticalAlerts: true,
   });
 
+  // GMB Settings
+  const [gmbSettings, setGmbSettings] = useState({
+    managerEmail: 'admin@popalock.com',
+  });
+
   useEffect(() => {
     fetchVoices();
+    loadGMBSettings();
+    loadColorSettings();
+    loadLoginImage();
   }, []);
+
+  const loadGMBSettings = async () => {
+    try {
+      const response = await fetch('/api/admin-settings?key=gmb_manager_email');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.setting_value) {
+          setGmbSettings({ managerEmail: data.setting_value });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading GMB settings:', error);
+    }
+  };
+
+  const loadColorSettings = async () => {
+    try {
+      // Load primary color
+      const primaryResponse = await fetch('/api/admin-settings?key=primary_color');
+      if (primaryResponse.ok) {
+        const primaryData = await primaryResponse.json();
+        if (primaryData.setting_value) {
+          setColorSettings(prev => ({ ...prev, primaryColor: primaryData.setting_value }));
+        }
+      }
+
+      // Load secondary color
+      const secondaryResponse = await fetch('/api/admin-settings?key=secondary_color');
+      if (secondaryResponse.ok) {
+        const secondaryData = await secondaryResponse.json();
+        if (secondaryData.setting_value) {
+          setColorSettings(prev => ({ ...prev, secondaryColor: secondaryData.setting_value }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading color settings:', error);
+    }
+  };
+
+  const saveColorSettings = async () => {
+    try {
+      // Save primary color
+      await fetch('/api/admin-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          setting_key: 'primary_color',
+          setting_value: colorSettings.primaryColor
+        })
+      });
+
+      // Save secondary color
+      await fetch('/api/admin-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          setting_key: 'secondary_color',
+          setting_value: colorSettings.secondaryColor
+        })
+      });
+
+      toast.success('Color settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving color settings:', error);
+      toast.error('Failed to save color settings');
+    }
+  };
+
+  const loadLoginImage = async () => {
+    try {
+      const response = await fetch('/api/upload-login-image');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.url) {
+          setLoginConfig(prev => ({ ...prev, staticImageUrl: data.url }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading login image:', error);
+    }
+  };
 
   const fetchVoices = async () => {
     setLoading(true);
@@ -160,7 +257,8 @@ export default function AdminSettingsPage() {
 
   const saveSettings = async () => {
     try {
-      const response = await fetch('/api/login-settings', {
+      // Save login config
+      const loginResponse = await fetch('/api/login-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +266,19 @@ export default function AdminSettingsPage() {
         body: JSON.stringify(loginConfig),
       });
 
-      if (response.ok) {
+      // Save GMB settings
+      const gmbResponse = await fetch('/api/admin-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          setting_key: 'gmb_manager_email',
+          setting_value: gmbSettings.managerEmail,
+        }),
+      });
+
+      if (loginResponse.ok && gmbResponse.ok) {
         toast.success('Settings saved successfully');
       } else {
         toast.error('Failed to save settings');
@@ -184,6 +294,7 @@ export default function AdminSettingsPage() {
   };
 
   const tabs = [
+    { id: 'appearance', label: 'Appearance', icon: Sparkles },
     { id: 'text-to-speech', label: 'Text-to-Speech', icon: Volume2 },
     { id: 'login-screen', label: 'Login Screen', icon: Monitor },
     { id: 'email', label: 'Email', icon: Mail },
@@ -258,6 +369,173 @@ export default function AdminSettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Settings Column */}
           <div className="lg:col-span-2 space-y-6">
+
+            {/* Appearance Settings */}
+            {activeTab === 'appearance' && (
+              <Card className="shadow-lg border-0">
+                <CardHeader className="border-b">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <CardTitle>Global Appearance Settings</CardTitle>
+                      <CardDescription>Configure the default theme for all users</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="theme-selector" className="text-sm font-medium mb-2">
+                        Application Theme
+                      </Label>
+                      <Select value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'auto')}>
+                        <SelectTrigger id="theme-selector" className="w-full max-w-xs">
+                          <SelectValue placeholder="Select theme" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="light">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded-full bg-white border-2 border-gray-300"></div>
+                              <span>Light</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="dark">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded-full bg-gray-900 border-2 border-gray-600"></div>
+                              <span>Dark</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="auto">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded-full bg-gradient-to-r from-white to-gray-900 border-2 border-gray-400"></div>
+                              <span>Auto (System Default)</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        This theme setting applies globally to all users of the application
+                      </p>
+                    </div>
+
+                    <div className="h-px bg-gray-100 dark:bg-gray-800 my-6"></div>
+
+                    <div>
+                      <Label htmlFor="primary-color" className="text-sm font-medium mb-2">
+                        Primary Brand Color
+                      </Label>
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <input
+                            type="color"
+                            id="primary-color"
+                            value={colorSettings.primaryColor}
+                            onChange={(e) => setColorSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                            className="w-20 h-10 rounded cursor-pointer border-2 border-gray-300 dark:border-gray-600"
+                          />
+                        </div>
+                        <Input
+                          type="text"
+                          value={colorSettings.primaryColor}
+                          onChange={(e) => setColorSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                          className="w-32 font-mono"
+                          placeholder="#0066cc"
+                        />
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <div
+                            className="w-8 h-8 rounded-lg border border-gray-300 dark:border-gray-600"
+                            style={{ backgroundColor: colorSettings.primaryColor }}
+                          ></div>
+                          <span>Preview</span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        Used for primary buttons, links, and accent elements
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="secondary-color" className="text-sm font-medium mb-2">
+                        Secondary Brand Color
+                      </Label>
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <input
+                            type="color"
+                            id="secondary-color"
+                            value={colorSettings.secondaryColor}
+                            onChange={(e) => setColorSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                            className="w-20 h-10 rounded cursor-pointer border-2 border-gray-300 dark:border-gray-600"
+                          />
+                        </div>
+                        <Input
+                          type="text"
+                          value={colorSettings.secondaryColor}
+                          onChange={(e) => setColorSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                          className="w-32 font-mono"
+                          placeholder="#00aa44"
+                        />
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <div
+                            className="w-8 h-8 rounded-lg border border-gray-300 dark:border-gray-600"
+                            style={{ backgroundColor: colorSettings.secondaryColor }}
+                          ></div>
+                          <span>Preview</span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        Used for secondary actions and complementary UI elements
+                      </p>
+                    </div>
+
+                    <div className="h-px bg-gray-100 dark:bg-gray-800 my-6"></div>
+
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={saveColorSettings}
+                        className="flex-1"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Color Settings
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setColorSettings({
+                            primaryColor: '#0066cc',
+                            secondaryColor: '#00aa44',
+                          });
+                          toast.info('Reset to default colors');
+                        }}
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Reset to Defaults
+                      </Button>
+                    </div>
+
+                    <div className="h-px bg-gray-100 dark:bg-gray-800 my-6"></div>
+
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                      <div className="flex gap-3">
+                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            Theme Information
+                          </p>
+                          <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                            <li>• <strong>Light:</strong> Always use light theme</li>
+                            <li>• <strong>Dark:</strong> Always use dark theme</li>
+                            <li>• <strong>Auto:</strong> Automatically switch based on system preferences</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Text-to-Speech Settings */}
             {activeTab === 'text-to-speech' && (
@@ -737,26 +1015,100 @@ export default function AdminSettingsPage() {
 
             {/* General Settings */}
             {activeTab === 'general' && (
-              <Card className="shadow-lg border-0">
-                <CardHeader className="border-b">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                      <Settings className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <>
+                <Card className="shadow-lg border-0">
+                  <CardHeader className="border-b">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                        <Settings className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <CardTitle>General Settings</CardTitle>
+                        <CardDescription>Configure basic system preferences</CardDescription>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle>General Settings</CardTitle>
-                      <CardDescription>Configure basic system preferences</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-6 space-y-6">
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="gmb-manager-email">GMB Manager Email</Label>
+                        <p className="text-sm text-gray-500 mb-2">
+                          Email address that franchisees should add as a Manager to their Google Business Profile
+                        </p>
+                        <Input
+                          id="gmb-manager-email"
+                          type="email"
+                          value={gmbSettings.managerEmail}
+                          onChange={(e) =>
+                            setGmbSettings(prev => ({ ...prev, managerEmail: e.target.value }))
+                          }
+                          placeholder="admin@yourdomain.com"
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                          💡 This email will be shown to franchisees in their settings when they need to grant GMB access
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-6">
-                  <div className="text-center py-8">
-                    <Settings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">General Settings</h3>
-                    <p className="text-gray-500">Additional system settings will be available in a future update.</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-lg border-0">
+                  <CardHeader className="border-b">
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="w-5 h-5" />
+                      GMB Manager Setup Instructions
+                    </CardTitle>
+                    <CardDescription>How franchisees grant you access to their Google Business Profile</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-6 space-y-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">📧 Email Template for Franchisees:</h4>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 text-sm space-y-2 border">
+                        <p className="font-semibold">Subject: Add PAL Content App Admin to Your Google Business Profile</p>
+                        <div className="text-gray-700 dark:text-gray-300 space-y-2 mt-4">
+                          <p>Hi [Franchisee Name],</p>
+                          <p>To enable automated marketing content posting to your Google Business Profile, please add our admin account as a Manager:</p>
+                          <div className="bg-gray-50 dark:bg-gray-700 rounded p-3 my-2">
+                            <p className="font-medium mb-2">Steps:</p>
+                            <ol className="list-decimal list-inside space-y-1 text-sm">
+                              <li>Go to <a href="https://business.google.com" className="text-blue-600 dark:text-blue-400 underline">https://business.google.com</a></li>
+                              <li>Click "Users" in the left sidebar</li>
+                              <li>Click "Add users"</li>
+                              <li>Enter email: <span className="font-mono bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded">{gmbSettings.managerEmail}</span></li>
+                              <li>Select role: <strong>Manager</strong></li>
+                              <li>Click "Invite"</li>
+                            </ol>
+                          </div>
+                          <p>Once added, we can post approved marketing photos to your GMB on your behalf!</p>
+                          <p>Let me know if you need help.</p>
+                          <p>Thanks!</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-gray-900 dark:text-white">📋 Quick Copy:</h4>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={gmbSettings.managerEmail}
+                          className="font-mono bg-gray-50 dark:bg-gray-800"
+                        />
+                        <Button
+                          onClick={() => {
+                            navigator.clipboard.writeText(gmbSettings.managerEmail);
+                            toast.success('Email copied to clipboard!');
+                          }}
+                          variant="outline"
+                        >
+                          Copy Email
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
             )}
           </div>
 

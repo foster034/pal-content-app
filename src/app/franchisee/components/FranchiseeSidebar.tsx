@@ -16,8 +16,6 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { useLogo } from "@/contexts/logo-context";
 import LogoutButton from "@/components/auth/LogoutButton";
 import { createClientComponentClient } from '@/lib/supabase-client';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -176,7 +174,6 @@ export function FranchiseeSidebar({ children }: { children: React.ReactNode }) {
 }
 
 export const Logo = () => {
-  const { mainLogo } = useLogo();
   const searchParams = useSearchParams();
   const franchiseeId = searchParams.get('id');
 
@@ -185,17 +182,10 @@ export const Logo = () => {
       href={franchiseeId ? `/franchisee?id=${franchiseeId}` : "/franchisee"}
       className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black"
     >
-      <Image
-        src={mainLogo}
-        alt="Pop-A-Lock"
-        width={120}
-        height={40}
-        className="h-8 w-auto"
-      />
       <motion.span
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="whitespace-pre font-medium text-black dark:text-white"
+        className="whitespace-pre text-xl font-bold text-black dark:text-white"
       >
         Franchisee
       </motion.span>
@@ -204,22 +194,17 @@ export const Logo = () => {
 };
 
 export const LogoIcon = () => {
-  const { mainLogo } = useLogo();
   const searchParams = useSearchParams();
   const franchiseeId = searchParams.get('id');
 
   return (
     <Link
       href={franchiseeId ? `/franchisee?id=${franchiseeId}` : "/franchisee"}
-      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black"
+      className="relative z-20 flex items-center justify-center py-1 text-sm font-normal text-black"
     >
-      <Image
-        src={mainLogo}
-        alt="Pop-A-Lock"
-        width={32}
-        height={32}
-        className="h-8 w-8"
-      />
+      <span className="text-xl font-bold text-black dark:text-white">
+        F
+      </span>
     </Link>
   );
 };

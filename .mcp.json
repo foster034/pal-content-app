@@ -5,11 +5,11 @@
       "args": [
         "-y",
         "@supabase/mcp-server-supabase",
-        "--read-only",
-        "--project-ref=<project-ref>"
+        "--project-ref=hagfscurfkqfsjkczjyi",
+        "--read-only=false"
       ],
       "env": {
-        "SUPABASE_ACCESS_TOKEN": "<access-token>"
+        "SUPABASE_ACCESS_TOKEN": "sbp_3b85e0cc9b05e2ee1b69e76db2dc6d1e5fa18bc0"
       }
     },
     "shadcn": {
@@ -17,6 +17,13 @@
       "args": [
         "shadcn@latest",
         "mcp"
+      ]
+    },
+    "vercel": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.vercel.com"
       ]
     }
   }

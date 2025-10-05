@@ -68,6 +68,12 @@ export default function FranchiseeDashboard() {
   const [recentPhotoSubmissions, setRecentPhotoSubmissions] = useState<JobSubmission[]>([]);
   const [techLeaderboard, setTechLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoryBreakdown, setCategoryBreakdown] = useState({
+    commercial: 0,
+    residential: 0,
+    automotive: 0,
+    emergency: 0
+  });
 
   // Load data on component mount and when franchiseeId changes
   useEffect(() => {
@@ -110,8 +116,10 @@ export default function FranchiseeDashboard() {
 
   const loadAnalytics = async (franchiseeId: string) => {
     try {
-      // Use API endpoint instead of direct Supabase query
-      const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`);
+      // Use API endpoint instead of direct Supabase query (cache busting with timestamp)
+      const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}&_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
       if (!response.ok) {
         console.error('Error loading analytics: API response not ok');
         return;
@@ -128,6 +136,19 @@ export default function FranchiseeDashboard() {
       const pending = submissions?.filter((s: any) => s.status === 'pending').length || 0;
       const approved = submissions?.filter((s: any) => s.status === 'approved').length || 0;
       const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
+
+      // Calculate category breakdown
+      const commercial = submissions?.filter((s: any) => s.job_category?.toLowerCase().includes('commercial')).length || 0;
+      const residential = submissions?.filter((s: any) => s.job_category?.toLowerCase().includes('residential')).length || 0;
+      const automotive = submissions?.filter((s: any) => s.job_category?.toLowerCase().includes('automotive') || s.job_category?.toLowerCase().includes('auto')).length || 0;
+      const emergency = submissions?.filter((s: any) => s.job_category?.toLowerCase().includes('emergency')).length || 0;
+
+      setCategoryBreakdown({
+        commercial: total > 0 ? Math.round((commercial / total) * 100) : 0,
+        residential: total > 0 ? Math.round((residential / total) * 100) : 0,
+        automotive: total > 0 ? Math.round((automotive / total) * 100) : 0,
+        emergency: total > 0 ? Math.round((emergency / total) * 100) : 0
+      });
 
       setAnalytics({
         totalSubmissions: total,
@@ -146,18 +167,40 @@ export default function FranchiseeDashboard() {
     setGmbError(null);
 
     try {
-      const response = await fetch(`/api/google-my-business/posts?franchisee_id=${franchiseeId}&limit=3`);
-      const data = await response.json();
+      // Fetch published posts from the admin for this franchise (cache busting with timestamp)
+      const response = await fetch(`/api/published-posts?franchiseeId=${franchiseeId}&limit=3&_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
 
-      if (data.success) {
-        setGmbPosts(data.posts);
-        setLastRefresh(new Date());
-      } else {
-        setGmbError(data.error || 'Failed to load GMB posts');
+      if (!response.ok) {
+        throw new Error('Failed to fetch published posts');
       }
+
+      const posts = await response.json();
+
+      // Transform published posts to GMB post format
+      const transformedPosts = posts.map((post: any) => ({
+        id: post.id,
+        summary: post.content || '',
+        topicType: 'UPDATE',
+        createTime: post.created_at,
+        updateTime: post.updated_at,
+        state: post.status === 'published' ? 'LIVE' : 'PROCESSING',
+        media: post.media_urls?.map((url: string) => ({
+          mediaFormat: 'PHOTO',
+          sourceUrl: url
+        })) || [],
+        insights: {
+          viewsCount: post.views || 0,
+          actionsCount: post.actions || 0
+        }
+      }));
+
+      setGmbPosts(transformedPosts);
+      setLastRefresh(new Date());
     } catch (error) {
-      console.error('Error loading GMB posts:', error);
-      setGmbError('Failed to load GMB posts');
+      console.error('Error loading published posts:', error);
+      setGmbError('Failed to load posts');
     } finally {
       setGmbLoading(false);
     }
@@ -165,30 +208,40 @@ export default function FranchiseeDashboard() {
 
   const loadRecentSubmissions = async (franchiseeId: string) => {
     try {
-      // Use API endpoint instead of direct Supabase query
-      const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`);
+      // Use API endpoint instead of direct Supabase query (cache busting with timestamp)
+      const response = await fetch(`/api/job-submissions?franchiseeId=${franchiseeId}&_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
       if (!response.ok) {
         console.error('Error loading recent submissions: API response not ok');
+        setRecentPhotoSubmissions([]);
         return;
       }
 
       const allSubmissions = await response.json();
-      // Get the 5 most recent submissions (API already orders by created_at desc)
-      const submissions = allSubmissions.slice(0, 5);
+      console.log('📸 Recent submissions loaded:', {
+        franchiseeId,
+        totalCount: allSubmissions?.length || 0,
+        submissions: allSubmissions
+      });
 
+      // Ensure we have an array and get the 5 most recent submissions
+      const submissions = Array.isArray(allSubmissions) ? allSubmissions.slice(0, 5) : [];
 
-      setRecentPhotoSubmissions(submissions || []);
+      setRecentPhotoSubmissions(submissions);
     } catch (error) {
       console.error('Error loading recent submissions:', error);
+      setRecentPhotoSubmissions([]);
     }
   };
 
   const loadTechLeaderboard = async (franchiseeId: string) => {
     try {
-      // Load technicians and job submissions
+      // Load technicians and job submissions (cache busting with timestamp)
+      const timestamp = Date.now();
       const [techResponse, submissionsResponse] = await Promise.all([
-        fetch(`/api/technicians?franchiseeId=${franchiseeId}`),
-        fetch(`/api/job-submissions?franchiseeId=${franchiseeId}`)
+        fetch(`/api/technicians?franchiseeId=${franchiseeId}&_t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/job-submissions?franchiseeId=${franchiseeId}&_t=${timestamp}`, { cache: 'no-store' })
       ]);
 
       if (!techResponse.ok || !submissionsResponse.ok) {
@@ -253,8 +306,34 @@ export default function FranchiseeDashboard() {
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back! Here's your marketing content overview.</p>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          Last updated: {new Date().toLocaleDateString()}
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Last updated: {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadDashboardData}
+            disabled={loading}
+            className="gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
@@ -413,7 +492,11 @@ export default function FranchiseeDashboard() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {new Date(submission.created_at).toLocaleDateString()}
+                        {submission.created_at ? new Date(submission.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        }) : 'No date'}
                       </p>
                     </div>
                   </div>
@@ -550,26 +633,43 @@ export default function FranchiseeDashboard() {
         <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
           <CardHeader>
             <CardTitle>Marketing Insights</CardTitle>
+            <CardDescription>Job category breakdown from submissions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Commercial Jobs</span>
-                <span className="font-medium">45%</span>
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="flex justify-between items-center">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 animate-pulse"></div>
+                  </div>
+                ))}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Residential Jobs</span>
-                <span className="font-medium">32%</span>
+            ) : analytics.totalSubmissions === 0 ? (
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                <p className="text-sm">No job data yet</p>
+                <p className="text-xs mt-1">Submit jobs to see insights</p>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Automotive Jobs</span>
-                <span className="font-medium">15%</span>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Commercial Jobs</span>
+                  <span className="font-medium">{categoryBreakdown.commercial}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Residential Jobs</span>
+                  <span className="font-medium">{categoryBreakdown.residential}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Automotive Jobs</span>
+                  <span className="font-medium">{categoryBreakdown.automotive}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Emergency Jobs</span>
+                  <span className="font-medium">{categoryBreakdown.emergency}%</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Emergency Jobs</span>
-                <span className="font-medium">8%</span>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 

@@ -200,7 +200,7 @@ export default function FranchiseeTechsPage() {
             username: tech.email?.split('@')[0] || '', // Generate username from email
             email: tech.email,
             phone: tech.phone || '',
-            specialties: [], // This would need to be stored separately or in tech data
+            specialties: tech.specialties || [], // Load specialties from database
             status: 'Active' as const, // Default status
             hireDate: new Date(tech.created_at).toISOString().split('T')[0],
             rating: tech.rating || 0,
@@ -268,7 +268,8 @@ export default function FranchiseeTechsPage() {
           role: 'technician',
           image: `https://i.pravatar.cc/150?u=${formData.email}`,
           createAuth: false, // For now, don't create auth - can be added later
-          authMethod: 'magic_link'
+          authMethod: 'magic_link',
+          specialties: formData.specialties // Include specialties
         })
       });
 
@@ -860,7 +861,6 @@ export default function FranchiseeTechsPage() {
                 <TableHead>Contact</TableHead>
                 <TableHead>Specialties</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Performance</TableHead>
                 <TableHead>Login Code</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -908,12 +908,6 @@ export default function FranchiseeTechsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <div className="text-yellow-500">{renderStars(tech.rating)}</div>
-                      <div className="text-xs text-muted-foreground">{tech.completedJobs} jobs</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
                     <div className="font-mono text-sm font-bold bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-2">
                       {tech.loginCode}
                       <Button
@@ -930,13 +924,6 @@ export default function FranchiseeTechsPage() {
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {tech.autoLoginEnabled ? (
-                        <span className="text-green-600">Auto-login enabled</span>
-                      ) : (
-                        <span className="text-gray-500">Manual login only</span>
-                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -966,24 +953,6 @@ export default function FranchiseeTechsPage() {
                           <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
                           <span>Generate New Login Code</span>
                         </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          onClick={() => handleSendInvitation(tech)}
-                          className="cursor-pointer"
-                        >
-                          <MessageCircle className="mr-2 h-4 w-4 text-blue-600" />
-                          <span>Send Magic Link</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          onClick={() => handleResetAccess(tech)}
-                          className="cursor-pointer"
-                        >
-                          <RefreshCw className="mr-2 h-4 w-4 text-purple-600" />
-                          <span>Reset Access (Lost Credentials)</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
 
                         <DropdownMenuItem
                           onClick={() => openEditDialog(tech)}
