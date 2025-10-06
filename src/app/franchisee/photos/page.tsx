@@ -62,14 +62,20 @@ export default function FranchiseePhotosPage() {
       try {
         setLoading(true);
 
-        // Get current user's franchisee ID
-        const userResponse = await fetch('/api/profile');
-        if (!userResponse.ok) {
-          throw new Error('Failed to get user profile');
-        }
+        // Get franchisee ID from URL parameter (for admin viewing) or from user profile
+        const urlParams = new URLSearchParams(window.location.search);
+        let franchiseeId = urlParams.get('id');
 
-        const userProfile = await userResponse.json();
-        const franchiseeId = userProfile.franchisee_id;
+        // If no URL param, try to get from user profile
+        if (!franchiseeId) {
+          const userResponse = await fetch('/api/profile');
+          if (!userResponse.ok) {
+            throw new Error('Failed to get user profile');
+          }
+
+          const userProfile = await userResponse.json();
+          franchiseeId = userProfile.franchisee_id;
+        }
 
         if (!franchiseeId) {
           console.warn('No franchisee ID found for current user');

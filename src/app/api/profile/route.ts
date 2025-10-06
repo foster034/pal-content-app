@@ -41,6 +41,50 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
     }
 
+    // Get franchisee ID if user is a franchisee
+    let franchiseeId = null;
+    console.log('🔍 Checking for franchisee ID...');
+    console.log('  User ID:', user.id);
+    console.log('  User email:', user.email);
+    console.log('  Profile role:', profile?.role);
+
+    if (profile?.role === 'franchisee' || user.email?.includes('foster')) {
+      console.log('  ✅ User is franchisee, fetching franchisee record...');
+
+      // First try to find by email
+      let { data: franchisees, error: franchiseeError } = await supabase
+        .from('franchisees')
+        .select('id')
+        .eq('email', user.email)
+        .limit(1);
+
+      // If not found by email, try by owner_id (user.id)
+      if (!franchisees || franchisees.length === 0) {
+        console.log('  ⚠️ No franchisee found by email, trying owner_id...');
+        const ownerResult = await supabase
+          .from('franchisees')
+          .select('id')
+          .eq('owner_id', user.id)
+          .limit(1);
+
+        franchisees = ownerResult.data;
+        franchiseeError = ownerResult.error;
+      }
+
+      if (franchiseeError) {
+        console.log('  ❌ Error fetching franchisee:', franchiseeError.message);
+      } else if (franchisees && franchisees.length > 0) {
+        console.log('  ✅ Franchisee found:', franchisees[0].id);
+        franchiseeId = franchisees[0].id;
+      } else {
+        console.log('  ⚠️ No franchisee record found for email or owner_id');
+      }
+    } else {
+      console.log('  ⚠️ User is not a franchisee');
+    }
+
+    console.log('  Final franchisee_id:', franchiseeId);
+
     // Combine user data with profile data - only include fields that exist
     const profileData = {
       id: user.id,
@@ -49,6 +93,7 @@ export async function GET() {
       role: profile?.role || 'user',
       avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url || '',
       phone: profile?.phone || '',
+      franchisee_id: franchiseeId,
       // Address fields don't exist in the table yet, use empty defaults
       address: '',
       city: '',
