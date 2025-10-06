@@ -617,7 +617,11 @@ function TechDashboardContent() {
           year: data.vehicleYear || '',
           make: data.vehicleMake || '',
           model: data.vehicleModel || ''
-        } : undefined
+        } : undefined,
+        // New content-focused fields
+        customerConcern: data.customerConcern || '',
+        customerReaction: data.customerReaction || '',
+        specialChallenges: data.specialChallenges || ''
       };
 
       const response = await fetch('/api/job-submissions', {
