@@ -456,6 +456,21 @@ ${vehicleDetails.join('\n')}`;
       }
     }
 
+    // Build content fields section if any are provided
+    let contentFieldsInfo = '';
+    if (data.customer_concern || data.customer_reaction || data.special_challenges) {
+      const contentParts = [];
+      if (data.customer_concern) contentParts.push(`Customer's Issue: ${data.customer_concern}`);
+      if (data.customer_reaction) contentParts.push(`Customer Reaction: ${data.customer_reaction}`);
+      if (data.special_challenges) contentParts.push(`Special Challenges: ${data.special_challenges}`);
+
+      if (contentParts.length > 0) {
+        contentFieldsInfo = `
+ADDITIONAL CONTEXT:
+${contentParts.join('\n')}`;
+      }
+    }
+
     // Generate AI report directly (avoid authentication issues with internal fetch)
     const prompt = `Create a simple, factual report of this locksmith service. DO NOT add any details that are not explicitly provided.
 
@@ -465,7 +480,7 @@ Location: ${data.service_location}
 Technician: ${data.technicians?.name || 'Not specified'}
 Service Category: ${data.service_category}
 Service Type: ${data.service_type}
-${vehicleInfo}
+${vehicleInfo}${contentFieldsInfo}
 WHAT THE TECHNICIAN WROTE:
 "${data.description}"
 
@@ -484,8 +499,11 @@ PHOTOS TAKEN:
 Write a brief factual report (1-2 paragraphs) using this format:
 - First sentence: State who (technician name) was where (location) on what date to help a customer
 - For automotive jobs: MUST include the vehicle information. Format: "Brent Foster was in Springwater on [date] to help a customer with a [year] [make] [model] who [what happened]"
+- Use the "Customer's Issue" from ADDITIONAL CONTEXT if provided to describe what happened
 - For other services: Include the service type and location
 - Second sentence: State exactly what service was completed based on the technician's description
+- If "Customer Reaction" is provided in ADDITIONAL CONTEXT, incorporate it naturally into the report
+- If "Special Challenges" are mentioned, include them to add interest to the story
 - Only mention photo documentation if photos were actually taken
 
 MANDATORY FOR AUTOMOTIVE JOBS:
@@ -494,6 +512,7 @@ MANDATORY FOR AUTOMOTIVE JOBS:
 
 STRICT RULES:
 - Include ALL provided vehicle information (year, make, model, color) when available
+- Use the ADDITIONAL CONTEXT fields to enhance the story if they are provided
 - Use ONLY the information provided above - do not add or interpret anything
 - Do NOT mention duration, time taken, or satisfaction ratings unless they are meaningful and not test/default values
 - If the technician description is generic like "test" or very brief, only mention the basic facts
