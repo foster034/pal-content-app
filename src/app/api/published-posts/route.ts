@@ -75,12 +75,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get franchisee_id from media_archive if available
+    let franchisee_id = null;
+    if (media_archive_id) {
+      const { data: mediaData } = await supabase
+        .from('media_archive')
+        .select('franchisee_id')
+        .eq('id', media_archive_id)
+        .single();
+
+      franchisee_id = mediaData?.franchisee_id || null;
+      console.log('📍 Retrieved franchisee_id from media archive:', franchisee_id);
+    }
+
     const { data, error } = await supabase
       .from('published_posts')
       .insert({
         scheduled_post_id,
         generated_content_id,
         media_archive_id,
+        franchisee_id,
         title,
         content,
         platform,
