@@ -87,8 +87,10 @@ export async function GET() {
 
 // POST new franchisee with improved auth integration
 export async function POST(request: NextRequest) {
+  console.log('🚀 POST /api/franchisees called');
   try {
     const body = await request.json();
+    console.log('📦 Request body:', JSON.stringify(body, null, 2));
 
     // Extract the franchisee data and auth options
     const {
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
       country,
       status,
       image,
-      owners,
+      parentFranchiseeId,
       createAuth,
       authMethod,
       tempPassword,
@@ -132,7 +134,7 @@ export async function POST(request: NextRequest) {
               email_confirm: true,
               user_metadata: {
                 full_name: ownerName || name,
-                role: 'franchisee'
+                role: 'franchisee'  // This will be used by the trigger to set the correct role
               }
             });
             if (createError) throw createError;
@@ -173,7 +175,7 @@ export async function POST(request: NextRequest) {
             email_confirm: true,
             user_metadata: {
               full_name: ownerName || name,
-              role: 'franchisee'
+              role: 'franchisee'  // This will be used by the trigger to set the correct role
             }
           });
 
@@ -199,8 +201,11 @@ export async function POST(request: NextRequest) {
             authUserId = authData.user.id;
           }
         }
-      } catch (authError) {
+      } catch (authError: any) {
         console.error('Auth creation error:', authError);
+        console.error('Auth error details:', JSON.stringify(authError, null, 2));
+        console.error('Auth error message:', authError?.message);
+        console.error('Auth error stack:', authError?.stack);
         // Continue with franchisee creation even if auth fails
       }
     }
@@ -226,30 +231,34 @@ export async function POST(request: NextRequest) {
     };
 
     // Try to add extended columns if they exist
+    const fullInsertData = {
+      ...insertData,
+      username: username || finalBusinessName.toLowerCase().replace(/\s+/g, ''),
+      territory,
+      country: country || 'Canada',
+      status: status || 'Active',
+      image,
+      owner_id: authUserId,
+      parent_franchisee_id: parentFranchiseeId || null,
+      notification_preferences: {
+        newTechSubmissions: { email: true, sms: false, app: true },
+        mediaArchival: { email: true, sms: false, app: false },
+        systemUpdates: { email: true, sms: false, app: true },
+        marketingReports: { email: true, sms: false, app: false },
+        emergencyAlerts: { email: true, sms: true, app: true },
+        weeklyDigest: { email: true, sms: false, app: false },
+      }
+    };
+
+    console.log('💾 Attempting franchisee insert with data:', JSON.stringify(fullInsertData, null, 2));
+
     let { data, error } = await supabase
       .from('franchisees')
-      .insert([
-        {
-          ...insertData,
-          username: username || finalBusinessName.toLowerCase().replace(/\s+/g, ''),
-          territory,
-          country: country || 'Canada',
-          status: status || 'Active',
-          image,
-          owners: owners || [],
-          owner_id: authUserId,
-          notification_preferences: {
-            newTechSubmissions: { email: true, sms: false, app: true },
-            mediaArchival: { email: true, sms: false, app: false },
-            systemUpdates: { email: true, sms: false, app: true },
-            marketingReports: { email: true, sms: false, app: false },
-            emergencyAlerts: { email: true, sms: true, app: true },
-            weeklyDigest: { email: true, sms: false, app: false },
-          }
-        }
-      ])
+      .insert([fullInsertData])
       .select()
       .single();
+
+    console.log('📊 Insert result - error:', error, 'data:', data);
 
     // If insert failed due to missing columns, try with basic schema
     if (error && error.message.includes('column') && error.message.includes('does not exist')) {
@@ -287,29 +296,66 @@ export async function POST(request: NextRequest) {
     }
 
     // Create profile record if auth user was created
+    // We handle this manually instead of relying on the trigger
     if (authUserId) {
-      const { error: profileError } = await supabase
+      // Get the franchisee role_id from roles table
+      const { data: franchiseeRole } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', 'franchisee')
+        .single();
+
+      console.log('📝 Creating profile for auth user:', authUserId);
+      console.log('Franchisee role_id:', franchiseeRole?.id);
+
+      // Try to insert the profile first
+      const { error: profileInsertError } = await supabase
         .from('profiles')
         .insert({
           id: authUserId,
           email: email,
           full_name: finalFullName,
-          role: 'franchisee',
+          role_id: franchiseeRole?.id || 3, // Default to 3 if query fails
           franchisee_id: data.id
         });
 
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
+      if (profileInsertError) {
+        console.error('Profile insert error:', profileInsertError);
+        console.error('Profile insert error details:', JSON.stringify(profileInsertError, null, 2));
+
+        // If insert failed because profile already exists (from trigger), try update instead
+        if (profileInsertError.code === '23505') { // Unique violation
+          console.log('Profile already exists, updating instead...');
+          const { error: profileUpdateError } = await supabase
+            .from('profiles')
+            .update({
+              franchisee_id: data.id,
+              role_id: franchiseeRole?.id || 3
+            })
+            .eq('id', authUserId);
+
+          if (profileUpdateError) {
+            console.error('Profile update error:', profileUpdateError);
+          } else {
+            console.log('✅ Profile updated with franchisee_id:', data.id);
+          }
+        }
+      } else {
+        console.log('✅ Profile created successfully for user:', authUserId);
       }
     }
 
-    return NextResponse.json({
+    const responseData = {
       ...data,
       authCreated: !!authUserId,
       authMethod: createAuth ? authMethod : null,
       emailSent: emailSent,
       magicLinkUrl: magicLinkUrl // Include for development/debugging
-    });
+    };
+
+    console.log('✅ Returning response:', JSON.stringify(responseData, null, 2));
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json({ error: 'Failed to create franchisee' }, { status: 500 });
