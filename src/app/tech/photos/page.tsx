@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import JobSubmissionForm from '@/components/JobSubmissionForm';
 import { useTable } from '@/contexts/table-context';
 import ImageModal from '@/components/ImageModal';
+import { getTechSession } from '@/lib/tech-auth';
 
 interface JobSubmissionDisplay {
   id: string;
@@ -114,8 +115,16 @@ export default function TechPhotosPage() {
       try {
         setLoading(true);
 
-        // Fetch job submissions
-        const response = await fetch('/api/job-submissions');
+        // Get current tech session to filter by technician
+        const session = await getTechSession();
+        if (!session) {
+          console.warn('⚠️ No tech session found, cannot load job submissions');
+          setLoading(false);
+          return;
+        }
+
+        // Fetch job submissions filtered by technician ID
+        const response = await fetch(`/api/job-submissions?technicianId=${session.id}`);
         if (!response.ok) {
           throw new Error('Failed to fetch job submissions');
         }
