@@ -1,4 +1,6 @@
-const CACHE_NAME = 'pal-content-v1';
+// Generate cache name with timestamp to force updates on new deployments
+const CACHE_VERSION = '2025-10-10-v2';
+const CACHE_NAME = `pal-content-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
   '/tech/dashboard',
@@ -8,44 +10,65 @@ const urlsToCache = [
   '/manifest.json'
 ];
 
-// Install event - cache resources
+// Install event - cache resources and take control immediately
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing new service worker...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Opened cache');
+        console.log('[SW] Opened cache:', CACHE_NAME);
         return cache.addAll(urlsToCache);
+      })
+      .then(() => {
+        // Skip waiting to activate immediately
+        return self.skipWaiting();
       })
   );
 });
 
-// Fetch event - serve cached content when offline
+// Fetch event - Network first, then cache (for dynamic content)
 self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      }
-    )
+        // Clone the response before caching
+        const responseToCache = response.clone();
+
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache);
+        });
+
+        return response;
+      })
+      .catch(() => {
+        // Network failed, try cache
+        return caches.match(event.request);
+      })
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and take control immediately
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating new service worker...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
+            console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Take control of all pages immediately
+      console.log('[SW] Taking control of all pages');
+      return self.clients.claim();
     })
   );
 });
