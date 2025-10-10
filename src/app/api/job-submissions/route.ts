@@ -472,7 +472,7 @@ ${contentParts.join('\n')}`;
     }
 
     // Generate AI report directly (avoid authentication issues with internal fetch)
-    const prompt = `Create a simple, factual report of this locksmith service. DO NOT add any details that are not explicitly provided.
+    const prompt = `Create a comprehensive, engaging report of this locksmith service. Use ALL the information provided below to tell the full story.
 
 JOB INFORMATION:
 Date: ${data.service_date}
@@ -481,7 +481,7 @@ Technician: ${data.technicians?.name || 'Not specified'}
 Service Category: ${data.service_category}
 Service Type: ${data.service_type}
 ${vehicleInfo}${contentFieldsInfo}
-WHAT THE TECHNICIAN WROTE:
+TECHNICIAN'S BASIC NOTES:
 "${data.description}"
 
 CUSTOMER INFO (if provided):
@@ -496,27 +496,40 @@ PHOTOS TAKEN:
 - During: ${(data.process_photos || []).length}
 - After: ${(data.after_photos || []).length}
 
-Write a brief factual report (1-2 paragraphs) using this format:
-- First sentence: State who (technician name) was where (location) on what date to help a customer
-- For automotive jobs: MUST include the vehicle information. Format: "Brent Foster was in Springwater on [date] to help a customer with a [year] [make] [model] who [what happened]"
-- Use the "Customer's Issue" from ADDITIONAL CONTEXT if provided to describe what happened
-- For other services: Include the service type and location
-- Second sentence: State exactly what service was completed based on the technician's description
-- If "Customer Reaction" is provided in ADDITIONAL CONTEXT, incorporate it naturally into the report
-- If "Special Challenges" are mentioned, include them to add interest to the story
-- Only mention photo documentation if photos were actually taken
+YOUR TASK: Write a comprehensive 2-3 paragraph report that captures the full story of this service call.
 
-MANDATORY FOR AUTOMOTIVE JOBS:
-- If vehicle year, make, or model are provided in the VEHICLE INFORMATION section above, you MUST include them in the first sentence
-- Format example: "Brent Foster was in Springwater on 2025-09-27 to help a customer with a 2019 Ford F-150 who lost their keys"
+PARAGRAPH 1 - THE SITUATION:
+- Start with: "[Technician name] was in [location] on [date] to help a customer"
+- For automotive jobs: ALWAYS include complete vehicle information: "[year] [make] [model]" (e.g., "2019 Ford F-150")
+- Describe the customer's situation using "Customer's Issue" from ADDITIONAL CONTEXT
+- If no Customer's Issue is provided, use the service type to describe what was needed
+- Example: "Brent Foster was in Springwater on 2025-09-27 to help a customer with a 2019 Ford F-150 who had locked their keys inside the vehicle"
 
-STRICT RULES:
-- Include ALL provided vehicle information (year, make, model, color) when available
-- Use the ADDITIONAL CONTEXT fields to enhance the story if they are provided
-- Use ONLY the information provided above - do not add or interpret anything
-- Do NOT mention duration, time taken, or satisfaction ratings unless they are meaningful and not test/default values
-- If the technician description is generic like "test" or very brief, only mention the basic facts
-- Keep it simple and factual - no embellishment`;
+PARAGRAPH 2 - THE SERVICE:
+- Describe what service was performed based on the technician's notes and service type
+- If "Special Challenges" are mentioned in ADDITIONAL CONTEXT, incorporate them here to show the complexity
+- Include relevant details about the process if provided
+- Example: "Brent accessed the vehicle using specialized lockout tools, taking care to avoid damage to the door seals"
+
+PARAGRAPH 3 - THE OUTCOME (if info available):
+- Include "Customer Reaction" from ADDITIONAL CONTEXT if provided
+- Mention photo documentation if photos were taken (before/after transformation is particularly good for storytelling)
+- End with a satisfying conclusion about the completed service
+- Example: "The customer was relieved to regain access to their vehicle quickly. Before and after photos were taken to document the successful service"
+
+CRITICAL REQUIREMENTS:
+1. **PRIORITIZE ADDITIONAL CONTEXT FIELDS**: The "Customer's Issue", "Customer Reaction", and "Special Challenges" from ADDITIONAL CONTEXT contain the most valuable storytelling information - use them prominently
+2. **VEHICLE INFORMATION IS MANDATORY**: For automotive jobs, ALWAYS include year, make, and model in the first sentence if provided
+3. **USE ALL PROVIDED INFORMATION**: Don't skip any details from VEHICLE INFORMATION or ADDITIONAL CONTEXT sections
+4. **IGNORE GENERIC TEST DATA**: If the technician's basic notes are just "test" or similar, rely entirely on the other fields
+5. **TELL A COMPLETE STORY**: Use all three sections (VEHICLE INFORMATION, ADDITIONAL CONTEXT, and basic notes) to create a full narrative
+6. **BE FACTUAL BUT ENGAGING**: Use the provided information to create an interesting, readable report that a franchisee would be proud to share
+
+WHAT NOT TO DO:
+- Don't add information that wasn't provided
+- NEVER mention duration or time taken for the service
+- NEVER mention star ratings or satisfaction scores
+- Don't write a generic report if specific context is available in ADDITIONAL CONTEXT fields`;
 
     // Call OpenAI API directly
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -530,15 +543,15 @@ STRICT RULES:
         messages: [
           {
             role: 'system',
-            content: 'You are a report writer. Write only factual statements using the exact information provided. Do not add adjectives, adverbs, or any descriptive language not in the original text. Do not embellish or interpret. Simply state what happened based on the provided data.'
+            content: 'You are a professional service report writer for a locksmith business. Your job is to create comprehensive, engaging reports that tell the complete story of each service call. Use ALL provided information - especially the "ADDITIONAL CONTEXT" fields (Customer\'s Issue, Customer Reaction, Special Challenges) and "VEHICLE INFORMATION" - to create a detailed narrative. Be factual but compelling. When generic placeholder text like "test" appears in the basic notes, rely on the detailed context fields instead. Your reports should be something the business owner would be proud to share with clients or use for marketing.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 500,
-        temperature: 0.3,
+        max_tokens: 800,
+        temperature: 0.5,
       }),
     });
 
@@ -591,29 +604,65 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    console.log(`🗑️ Starting deletion process for job submission ID: ${jobId}`);
+
     // Use service role client to bypass RLS
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { error } = await supabase
+    // Delete all related content in the correct order (foreign key dependencies)
+
+    // 1. Delete related franchisee_photos records
+    console.log('📸 Deleting related franchisee_photos records...');
+    const { error: photosError } = await supabase
+      .from('franchisee_photos')
+      .delete()
+      .eq('job_submission_id', jobId);
+
+    if (photosError) {
+      console.error('⚠️ Error deleting franchisee_photos (may not exist):', photosError.message);
+      // Don't fail the deletion if this table doesn't exist or has no records
+    } else {
+      console.log('✅ Franchisee_photos records deleted');
+    }
+
+    // 2. Delete related notifications
+    console.log('🔔 Deleting related notifications...');
+    const { error: notificationsError } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('related_id', jobId)
+      .eq('related_type', 'job_submission');
+
+    if (notificationsError) {
+      console.error('⚠️ Error deleting notifications (may not exist):', notificationsError.message);
+      // Don't fail the deletion if this table doesn't exist or has no records
+    } else {
+      console.log('✅ Notifications deleted');
+    }
+
+    // 3. Finally, delete the main job_submissions record
+    console.log('📋 Deleting main job_submissions record...');
+    const { error: jobError } = await supabase
       .from('job_submissions')
       .delete()
       .eq('id', jobId);
 
-    if (error) {
-      console.error('Error deleting job submission:', error);
+    if (jobError) {
+      console.error('❌ Error deleting job submission:', jobError);
       return NextResponse.json(
-        { error: 'Failed to delete job submission' },
+        { error: 'Failed to delete job submission', details: jobError.message },
         { status: 500 }
       );
     }
 
+    console.log('✅ Job submission and all related content deleted successfully');
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Error in job submissions DELETE:', error);
+    console.error('❌ Error in job submissions DELETE:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

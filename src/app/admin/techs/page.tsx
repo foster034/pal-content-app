@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, MessageCircle, Eye, Send, Edit, Trash2, Settings } from "lucide-react";
+import { MoreHorizontal, MessageCircle, Eye, Send, Edit, Trash2, Settings, Copy, RefreshCw, Mail } from "lucide-react";
 import ImageUploader from "@/components/ImageUploader";
 import ImageModal from "@/components/ImageModal";
 import { DetailModal } from "@/components/DetailModal";
@@ -40,6 +40,7 @@ interface Tech {
   rating: number;
   completedJobs: number;
   image: string;
+  loginCode?: string;
 }
 
 interface Franchisee {
@@ -111,12 +112,13 @@ export default function TechsPage() {
           phone: tech.phone || '',
           franchiseeId: tech.franchisee_id,
           franchiseeName: tech.franchiseeName || 'Unknown Franchise',
-          specialties: [],
+          specialties: tech.specialties || [],
           status: 'Active' as const,
           hireDate: tech.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
           rating: tech.rating || 0,
           completedJobs: 0,
-          image: tech.image_url || ''
+          image: tech.image_url || '',
+          loginCode: tech.login_code || ''
         }));
         setTechs(techsData);
       }
@@ -228,6 +230,103 @@ export default function TechsPage() {
     } catch (error) {
       console.error('Error deleting technician:', error);
       alert('Failed to delete technician. Please try again.');
+    }
+  };
+
+  const generateNewLoginCode = async (tech: Tech) => {
+    if (!confirm(`Generate a new login code for ${tech.name}?`)) {
+      return;
+    }
+
+    try {
+      // Generate random 6-character code
+      const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      const response = await fetch('/api/technicians', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: tech.id,
+          login_code: newCode
+        })
+      });
+
+      if (response.ok) {
+        await fetchTechnicians(); // Refresh the list
+        alert(`✅ New login code generated: ${newCode}`);
+      } else {
+        const error = await response.json();
+        alert(`Failed to generate new code: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error generating login code:', error);
+      alert('Failed to generate login code. Please try again.');
+    }
+  };
+
+  const sendCodeViaSMS = async (tech: Tech) => {
+    if (!tech.loginCode) {
+      alert('No login code available for this technician.');
+      return;
+    }
+
+    if (!tech.phone) {
+      alert('No phone number on file for this technician.');
+      return;
+    }
+
+    try {
+      const message = `Welcome to PAL Content App! Your login code is: ${tech.loginCode}\n\nUse this code to log in at ${window.location.origin}/tech/login`;
+
+      const response = await fetch('/api/twilio/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: tech.phone,
+          message: message,
+          userType: 'technician',
+          userId: tech.id,
+          userName: tech.name
+        })
+      });
+
+      if (response.ok) {
+        alert(`✅ Login code sent via SMS to ${tech.phone}`);
+      } else {
+        const error = await response.json();
+        alert(`Failed to send SMS: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      alert('Failed to send SMS. Please try again.');
+    }
+  };
+
+  const sendCodeViaEmail = async (tech: Tech) => {
+    if (!tech.loginCode) {
+      alert('No login code available for this technician.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/technicians/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          technicianId: tech.id,
+          sendEmail: true
+        })
+      });
+
+      if (response.ok) {
+        alert(`✅ Login code sent via email to ${tech.email}`);
+      } else {
+        const error = await response.json();
+        alert(`Failed to send email: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Failed to send email. Please try again.');
     }
   };
 
@@ -353,7 +452,7 @@ export default function TechsPage() {
               <ImageUploader
                 label="Technician Photo"
                 currentImage={formData.image}
-                onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image: imageUrl }))}
+                onImageSelected={(imageUrl) => setFormData(prev => ({ ...prev, image: imageUrl }))}
               />
 
               <div>
@@ -387,7 +486,7 @@ export default function TechsPage() {
               <div className="flex space-x-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 py-2 rounded-lg transition-colors"
                 >
                   {editingTech ? 'Update' : 'Create'}
                 </button>
@@ -417,25 +516,24 @@ export default function TechsPage() {
           <Table className="border-0">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Name</TableHead>
+                <TableHead>Technician</TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead>Franchise</TableHead>
                 <TableHead>Specialties</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Performance</TableHead>
+                <TableHead>Login Code</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="text-muted-foreground">Loading technicians...</div>
                   </TableCell>
                 </TableRow>
               ) : techs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="text-muted-foreground">No technicians found. Click "Add Technician" to create one.</div>
                   </TableCell>
                 </TableRow>
@@ -468,8 +566,11 @@ export default function TechsPage() {
                       <div>
                         <div className="font-medium">{tech.name}</div>
                         <span className="text-muted-foreground mt-0.5 text-xs">
-                          {tech.username}
+                          @{tech.username}
                         </span>
+                        <div className="text-muted-foreground text-xs mt-0.5">
+                          Hired {tech.hireDate}
+                        </div>
                       </div>
                     </div>
                   </TableCell>
@@ -479,18 +580,23 @@ export default function TechsPage() {
                       <div className="text-muted-foreground text-xs">{tech.phone}</div>
                     </div>
                   </TableCell>
-                  <TableCell>{tech.franchiseeName}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {tech.specialties.slice(0, 2).map(specialty => (
-                        <Badge key={specialty} variant="outline" className="text-xs">
-                          {specialty}
-                        </Badge>
-                      ))}
-                      {tech.specialties.length > 2 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{tech.specialties.length - 2}
-                        </Badge>
+                      {tech.specialties.length > 0 ? (
+                        <>
+                          {tech.specialties.slice(0, 2).map(specialty => (
+                            <Badge key={specialty} variant="outline" className="text-xs">
+                              {specialty}
+                            </Badge>
+                          ))}
+                          {tech.specialties.length > 2 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{tech.specialties.length - 2}
+                            </Badge>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No specialties</span>
                       )}
                     </div>
                   </TableCell>
@@ -500,10 +606,37 @@ export default function TechsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <div className="text-yellow-500">{renderStars(tech.rating)}</div>
-                      <div className="text-xs text-muted-foreground">{tech.completedJobs} jobs</div>
-                    </div>
+                    {tech.loginCode ? (
+                      <div className="flex items-center gap-2">
+                        <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+                          {tech.loginCode}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await navigator.clipboard.writeText(tech.loginCode || '');
+                              alert(`Login code ${tech.loginCode} copied`);
+                            } catch (err) {
+                              const textArea = document.createElement('textarea');
+                              textArea.value = tech.loginCode || '';
+                              document.body.appendChild(textArea);
+                              textArea.select();
+                              document.execCommand('copy');
+                              document.body.removeChild(textArea);
+                              alert(`Login code ${tech.loginCode} copied`);
+                            }
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No code</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
@@ -513,53 +646,60 @@ export default function TechsPage() {
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56 bg-white border shadow-lg">
+                      <DropdownMenuContent align="end" className="w-64 bg-white border shadow-lg">
                         <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        
+
                         <DropdownMenuItem
-                          onClick={() => window.open('/tech/dashboard', '_blank')}
+                          onClick={() => window.open(`/tech/${tech.id}`, '_blank')}
                           className="cursor-pointer"
                         >
                           <Eye className="mr-2 h-4 w-4 text-green-600" />
-                          <span>View as Technician</span>
+                          <span>View Tech</span>
                         </DropdownMenuItem>
-                        
+
                         <DropdownMenuItem
-                          onClick={() => window.open('/tech/profile', '_blank')}
+                          onClick={() => generateNewLoginCode(tech)}
                           className="cursor-pointer"
                         >
-                          <Settings className="mr-2 h-4 w-4 text-blue-600" />
-                          <span>Profile Settings</span>
+                          <RefreshCw className="mr-2 h-4 w-4 text-orange-600" />
+                          <span>Generate New Login Code</span>
                         </DropdownMenuItem>
-                        
+
                         <DropdownMenuSeparator />
-                        
+
                         <DropdownMenuItem
-                          onClick={() => sendMagicLink(tech)}
-                          disabled={sendingMagicLink === tech.id}
+                          onClick={() => sendCodeViaSMS(tech)}
                           className="cursor-pointer"
                         >
-                          <Send className="mr-2 h-4 w-4 text-blue-600" />
-                          <span>{sendingMagicLink === tech.id ? 'Sending Magic Link...' : 'Send Magic Link'}</span>
+                          <MessageCircle className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>Send Code via SMS</span>
                         </DropdownMenuItem>
-                        
+
+                        <DropdownMenuItem
+                          onClick={() => sendCodeViaEmail(tech)}
+                          className="cursor-pointer"
+                        >
+                          <Mail className="mr-2 h-4 w-4 text-purple-600" />
+                          <span>Send Code via Email</span>
+                        </DropdownMenuItem>
+
                         <DropdownMenuSeparator />
-                        
+
                         <DropdownMenuItem
                           onClick={() => handleEdit(tech)}
                           className="cursor-pointer"
                         >
                           <Edit className="mr-2 h-4 w-4" />
-                          <span>Edit Details</span>
+                          <span>Edit Tech</span>
                         </DropdownMenuItem>
-                        
+
                         <DropdownMenuItem
                           onClick={() => handleDelete(tech.id)}
                           className="cursor-pointer text-destructive focus:text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Delete Technician</span>
+                          <span>Remove Tech</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

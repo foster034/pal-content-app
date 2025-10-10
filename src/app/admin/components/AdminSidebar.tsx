@@ -4,7 +4,6 @@ import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
   IconBrandTabler,
   IconSettings,
-  IconUsers,
   IconBuilding,
   IconTool,
   IconChartBar,

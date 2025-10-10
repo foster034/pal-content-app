@@ -260,7 +260,13 @@ export default function ModernJobSubmissionModal({
       }, 200);
 
     } catch (error: any) {
-      console.error('❌ Camera access error:', error);
+      // Log camera errors for debugging, but don't show NotAllowedError in console (user already sees alert)
+      if (error.name !== 'NotAllowedError') {
+        console.error('❌ Camera access error:', error);
+      } else {
+        console.log('ℹ️ Camera access denied by user');
+      }
+
       let errorMessage = 'Unable to access camera. ';
 
       // Provide specific error messages based on error type
@@ -312,6 +318,7 @@ export default function ModernJobSubmissionModal({
     console.log(`🔄 Switching to camera ${nextCameraIndex + 1}/${availableCameras.length}:`, availableCameras[nextCameraIndex].label || 'Unknown camera');
 
     try {
+      setCurrentCameraIndex(nextCameraIndex);
       await startCamera(nextCameraIndex);
     } catch (error) {
       console.error('❌ Error switching camera:', error);
@@ -351,13 +358,28 @@ export default function ModernJobSubmissionModal({
       return;
     }
 
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Auto-crop to GMB photo size (1:1 square aspect ratio)
+    // GMB recommends 720x720 minimum, we'll use 1200x1200 for better quality
+    const targetSize = 1200;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
 
-    // Draw the video frame to canvas
-    ctx.drawImage(video, 0, 0);
-    console.log(`📷 Captured frame: ${canvas.width}x${canvas.height}`);
+    // Calculate crop dimensions to get square aspect ratio
+    const cropSize = Math.min(videoWidth, videoHeight);
+    const cropX = (videoWidth - cropSize) / 2;
+    const cropY = (videoHeight - cropSize) / 2;
+
+    // Set canvas to square GMB size
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+
+    // Draw cropped and scaled video frame to canvas
+    ctx.drawImage(
+      video,
+      cropX, cropY, cropSize, cropSize,  // Source crop area
+      0, 0, targetSize, targetSize        // Destination (scaled to 1200x1200)
+    );
+    console.log(`📷 Captured and auto-cropped to GMB size: ${canvas.width}x${canvas.height} (from ${videoWidth}x${videoHeight})`);
 
     // Convert canvas to blob and create file
     canvas.toBlob((blob) => {
@@ -530,7 +552,7 @@ export default function ModernJobSubmissionModal({
                             navigator.geolocation.getCurrentPosition(
                               resolve,
                               (error) => {
-                                console.error('Geolocation error:', error);
+                                console.error('Geolocation error:', error.message || error.code || 'Unknown error');
                                 reject(error);
                               },
                               {
@@ -563,7 +585,10 @@ export default function ModernJobSubmissionModal({
                           console.error('Error getting location:', error);
                           let errorMessage = 'Unable to get your location. Please enter manually.';
 
-                          if (error.code === 1) {
+                          // Check for secure context error
+                          if (error.message && error.message.includes('secure origins')) {
+                            errorMessage = 'Location access requires HTTPS. Please enter location manually or access via localhost.';
+                          } else if (error.code === 1) {
                             errorMessage = 'Location permission denied. Please enable location access and try again.';
                           } else if (error.code === 2) {
                             errorMessage = 'Location unavailable. Please check your device settings.';
@@ -598,7 +623,11 @@ export default function ModernJobSubmissionModal({
 
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => {
+                        console.log('📁 Upload Files button clicked');
+                        console.log('📎 File input ref:', fileInputRef.current);
+                        fileInputRef.current?.click();
+                      }}
                       className="flex-1 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-all bg-gray-50 hover:bg-gray-100 photo-upload-area touch-manipulation"
                     >
                       <Plus className="w-6 h-6 text-gray-400 mx-auto mb-2" />
@@ -611,7 +640,10 @@ export default function ModernJobSubmissionModal({
                     type="file"
                     multiple
                     accept="image/*"
-                    onChange={handlePhotoUpload}
+                    onChange={(e) => {
+                      console.log('📤 File input changed, files:', e.target.files?.length);
+                      handlePhotoUpload(e);
+                    }}
                     className="hidden"
                   />
 
@@ -852,18 +884,36 @@ export default function ModernJobSubmissionModal({
                 autoPlay
               />
 
-              {/* Camera Grid Overlay */}
-              <div className="absolute inset-4 pointer-events-none">
-                <svg className="w-full h-full opacity-30" viewBox="0 0 100 100" preserveAspectRatio="none">
-                  {/* Rule of thirds grid */}
-                  <line x1="33.33" y1="0" x2="33.33" y2="100" stroke="white" strokeWidth="0.2"/>
-                  <line x1="66.66" y1="0" x2="66.66" y2="100" stroke="white" strokeWidth="0.2"/>
-                  <line x1="0" y1="33.33" x2="100" y2="33.33" stroke="white" strokeWidth="0.2"/>
-                  <line x1="0" y1="66.66" x2="100" y2="66.66" stroke="white" strokeWidth="0.2"/>
+              {/* Camera Grid Overlay with GMB Crop Guide */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                {/* Dimmed areas outside crop zone */}
+                <div className="absolute inset-0 bg-black/40" />
 
-                  {/* Center focus point */}
-                  <circle cx="50" cy="50" r="1" fill="white" opacity="0.6"/>
-                </svg>
+                {/* Square crop guide (1:1 aspect ratio for GMB) */}
+                <div className="relative bg-transparent" style={{ aspectRatio: '1/1', width: 'auto', height: '90%' }}>
+                  {/* Transparent center (actual photo area) */}
+                  <div className="absolute inset-0 border-2 border-white/80 rounded-lg shadow-lg">
+                    {/* Rule of thirds grid inside crop area */}
+                    <svg className="w-full h-full opacity-30" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <line x1="33.33" y1="0" x2="33.33" y2="100" stroke="white" strokeWidth="0.3"/>
+                      <line x1="66.66" y1="0" x2="66.66" y2="100" stroke="white" strokeWidth="0.3"/>
+                      <line x1="0" y1="33.33" x2="100" y2="33.33" stroke="white" strokeWidth="0.3"/>
+                      <line x1="0" y1="66.66" x2="100" y2="66.66" stroke="white" strokeWidth="0.3"/>
+                      <circle cx="50" cy="50" r="1" fill="white" opacity="0.6"/>
+                    </svg>
+                  </div>
+
+                  {/* Corner markers */}
+                  <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl-lg" />
+                  <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr-lg" />
+                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl-lg" />
+                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white rounded-br-lg" />
+
+                  {/* GMB badge */}
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg">
+                    📍 GMB 1:1 Square
+                  </div>
+                </div>
               </div>
 
               {/* Camera Controls */}
@@ -898,7 +948,7 @@ export default function ModernJobSubmissionModal({
 
                 <div className="mt-3 text-center">
                   <p className="text-white text-xs opacity-75">
-                    Use grid lines for better composition
+                    Photo will auto-crop to 1:1 square (1200x1200) for Google My Business
                     {availableCameras.length > 1 && ` • Camera ${currentCameraIndex + 1}/${availableCameras.length}`}
                   </p>
                 </div>

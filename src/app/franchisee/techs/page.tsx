@@ -34,11 +34,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  MoreHorizontal, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  MoreHorizontal,
+  Plus,
+  Edit,
+  Trash2,
   Key,
   Copy,
   RefreshCw,
@@ -47,10 +47,11 @@ import {
   Settings,
   UserPlus,
   Shield,
-  Clock
+  Clock,
+  Mail
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import TechQuickAdd from "@/components/TechQuickAdd";
+import ImageUploader from "@/components/ImageUploader";
 
 interface Technician {
   id: string; // Changed from number to string to match UUID from database
@@ -87,9 +88,10 @@ export default function FranchiseeTechsPage() {
   const [franchiseeId, setFranchiseeId] = useState<string | null>(urlFranchiseeId);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSendMethodDialog, setShowSendMethodDialog] = useState(false);
+  const [pendingTechData, setPendingTechData] = useState<any>(null);
   const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
   const [isLoadingFranchiseeId, setIsLoadingFranchiseeId] = useState(!urlFranchiseeId);
   const [formData, setFormData] = useState({
@@ -98,7 +100,10 @@ export default function FranchiseeTechsPage() {
     email: '',
     phone: '',
     specialties: [] as string[],
-    status: 'Active' as 'Active' | 'Inactive' | 'On Leave'
+    status: 'Active' as 'Active' | 'Inactive' | 'On Leave',
+    image: '',
+    sendViaEmail: false,
+    sendViaSMS: false
   });
   const { toast } = useToast();
   const supabase = createClientComponentClient();
@@ -266,7 +271,7 @@ export default function FranchiseeTechsPage() {
           phone: formData.phone,
           franchiseeId: targetFranchiseeId,
           role: 'technician',
-          image: `https://i.pravatar.cc/150?u=${formData.email}`,
+          image: formData.image || `https://i.pravatar.cc/150?u=${formData.email}`,
           createAuth: false, // For now, don't create auth - can be added later
           authMethod: 'magic_link',
           specialties: formData.specialties // Include specialties
@@ -295,34 +300,58 @@ export default function FranchiseeTechsPage() {
         };
 
         setTechnicians([...technicians, mappedTech]);
+
+        // Send login code based on checkbox selections
+        if (formData.sendViaSMS && formData.phone) {
+          const smsMessage = `Welcome to PAL Content App! Your login code is: ${mappedTech.loginCode}\n\nUse this code to log in at ${window.location.origin}/auth/login`;
+
+          fetch('/api/twilio/send-sms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: formData.phone,
+              message: smsMessage,
+              userType: 'technician',
+              userId: mappedTech.id,
+              userName: mappedTech.name
+            })
+          }).then(async (res) => {
+            const data = await res.json();
+            if (data.success) {
+              toast({
+                title: "SMS Sent",
+                description: `Login code sent via SMS to ${formData.phone}`
+              });
+            }
+          });
+        }
+
+        if (formData.sendViaEmail && formData.email) {
+          fetch('/api/technicians/invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              technicianId: newTech.id,
+              sendEmail: true
+            })
+          }).then(async (res) => {
+            const data = await res.json();
+            if (data.success) {
+              toast({
+                title: "Email Sent",
+                description: `Magic link sent via email to ${formData.email}`
+              });
+            }
+          });
+        }
+
         setShowCreateDialog(false);
         resetForm();
 
         toast({
           title: "Technician Created",
-          description: `${mappedTech.name} has been successfully added to your team and saved to the database.`
+          description: `${mappedTech.name} has been successfully added to your team.`
         });
-
-        // Auto-send invitation if email is provided
-        if (formData.email) {
-          setTimeout(async () => {
-            try {
-              console.log('Auto-sending invitation for newly created tech:', {
-                id: newTech.id,
-                name: mappedTech.name,
-                email: formData.email
-              });
-
-              await handleSendInvitation({
-                id: newTech.id,
-                name: mappedTech.name,
-                email: formData.email
-              } as Technician);
-            } catch (error) {
-              console.error('Auto-invitation failed:', error);
-            }
-          }, 500); // Wait 500ms to ensure database consistency
-        }
       } else {
         const errorData = await response.json();
         toast({
@@ -371,6 +400,96 @@ export default function FranchiseeTechsPage() {
 
     // Simulate API call to update tech profile
     updateTechProfile(updatedTech);
+  };
+
+  const handleSendViaSMS = async () => {
+    if (!pendingTechData) return;
+
+    const { tech, formData } = pendingTechData;
+
+    try {
+      const smsMessage = `Welcome to PAL Content App! Your login code is: ${tech.loginCode}\n\nUse this code to log in at ${window.location.origin}/auth/login`;
+
+      const smsResponse = await fetch('/api/twilio/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: formData.phone,
+          message: smsMessage,
+          userType: 'technician',
+          userId: tech.id,
+          userName: tech.name
+        })
+      });
+
+      if (smsResponse.ok) {
+        const smsData = await smsResponse.json();
+        console.log('SMS sent successfully:', smsData);
+        toast({
+          title: "SMS Sent",
+          description: `Login code sent to ${formData.phone}`,
+        });
+      } else {
+        const errorData = await smsResponse.json();
+        console.error('SMS send failed:', errorData);
+        toast({
+          title: "SMS Failed",
+          description: errorData.error || "Could not send SMS. Make sure SMS is configured in admin settings.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('SMS failed:', error);
+      toast({
+        title: "SMS Error",
+        description: "Failed to send login code via SMS",
+        variant: "destructive"
+      });
+    }
+
+    setShowSendMethodDialog(false);
+    setPendingTechData(null);
+  };
+
+  const handleSendViaEmail = async () => {
+    if (!pendingTechData) return;
+
+    const { tech, newTech, formData } = pendingTechData;
+
+    try {
+      const response = await fetch('/api/technicians/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          technicianId: newTech.id,
+          sendEmail: true
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Email Sent",
+          description: `Magic link sent to ${formData.email}`,
+        });
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Email Failed",
+          description: errorData.error || "Could not send email invitation",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Email failed:', error);
+      toast({
+        title: "Email Error",
+        description: "Failed to send email invitation",
+        variant: "destructive"
+      });
+    }
+
+    setShowSendMethodDialog(false);
+    setPendingTechData(null);
   };
 
   const handleDeleteTech = async () => {
@@ -695,8 +814,102 @@ export default function FranchiseeTechsPage() {
       email: '',
       phone: '',
       specialties: [],
-      status: 'Active'
+      status: 'Active',
+      image: '',
+      sendViaEmail: false,
+      sendViaSMS: false
     });
+  };
+
+  const sendCodeViaSMS = async (tech: Technician) => {
+    if (!tech.phone) {
+      toast({
+        title: "No Phone Number",
+        description: "This technician doesn't have a phone number on file.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const smsMessage = `Welcome to PAL Content App! Your login code is: ${tech.loginCode}\n\nUse this code to log in at ${window.location.origin}/auth/login`;
+
+      const response = await fetch('/api/twilio/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: tech.phone,
+          message: smsMessage,
+          userType: 'technician',
+          userId: tech.id,
+          userName: tech.name
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: "SMS Sent",
+          description: `Login code sent via SMS to ${tech.phone}`
+        });
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "SMS Failed",
+          description: errorData.error || "Failed to send SMS",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('SMS failed:', error);
+      toast({
+        title: "SMS Error",
+        description: "Failed to send login code via SMS",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const sendCodeViaEmail = async (tech: Technician) => {
+    if (!tech.email) {
+      toast({
+        title: "No Email",
+        description: "This technician doesn't have an email on file.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/technicians/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          technicianId: tech.id,
+          sendEmail: true
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Email Sent",
+          description: `Magic link sent via email to ${tech.email}`
+        });
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Email Failed",
+          description: errorData.error || "Failed to send email",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Email failed:', error);
+      toast({
+        title: "Email Error",
+        description: "Failed to send magic link via email",
+        variant: "destructive"
+      });
+    }
   };
 
   const openEditDialog = (tech: Technician) => {
@@ -707,7 +920,10 @@ export default function FranchiseeTechsPage() {
       email: tech.email,
       phone: tech.phone,
       specialties: tech.specialties,
-      status: tech.status
+      status: tech.status,
+      image: tech.image,
+      sendViaEmail: false,
+      sendViaSMS: false
     });
     setShowEditDialog(true);
   };
@@ -792,57 +1008,15 @@ export default function FranchiseeTechsPage() {
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={() => setShowQuickAdd(!showQuickAdd)}
-            className="bg-primary hover:bg-primary/90"
-            variant={showQuickAdd ? "outline" : "default"}
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900"
           >
             <UserPlus className="w-4 h-4 mr-2" />
-            {showQuickAdd ? 'Hide Quick Add' : 'Quick Add Tech'}
-          </Button>
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            variant="outline"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Advanced Add
+            Add Technician
           </Button>
         </div>
       </div>
 
-      {/* Quick Add Section */}
-      {showQuickAdd && (
-        <div className="flex justify-center">
-          <TechQuickAdd
-            franchiseeId={franchiseeId || undefined}
-            onTechAdded={(newTech) => {
-              // Add the new tech to the list and refresh
-              const mappedTech: Technician = {
-                id: newTech.id,
-                name: newTech.name,
-                username: newTech.email?.split('@')[0] || '',
-                email: newTech.email,
-                phone: newTech.phone || '',
-                specialties: [],
-                status: 'Active' as const,
-                hireDate: new Date(newTech.created_at).toISOString().split('T')[0],
-                rating: newTech.rating || 0,
-                completedJobs: 0,
-                image: newTech.image_url || `https://i.pravatar.cc/150?u=${newTech.email}`,
-                loginCode: newTech.login_code || 'TEMP01',
-                autoLoginEnabled: true,
-                lastCodeGenerated: new Date().toISOString().split('T')[0]
-              };
-              setTechnicians(prev => [mappedTech, ...prev]);
-
-              toast({
-                title: "Tech Added to List",
-                description: `${newTech.name} has been added to your technician list`
-              });
-            }}
-            className="w-full max-w-md"
-          />
-        </div>
-      )}
 
 
       {/* Technician Table */}
@@ -856,7 +1030,7 @@ export default function FranchiseeTechsPage() {
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="border-none hover:bg-transparent">
                 <TableHead>Technician</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Specialties</TableHead>
@@ -867,7 +1041,7 @@ export default function FranchiseeTechsPage() {
             </TableHeader>
             <TableBody>
               {technicians.map((tech) => (
-                <TableRow key={tech.id}>
+                <TableRow key={tech.id} className="border-none hover:bg-gray-50">
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <img 
@@ -914,12 +1088,33 @@ export default function FranchiseeTechsPage() {
                         variant="ghost"
                         size="sm"
                         className="h-5 w-5 p-0"
-                        onClick={() => {
-                          navigator.clipboard.writeText(tech.loginCode);
-                          toast({
-                            title: "Copied to clipboard",
-                            description: `Login code ${tech.loginCode} copied`
-                          });
+                        onClick={async () => {
+                          try {
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                              await navigator.clipboard.writeText(tech.loginCode);
+                            } else {
+                              // Fallback for browsers that don't support clipboard API
+                              const textArea = document.createElement('textarea');
+                              textArea.value = tech.loginCode;
+                              textArea.style.position = 'fixed';
+                              textArea.style.left = '-999999px';
+                              document.body.appendChild(textArea);
+                              textArea.select();
+                              document.execCommand('copy');
+                              document.body.removeChild(textArea);
+                            }
+                            toast({
+                              title: "Copied to clipboard",
+                              description: `Login code ${tech.loginCode} copied`
+                            });
+                          } catch (error) {
+                            console.error('Failed to copy:', error);
+                            toast({
+                              title: "Copy failed",
+                              description: "Could not copy to clipboard",
+                              variant: "destructive"
+                            });
+                          }
                         }}
                       >
                         <Copy className="h-3 w-3" />
@@ -954,6 +1149,26 @@ export default function FranchiseeTechsPage() {
                           <span>Generate New Login Code</span>
                         </DropdownMenuItem>
 
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuItem
+                          onClick={() => sendCodeViaSMS(tech)}
+                          className="cursor-pointer"
+                        >
+                          <MessageCircle className="mr-2 h-4 w-4 text-blue-600" />
+                          <span>Send Code via SMS</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={() => sendCodeViaEmail(tech)}
+                          className="cursor-pointer"
+                        >
+                          <Mail className="mr-2 h-4 w-4 text-purple-600" />
+                          <span>Send Code via Email</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+
                         <DropdownMenuItem
                           onClick={() => openEditDialog(tech)}
                           className="cursor-pointer"
@@ -981,9 +1196,9 @@ export default function FranchiseeTechsPage() {
 
       {/* Create Technician Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl bg-white">
+        <DialogContent className="max-w-2xl bg-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Technician</DialogTitle>
+            <DialogTitle>Create New Technician</DialogTitle>
             <DialogDescription>
               Create a new technician profile. A login code will be automatically generated.
             </DialogDescription>
@@ -996,6 +1211,7 @@ export default function FranchiseeTechsPage() {
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Alex Rodriguez"
+                className="border-gray-300"
               />
             </div>
             <div className="space-y-2">
@@ -1005,6 +1221,7 @@ export default function FranchiseeTechsPage() {
                 value={formData.username}
                 onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                 placeholder="alexrodriguez"
+                className="border-gray-300"
               />
             </div>
             <div className="space-y-2">
@@ -1015,6 +1232,7 @@ export default function FranchiseeTechsPage() {
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="alex@popalock.com"
+                className="border-gray-300"
               />
             </div>
             <div className="space-y-2">
@@ -1024,11 +1242,19 @@ export default function FranchiseeTechsPage() {
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                 placeholder="(555) 123-4567"
+                className="border-gray-300"
+              />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <ImageUploader
+                label="Technician Photo"
+                currentImage={formData.image}
+                onImageSelected={(imageUrl) => setFormData(prev => ({ ...prev, image: imageUrl }))}
               />
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Specialties</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-3 border rounded-lg">
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-3 border border-gray-300 rounded-lg">
                 {specialtyOptions.map(specialty => (
                   <label key={specialty} className="flex items-center space-x-2">
                     <input
@@ -1048,12 +1274,37 @@ export default function FranchiseeTechsPage() {
                 id="status"
                 value={formData.status}
                 onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                className="w-full border rounded-lg px-3 py-2"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
               >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
                 <option value="On Leave">On Leave</option>
               </select>
+            </div>
+            <div className="col-span-2 space-y-3 pt-4 mt-4">
+              <Label className="text-base font-semibold">Send Login Code</Label>
+              <div className="space-y-2">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.sendViaEmail}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sendViaEmail: e.target.checked }))}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium">Send code via Email</span>
+                </label>
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.sendViaSMS}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sendViaSMS: e.target.checked }))}
+                    disabled={!formData.phone}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <span className="text-sm font-medium">Send code via SMS</span>
+                  {!formData.phone && <span className="text-xs text-gray-500">(Phone number required)</span>}
+                </label>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -1112,7 +1363,7 @@ export default function FranchiseeTechsPage() {
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Specialties</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-3 border rounded-lg">
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-3 border border-gray-300 rounded-lg">
                 {specialtyOptions.map(specialty => (
                   <label key={specialty} className="flex items-center space-x-2">
                     <input
@@ -1132,7 +1383,7 @@ export default function FranchiseeTechsPage() {
                 id="edit-status"
                 value={formData.status}
                 onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                className="w-full border rounded-lg px-3 py-2"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
               >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
@@ -1152,15 +1403,77 @@ export default function FranchiseeTechsPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
+      {/* Send Method Dialog */}
+      <Dialog open={showSendMethodDialog} onOpenChange={setShowSendMethodDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Login Code</DialogTitle>
+            <DialogDescription>
+              How would you like to send the login code to {pendingTechData?.tech?.name}?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Button
+              onClick={handleSendViaSMS}
+              className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-900"
+              disabled={!pendingTechData?.formData?.phone}
+            >
+              <MessageCircle className="w-4 h-4" />
+              Send via SMS
+              {pendingTechData?.formData?.phone && (
+                <span className="text-xs text-gray-500 ml-2">
+                  ({pendingTechData.formData.phone})
+                </span>
+              )}
+            </Button>
+            {!pendingTechData?.formData?.phone && (
+              <p className="text-xs text-amber-600 -mt-2">
+                No phone number provided
+              </p>
+            )}
+
+            <Button
+              onClick={handleSendViaEmail}
+              className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-900"
+              disabled={!pendingTechData?.formData?.email}
+            >
+              <MessageCircle className="w-4 h-4" />
+              Send via Email
+              {pendingTechData?.formData?.email && (
+                <span className="text-xs text-gray-500 ml-2">
+                  ({pendingTechData.formData.email})
+                </span>
+              )}
+            </Button>
+            {!pendingTechData?.formData?.email && (
+              <p className="text-xs text-amber-600 -mt-2">
+                No email address provided
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSendMethodDialog(false);
+                setPendingTechData(null);
+              }}
+            >
+              Skip for Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
+        <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle>Remove Technician</DialogTitle>
             <DialogDescription>
               Are you sure you want to remove {selectedTech?.name} from your team? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
               Cancel
             </Button>

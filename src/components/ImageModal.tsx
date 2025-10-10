@@ -15,6 +15,25 @@ interface JobPhotoDetails {
   allImages?: string[];
   aiReport?: string;
   aiReportGeneratedAt?: string;
+  // Additional service fields
+  serviceType?: string;
+  serviceDate?: string;
+  serviceDuration?: number;
+  satisfactionRating?: number;
+  // Client fields
+  clientName?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  // Vehicle fields (for Automotive)
+  vehicleYear?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleColor?: string;
+  vehicleVin?: string;
+  // Content fields
+  customerConcern?: string;
+  customerReaction?: string;
+  specialChallenges?: string;
 }
 
 interface ImageModalProps {
@@ -94,11 +113,11 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
           <img
             src={imageUrl}
             alt={altText}
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            className="max-w-full max-h-[90vh] object-contain rounded shadow-2xl"
           />
         </div>
         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-center">
-          <p className="text-lg font-medium bg-black/50 px-4 py-2 rounded-lg backdrop-blur-sm">
+          <p className="text-lg font-medium bg-black/50 px-4 py-2 rounded backdrop-blur-sm">
             {altText}
           </p>
         </div>
@@ -181,14 +200,14 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
           </div>
 
           {/* Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-0 flex-1 overflow-hidden">
-            {/* Image Section */}
-            <div className="lg:col-span-3 bg-gray-50 relative order-1 lg:order-none">
-              <div className="aspect-[4/3] lg:aspect-auto lg:h-full flex items-center justify-center p-4 sm:p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 flex-1 overflow-hidden">
+            {/* Image Section - Compact and consistent size */}
+            <div className="bg-gray-50 relative order-1 lg:order-none flex items-center justify-center p-4 sm:p-6">
+              <div className="w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px] aspect-square">
                 <img
                   src={currentImage}
                   alt={altText}
-                  className="max-w-full max-h-full object-contain rounded-lg sm:rounded-xl shadow-lg"
+                  className="w-full h-full object-cover rounded sm:rounded-xl shadow-lg"
                 />
               </div>
 
@@ -217,56 +236,195 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
 
               <button
                 onClick={() => window.open(currentImage, '_blank')}
-                className="absolute top-2 sm:top-4 right-2 sm:right-4 inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 bg-white/90 backdrop-blur-sm text-gray-700 text-xs sm:text-sm font-medium rounded-lg hover:bg-white transition-all duration-200 shadow-sm min-h-[44px] touch-manipulation"
+                className="absolute top-2 sm:top-4 right-2 sm:right-4 inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 bg-white/90 backdrop-blur-sm text-gray-700 text-xs sm:text-sm font-medium rounded hover:bg-white transition-all duration-200 shadow-sm min-h-[44px] touch-manipulation"
               >
                 <ExternalLink className="w-4 h-4" />
                 <span className="hidden sm:inline">Full Size</span>
               </button>
             </div>
 
-            {/* Details Section */}
-            <div className="lg:col-span-2 bg-white flex flex-col order-2 lg:order-none overflow-hidden">
-              <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 lg:space-y-8 overflow-y-auto">
+            {/* Details Section - Equal width now */}
+            <div className="bg-white flex flex-col order-2 lg:order-none overflow-hidden">
+              <div className="flex-1 p-3 sm:p-4 space-y-3 overflow-y-auto">
                 {/* Job Information */}
-                <div className="space-y-4 sm:space-y-6">
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 border-b border-gray-100 pb-2 sm:pb-3">
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold text-gray-900 border-b border-gray-100 pb-1.5">
                     Job Information
                   </h3>
 
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-1.5">
                     {/* Location */}
-                    <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="flex-shrink-0 w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                        <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-7 h-7 bg-blue-50 rounded flex items-center justify-center">
+                        <MapPin className="w-3.5 h-3.5 text-blue-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wide">Location</p>
-                        <p className="text-sm sm:text-base font-semibold text-gray-900 break-words">{jobDetails.location}</p>
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Location</p>
+                        <p className="text-xs font-semibold text-gray-900 break-words leading-tight">{jobDetails.location}</p>
                       </div>
                     </div>
 
                     {/* Date */}
-                    <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="flex-shrink-0 w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
-                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-7 h-7 bg-purple-50 rounded flex items-center justify-center">
+                        <Calendar className="w-3.5 h-3.5 text-purple-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wide">Date Uploaded</p>
-                        <p className="text-sm sm:text-base font-semibold text-gray-900">{jobDetails.dateUploaded}</p>
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Date Uploaded</p>
+                        <p className="text-xs font-semibold text-gray-900">{jobDetails.dateUploaded}</p>
                       </div>
                     </div>
 
                     {/* Technician */}
                     {jobDetails.technicianName && (
-                      <div className="flex items-start gap-2 sm:gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
-                          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-green-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wide">Technician</p>
-                          <p className="text-sm sm:text-base font-semibold text-gray-900">{jobDetails.technicianName}</p>
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Technician</p>
+                          <p className="text-xs font-semibold text-gray-900">{jobDetails.technicianName}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Service Type */}
+                    {jobDetails.serviceType && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-indigo-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Service Type</p>
+                          <p className="text-xs font-semibold text-gray-900">{jobDetails.serviceType}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Service Date */}
+                    {jobDetails.serviceDate && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-orange-50 rounded flex items-center justify-center">
+                          <Calendar className="w-3.5 h-3.5 text-orange-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Service Date</p>
+                          <p className="text-xs font-semibold text-gray-900">{jobDetails.serviceDate}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Client Name */}
+                    {jobDetails.clientName && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-cyan-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Client Name</p>
+                          <p className="text-xs font-semibold text-gray-900">{jobDetails.clientName}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Client Phone */}
+                    {jobDetails.clientPhone && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-teal-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Client Phone</p>
+                          <p className="text-xs font-semibold text-gray-900">{jobDetails.clientPhone}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Client Email */}
+                    {jobDetails.clientEmail && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-lime-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-lime-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Client Email</p>
+                          <p className="text-xs font-semibold text-gray-900 break-words">{jobDetails.clientEmail}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Vehicle Information (for Automotive jobs) */}
+                    {jobDetails.jobType === 'Automotive' && (jobDetails.vehicleYear || jobDetails.vehicleMake || jobDetails.vehicleModel) && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-gray-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1-1V4a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6 0a1 1 0 001 1h2a1 1 0 001-1m-6 0h6" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Vehicle</p>
+                          <p className="text-xs font-semibold text-gray-900">
+                            {[jobDetails.vehicleYear, jobDetails.vehicleMake, jobDetails.vehicleModel, jobDetails.vehicleColor].filter(Boolean).join(' ')}
+                          </p>
+                          {jobDetails.vehicleVin && (
+                            <p className="text-xs text-gray-500 mt-0.5">VIN: {jobDetails.vehicleVin}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Customer Concern */}
+                    {jobDetails.customerConcern && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-red-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Customer Concern</p>
+                          <p className="text-xs font-semibold text-gray-900">{jobDetails.customerConcern}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Customer Reaction */}
+                    {jobDetails.customerReaction && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-emerald-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Customer Reaction</p>
+                          <p className="text-xs font-semibold text-gray-900">{jobDetails.customerReaction}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Special Challenges */}
+                    {jobDetails.specialChallenges && (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-7 h-7 bg-amber-50 rounded flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Special Challenges</p>
+                          <p className="text-xs font-semibold text-gray-900">{jobDetails.specialChallenges}</p>
                         </div>
                       </div>
                     )}
@@ -274,63 +432,107 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
                 </div>
 
                 {/* Service Description */}
-                <div className="space-y-3 sm:space-y-4">
-                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-900 border-b border-gray-200 pb-2">
                     Service Description
                   </h4>
-                  <div className="bg-gray-50 rounded-lg sm:rounded-xl p-3 sm:p-4 max-h-48 sm:max-h-64 lg:max-h-96 overflow-y-auto">
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-xs sm:text-sm">
-                      {jobDetails.serviceDescription}
-                    </p>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3 max-h-96 overflow-y-auto">
+                    {/* Generate comprehensive service description */}
+                    <div className="space-y-2 text-sm text-gray-700 leading-relaxed">
+                      <p>
+                        On {jobDetails.serviceDate || 'the service date'}, technician {jobDetails.technicianName || 'the technician'} was at {jobDetails.location} to help a customer.
+                        The service category was <strong>{jobDetails.jobType}</strong> and the service type was <strong>{jobDetails.serviceType || 'service'}</strong>.
+                      </p>
+
+                      {jobDetails.clientName && (
+                        <p>
+                          The customer's name was <strong>{jobDetails.clientName}</strong>
+                          {jobDetails.clientPhone && `, contact phone: ${jobDetails.clientPhone}`}
+                          {jobDetails.clientEmail && `, email: ${jobDetails.clientEmail}`}.
+                        </p>
+                      )}
+
+                      {(jobDetails.vehicleYear || jobDetails.vehicleMake || jobDetails.vehicleModel) && (
+                        <p>
+                          The vehicle serviced was a {jobDetails.vehicleYear && `${jobDetails.vehicleYear} `}
+                          {jobDetails.vehicleMake && `${jobDetails.vehicleMake} `}
+                          {jobDetails.vehicleModel && jobDetails.vehicleModel}
+                          {jobDetails.vehicleColor && `, color: ${jobDetails.vehicleColor}`}
+                          {jobDetails.vehicleVin && `, VIN: ${jobDetails.vehicleVin}`}.
+                        </p>
+                      )}
+
+                      {jobDetails.customerConcern && (
+                        <p>
+                          <strong>Customer's concern:</strong> {jobDetails.customerConcern}
+                        </p>
+                      )}
+
+                      <p className="whitespace-pre-wrap">
+                        {jobDetails.serviceDescription}
+                      </p>
+
+                      {jobDetails.specialChallenges && (
+                        <p>
+                          <strong>Special challenges encountered:</strong> {jobDetails.specialChallenges}
+                        </p>
+                      )}
+
+                      {jobDetails.customerReaction && (
+                        <p>
+                          <strong>Customer's reaction:</strong> {jobDetails.customerReaction}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* AI Report Summary */}
+                    {jobDetails.aiReport && (
+                      <div className="pt-3 border-t border-gray-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-5 h-5 bg-gradient-to-r from-purple-500 to-pink-500 rounded flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                            </svg>
+                          </div>
+                          <h5 className="text-sm font-semibold text-gray-900">AI Job Report Summary</h5>
+                          {jobDetails.aiReportGeneratedAt && (
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                              Generated {new Date(jobDetails.aiReportGeneratedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-3 border border-purple-200/50">
+                          <div className="prose prose-sm max-w-none">
+                            {jobDetails.aiReport.split('\n').map((paragraph, index) => (
+                              paragraph.trim() && (
+                                <p key={index} className="text-sm text-gray-700 leading-relaxed mb-2 last:mb-0">
+                                  {paragraph.trim()}
+                                </p>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Tags */}
                 {jobDetails.tags && jobDetails.tags.length > 0 && (
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                      <h4 className="text-base sm:text-lg font-semibold text-gray-900">Tags</h4>
+                      <Tag className="w-4 h-4 text-gray-400" />
+                      <h4 className="text-sm font-semibold text-gray-900">Tags</h4>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {jobDetails.tags.map((tag, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 ring-1 ring-blue-200/50"
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 ring-1 ring-blue-200/50"
                         >
                           {tag}
                         </span>
                       ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* AI Job Report */}
-                {jobDetails.aiReport && (
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-r from-purple-500 to-pink-500 rounded flex items-center justify-center flex-shrink-0">
-                        <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
-                        </svg>
-                      </div>
-                      <h4 className="text-base sm:text-lg font-semibold text-gray-900">AI Job Report</h4>
-                      {jobDetails.aiReportGeneratedAt && (
-                        <span className="text-[10px] sm:text-xs text-gray-500 bg-gray-100 px-2 py-0.5 sm:py-1 rounded-full">
-                          Generated {new Date(jobDetails.aiReportGeneratedAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-purple-200/50 max-h-48 sm:max-h-64 lg:max-h-96 overflow-y-auto">
-                      <div className="prose prose-sm max-w-none">
-                        {jobDetails.aiReport.split('\n').map((paragraph, index) => (
-                          paragraph.trim() && (
-                            <p key={index} className="text-gray-700 leading-relaxed mb-2 last:mb-0 text-xs sm:text-sm">
-                              {paragraph.trim()}
-                            </p>
-                          )
-                        ))}
-                      </div>
                     </div>
                   </div>
                 )}
