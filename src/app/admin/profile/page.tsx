@@ -273,7 +273,7 @@ export default function AdminProfilePage() {
                           fileInput?.click();
                         }}
                         disabled={uploadingAvatar}
-                        className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0"
+                        className="rounded-full shadow-lg bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 h-10 w-10 p-0"
                       >
                         {uploadingAvatar ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -307,16 +307,16 @@ export default function AdminProfilePage() {
                 <div className="flex gap-3">
                   {isEditing ? (
                     <>
-                      <Button variant="outline" onClick={handleCancel} disabled={saving}>
+                      <Button variant="outline" onClick={handleCancel} disabled={saving} className="bg-white hover:bg-gray-50 border-gray-300">
                         Cancel
                       </Button>
-                      <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+                      <Button onClick={handleSave} disabled={saving} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900">
                         <Save className="w-4 h-4 mr-2" />
                         {saving ? 'Saving...' : 'Save'}
                       </Button>
                     </>
                   ) : (
-                    <Button onClick={() => setIsEditing(true)} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => setIsEditing(true)} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900">
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Profile
                     </Button>

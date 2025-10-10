@@ -152,7 +152,12 @@ export default function FranchiseeProfilePage() {
       }
 
       if (franchiseeError || !franchisee) {
-        console.error('Franchisee error:', franchiseeError);
+        console.error('Franchisee error:', franchiseeError?.message || 'Unknown error');
+        toast({
+          title: "Error loading profile",
+          description: franchiseeError?.message || "Could not load franchisee profile. Please try again.",
+          variant: "destructive"
+        });
         setLoading(false);
         return;
       }
@@ -359,13 +364,9 @@ export default function FranchiseeProfilePage() {
       if (userProfile.id) {
         // Update franchisee data via franchisee API
         const franchiseeUpdateData = {
-          business_name: formData.business_name,
+          name: formData.business_name,
           territory: formData.territory,
           phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          state: formData.state,
-          zip_code: formData.zip_code,
           country: formData.country,
           image: formData.avatar_url
         };
@@ -482,7 +483,7 @@ export default function FranchiseeProfilePage() {
                           fileInput?.click();
                         }}
                         disabled={uploadingAvatar}
-                        className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
+                        className="rounded-full shadow-lg bg-white hover:bg-gray-50 border border-gray-300 text-gray-900"
                       >
                         {uploadingAvatar ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -522,7 +523,7 @@ export default function FranchiseeProfilePage() {
                 {/* Edit Button */}
                 <div>
                   {!isEditing ? (
-                    <Button onClick={() => setIsEditing(true)} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => setIsEditing(true)} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900">
                       <Edit className="h-4 w-4 mr-2" />
                       Edit Profile
                     </Button>
@@ -531,12 +532,13 @@ export default function FranchiseeProfilePage() {
                       <Button
                         onClick={handleCancel}
                         variant="outline"
+                        className="bg-white hover:bg-gray-50 border-gray-300"
                       >
                         Cancel
                       </Button>
                       <Button
                         onClick={handleSave}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900"
                         disabled={saving}
                       >
                         {saving ? (

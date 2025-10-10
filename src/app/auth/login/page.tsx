@@ -83,7 +83,7 @@ export default function LoginPage() {
       // Use defaults
       setLoginSettings({
         imageType: 'static',
-        staticImageUrl: '/PAL-Canada-social.png',
+        staticImageUrl: '/login-background.png',
         showLatestJobs: false,
         jobPhotoCount: 5,
         headerTitle: 'Welcome back to Pop-A-Lock',
@@ -149,12 +149,18 @@ export default function LoginPage() {
       // Get user profile to determine role and redirect accordingly
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, franchisee_id')
+        .select(`
+          role_id,
+          franchisee_id,
+          roles (
+            name
+          )
+        `)
         .eq('id', data.user.id)
         .single()
 
-      if (profile) {
-        switch (profile.role) {
+      if (profile && profile.roles) {
+        switch (profile.roles.name) {
           case 'admin':
             router.push('/admin')
             break

@@ -128,8 +128,7 @@ export async function POST(request: NextRequest) {
             email: email,
             email_confirm: true,
             user_metadata: {
-              full_name: name,
-              role: 'tech'
+              full_name: name
             }
           });
 
@@ -144,8 +143,7 @@ export async function POST(request: NextRequest) {
             await supabase.auth.admin.inviteUserByEmail(email, {
               redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
               data: {
-                full_name: name,
-                role: 'tech'
+                full_name: name
               }
             });
           }
@@ -156,8 +154,7 @@ export async function POST(request: NextRequest) {
             password: tempPassword,
             email_confirm: true,
             user_metadata: {
-              full_name: name,
-              role: 'tech'
+              full_name: name
             }
           });
 
@@ -206,13 +203,20 @@ export async function POST(request: NextRequest) {
 
     // Create profile if auth user was created
     if (userId) {
+      // Get the tech role_id from roles table
+      const { data: techRole } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', 'tech')
+        .single();
+
       await supabase
         .from('profiles')
         .insert({
           id: userId,
           email: email,
           full_name: name,
-          role: 'tech',
+          role_id: techRole?.id || 4, // Default to 4 if query fails
           franchisee_id: franchiseeId
         });
     }

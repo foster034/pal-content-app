@@ -294,7 +294,7 @@ export default function FranchiseeTechsPage() {
           rating: newTech.rating || 0,
           completedJobs: 0,
           image: newTech.image_url || `https://i.pravatar.cc/150?u=${newTech.email}`,
-          loginCode: generateLoginCode(),
+          loginCode: newTech.login_code || generateLoginCode(), // Use the login_code from the API response
           autoLoginEnabled: true,
           lastCodeGenerated: new Date().toISOString().split('T')[0]
         };

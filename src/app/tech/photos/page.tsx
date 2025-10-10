@@ -34,6 +34,8 @@ interface JobSubmissionDisplay {
   aiReport?: string;
   aiReportGeneratedAt?: string;
   status?: string;
+  // Store full job data for modal
+  fullJobData?: any;
 }
 
 const serviceCategories: { [key: string]: string[] } = {
@@ -146,7 +148,8 @@ export default function TechPhotosPage() {
               photoCount: allPhotos.length,
               aiReport: job.aiReport,
               aiReportGeneratedAt: job.aiReportGeneratedAt,
-              status: job.status
+              status: job.status,
+              fullJobData: job // Store the full job data for the modal
             });
           }
         });
@@ -310,6 +313,8 @@ export default function TechPhotosPage() {
       'pending': 'Pending Review'
     };
 
+    const fullJob = job.fullJobData;
+
     return {
       jobType: job.jobType,
       location: job.jobLocation,
@@ -320,7 +325,26 @@ export default function TechPhotosPage() {
       technicianName: job.technicianName || 'Unknown Tech',
       allImages: job.photos,
       aiReport: job.aiReport,
-      aiReportGeneratedAt: job.aiReportGeneratedAt
+      aiReportGeneratedAt: job.aiReportGeneratedAt,
+      // Additional service fields
+      serviceType: fullJob?.service?.type,
+      serviceDate: fullJob?.service?.date,
+      serviceDuration: fullJob?.service?.duration,
+      satisfactionRating: fullJob?.service?.satisfaction,
+      // Client fields
+      clientName: fullJob?.client?.name,
+      clientPhone: fullJob?.client?.phone,
+      clientEmail: fullJob?.client?.email,
+      // Vehicle fields (for Automotive)
+      vehicleYear: fullJob?.vehicle?.year,
+      vehicleMake: fullJob?.vehicle?.make,
+      vehicleModel: fullJob?.vehicle?.model,
+      vehicleColor: fullJob?.vehicle?.color,
+      vehicleVin: fullJob?.vehicle?.vin,
+      // Content fields
+      customerConcern: fullJob?.contentFields?.customerConcern,
+      customerReaction: fullJob?.contentFields?.customerReaction,
+      specialChallenges: fullJob?.contentFields?.specialChallenges
     };
   };
 
@@ -492,7 +516,7 @@ export default function TechPhotosPage() {
           <p className="text-sm sm:text-base text-muted-foreground">Manage your job photos for marketing approval</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700 min-h-[44px] touch-manipulation w-full sm:w-auto">
+          <Button onClick={handleSubmitJob} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 min-h-[44px] touch-manipulation w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             Submit Job
           </Button>
@@ -555,7 +579,7 @@ export default function TechPhotosPage() {
                       Submit jobs from the dashboard to see your job submissions here for marketing approval.
                     </p>
                   </div>
-                  <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700 min-h-[44px]">
+                  <Button onClick={handleSubmitJob} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 min-h-[44px]">
                     <Plus className="w-4 h-4 mr-2" />
                     Submit Your First Job
                   </Button>
@@ -710,7 +734,7 @@ export default function TechPhotosPage() {
                             Submit jobs from the dashboard to see your job submissions here for marketing approval.
                           </p>
                         </div>
-                        <Button onClick={handleSubmitJob} className="bg-blue-600 hover:bg-blue-700">
+                        <Button onClick={handleSubmitJob} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900">
                           <Plus className="w-4 h-4 mr-2" />
                           Submit Your First Job
                         </Button>
@@ -1122,10 +1146,10 @@ export default function TechPhotosPage() {
               <Button type="button" variant="outline" onClick={() => setShowSubmitForm(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" disabled={submitting} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900">
                 {submitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
                     Submitting...
                   </>
                 ) : (

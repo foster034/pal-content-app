@@ -433,7 +433,7 @@ export default function TechProfilePage() {
                           fileInput?.click();
                         }}
                         disabled={uploadingAvatar}
-                        className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 min-h-[44px] min-w-[44px]"
+                        className="rounded-full shadow-lg bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 min-h-[44px] min-w-[44px]"
                       >
                         {uploadingAvatar ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -466,7 +466,7 @@ export default function TechProfilePage() {
                 {/* Edit Button */}
                 <div className="w-full sm:w-auto">
                   {!isEditing ? (
-                    <Button onClick={() => setIsEditing(true)} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px]">
+                    <Button onClick={() => setIsEditing(true)} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 w-full sm:w-auto min-h-[44px]">
                       <Edit className="h-4 w-4 mr-2" />
                       Edit Profile
                     </Button>
@@ -481,7 +481,7 @@ export default function TechProfilePage() {
                       </Button>
                       <Button
                         onClick={handleSave}
-                        className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px]"
+                        className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 w-full sm:w-auto min-h-[44px]"
                         disabled={saving}
                       >
                         {saving ? (
@@ -560,31 +560,6 @@ export default function TechProfilePage() {
                           />
                         </div>
                       )}
-
-                      <div className="flex justify-center">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            const fileInput = document.getElementById('avatar-upload-input') as HTMLInputElement;
-                            fileInput?.click();
-                          }}
-                          disabled={uploadingAvatar}
-                          className="min-h-[44px]"
-                        >
-                          {uploadingAvatar ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Uploading...
-                            </>
-                          ) : (
-                            <>
-                              <Camera className="h-4 w-4 mr-2" />
-                              Choose Photo
-                            </>
-                          )}
-                        </Button>
-                      </div>
                     </div>
 
                     <input

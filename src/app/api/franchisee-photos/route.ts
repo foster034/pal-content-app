@@ -420,6 +420,61 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Check if this is a job submission photo (synthetic ID format: jobId-type-index)
+    if (photoId.includes('-')) {
+      const parts = photoId.split('-');
+      // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (5 parts) + photoType + index
+      const jobId = parts.slice(0, 5).join('-'); // Reconstruct the UUID
+      const photoType = parts[5]; // 6th part is photo type
+      const photoIndex = parseInt(parts[6]); // 7th part is index
+
+      // Get the job submission
+      const { data: jobSubmission, error: jobError } = await supabase
+        .from('job_submissions')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+
+      if (jobError || !jobSubmission) {
+        return NextResponse.json(
+          { error: 'Job submission not found' },
+          { status: 404 }
+        );
+      }
+
+      // Remove the specific photo from the array
+      const photoArrays = {
+        'before': [...(jobSubmission.before_photos || [])],
+        'after': [...(jobSubmission.after_photos || [])],
+        'process': [...(jobSubmission.process_photos || [])]
+      };
+
+      if (photoArrays[photoType as keyof typeof photoArrays]) {
+        photoArrays[photoType as keyof typeof photoArrays].splice(photoIndex, 1);
+
+        // Update the job submission
+        const { error: updateError } = await supabase
+          .from('job_submissions')
+          .update({
+            [`${photoType}_photos`]: photoArrays[photoType as keyof typeof photoArrays]
+          })
+          .eq('id', jobId);
+
+        if (updateError) {
+          console.error('Error deleting photo from job submission:', updateError);
+          return NextResponse.json(
+            { error: 'Failed to delete photo' },
+            { status: 500 }
+          );
+        }
+
+        console.log(`✅ Deleted ${photoType} photo at index ${photoIndex} from job submission ${jobId}`);
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Handle regular franchisee_photos table deletions
     // Get photo info before deletion for notification
     const { data: photoData } = await supabase
       .from('franchisee_photos')

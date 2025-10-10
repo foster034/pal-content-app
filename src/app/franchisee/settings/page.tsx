@@ -368,7 +368,7 @@ export default function FranchiseeSettingsPage() {
                     <button
                       type="button"
                       onClick={savePhotoSettings}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="px-6 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 rounded-lg transition-colors"
                     >
                       💾 Save Settings
                     </button>
@@ -566,7 +566,7 @@ export default function FranchiseeSettingsPage() {
                     <button
                       type="button"
                       onClick={saveClientOutreachSettings}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="px-6 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 rounded-lg transition-colors"
                     >
                       💾 Save Settings
                     </button>

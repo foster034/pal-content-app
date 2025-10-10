@@ -14,7 +14,7 @@ import {
   Settings, Volume2, Play, Pause, Download, RefreshCw, Save, TestTube, Image, Upload, Monitor,
   Sparkles, Camera, Mail, Bell, Shield, Database, Globe, Lock, Key, Smartphone, MessageSquare,
   AlertTriangle, CheckCircle, Info, Zap, Cloud, Wifi, HelpCircle, ChevronRight, ExternalLink,
-  Activity, Server, RotateCcw
+  Activity, Server, RotateCcw, CheckCircle2, Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ElevenLabsVoice, ELEVEN_LABS_MODELS } from '@/lib/eleven-labs';
@@ -79,11 +79,25 @@ export default function AdminSettingsPage() {
     managerEmail: 'admin@popalock.com',
   });
 
+  // Twilio SMS Settings
+  const [twilioSettings, setTwilioSettings] = useState({
+    accountSid: '',
+    authToken: '',
+    phoneNumber: '',
+    enabled: false,
+    testMode: true,
+  });
+
+  const [twilioConnectionStatus, setTwilioConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+  const [testingSMS, setTestingSMS] = useState(false);
+  const [testPhoneNumber, setTestPhoneNumber] = useState('');
+
   useEffect(() => {
     fetchVoices();
     loadGMBSettings();
     loadColorSettings();
     loadLoginImage();
+    loadTwilioSettings();
   }, []);
 
   const loadGMBSettings = async () => {
@@ -97,6 +111,107 @@ export default function AdminSettingsPage() {
       }
     } catch (error) {
       console.error('Error loading GMB settings:', error);
+    }
+  };
+
+  const loadTwilioSettings = async () => {
+    try {
+      setTwilioConnectionStatus('checking');
+      const response = await fetch('/api/twilio/config');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.config) {
+          setTwilioSettings({
+            accountSid: data.config.accountSid || '',
+            // Show placeholder if auth token exists, otherwise empty
+            authToken: data.config.hasAuthToken ? '••••••••••••••••••••' : '',
+            phoneNumber: data.config.phoneNumber || '',
+            enabled: data.config.enabled || false,
+            testMode: data.config.testMode === true,
+          });
+
+          // Check if Twilio is connected (has credentials)
+          if (data.config.accountSid && data.config.phoneNumber) {
+            setTwilioConnectionStatus('connected');
+          } else {
+            setTwilioConnectionStatus('disconnected');
+          }
+        } else {
+          setTwilioConnectionStatus('disconnected');
+        }
+      } else {
+        setTwilioConnectionStatus('disconnected');
+      }
+    } catch (error) {
+      console.error('Error loading Twilio settings:', error);
+      setTwilioConnectionStatus('disconnected');
+    }
+  };
+
+  const saveTwilioSettings = async () => {
+    try {
+      // Don't send the placeholder dots as the auth token
+      const settingsToSave = {
+        ...twilioSettings,
+        authToken: twilioSettings.authToken === '••••••••••••••••••••' ? '' : twilioSettings.authToken
+      };
+
+      const response = await fetch('/api/twilio/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settingsToSave)
+      });
+
+      if (response.ok) {
+        toast.success('Twilio SMS settings saved successfully!');
+        // Reload to update connection status
+        await loadTwilioSettings();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to save Twilio settings');
+      }
+    } catch (error) {
+      console.error('Error saving Twilio settings:', error);
+      toast.error('Failed to save Twilio settings');
+    }
+  };
+
+  const testSMS = async () => {
+    if (!testPhoneNumber) {
+      toast.error('Please enter a phone number to test');
+      return;
+    }
+
+    setTestingSMS(true);
+    try {
+      const response = await fetch('/api/twilio/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: testPhoneNumber,
+          message: 'This is a test message from PAL Content App. Your Twilio SMS is working correctly!',
+          userType: 'admin',
+          userId: 'test',
+          userName: 'Admin Test'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.testMode) {
+          toast.success('Test SMS logged successfully! (Test mode is enabled, no actual SMS sent)');
+        } else {
+          toast.success(`Test SMS sent successfully to ${testPhoneNumber}!`);
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to send test SMS');
+      }
+    } catch (error) {
+      console.error('Error sending test SMS:', error);
+      toast.error('Failed to send test SMS');
+    } finally {
+      setTestingSMS(false);
     }
   };
 
@@ -297,6 +412,7 @@ export default function AdminSettingsPage() {
     { id: 'appearance', label: 'Appearance', icon: Sparkles },
     { id: 'text-to-speech', label: 'Text-to-Speech', icon: Volume2 },
     { id: 'login-screen', label: 'Login Screen', icon: Monitor },
+    { id: 'sms', label: 'SMS', icon: MessageSquare },
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'general', label: 'General', icon: Settings },
@@ -330,7 +446,7 @@ export default function AdminSettingsPage() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              <Button onClick={saveSettings} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={saveSettings} className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900">
                 <Save className="w-4 h-4 mr-2" />
                 Save Settings
               </Button>
@@ -723,7 +839,7 @@ export default function AdminSettingsPage() {
                       <Button
                         onClick={testVoice}
                         disabled={testing || !ttsConfig.defaultVoiceId}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-900"
                       >
                         {testing ? (
                           <>
@@ -891,6 +1007,191 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* SMS Settings */}
+            {activeTab === 'sms' && (
+              <Card className="shadow-lg border-0">
+                <CardHeader className="border-b">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <CardTitle>Twilio SMS Configuration</CardTitle>
+                        <CardDescription>Configure SMS messaging for technician notifications</CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {twilioConnectionStatus === 'connected' && (
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Connected
+                        </Badge>
+                      )}
+                      {twilioConnectionStatus === 'disconnected' && (
+                        <Badge variant="destructive">
+                          <AlertTriangle className="w-3 h-3 mr-1" />
+                          Not Connected
+                        </Badge>
+                      )}
+                      {twilioConnectionStatus === 'checking' && (
+                        <Badge variant="secondary">
+                          <Activity className="w-3 h-3 mr-1 animate-pulse" />
+                          Checking...
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="sms-enabled">Enable SMS Notifications</Label>
+                      <p className="text-sm text-gray-500">Allow sending SMS messages to technicians</p>
+                    </div>
+                    <Switch
+                      id="sms-enabled"
+                      checked={twilioSettings.enabled}
+                      onCheckedChange={(checked) =>
+                        setTwilioSettings(prev => ({ ...prev, enabled: checked }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="sms-test-mode">Test Mode</Label>
+                      <p className="text-sm text-gray-500">Log messages instead of actually sending them</p>
+                    </div>
+                    <Switch
+                      id="sms-test-mode"
+                      checked={twilioSettings.testMode}
+                      onCheckedChange={(checked) =>
+                        setTwilioSettings(prev => ({ ...prev, testMode: checked }))
+                      }
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="twilio-account-sid">Twilio Account SID</Label>
+                      <Input
+                        id="twilio-account-sid"
+                        type="text"
+                        value={twilioSettings.accountSid}
+                        onChange={(e) =>
+                          setTwilioSettings(prev => ({ ...prev, accountSid: e.target.value }))
+                        }
+                        placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        className="mt-2 font-mono"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Found in your Twilio Console dashboard
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="twilio-auth-token">Twilio Auth Token</Label>
+                      <Input
+                        id="twilio-auth-token"
+                        type="password"
+                        value={twilioSettings.authToken}
+                        onChange={(e) =>
+                          setTwilioSettings(prev => ({ ...prev, authToken: e.target.value }))
+                        }
+                        placeholder={twilioSettings.authToken === '••••••••••••••••••••' ? 'Token is set (leave blank to keep current)' : 'Your Twilio Auth Token'}
+                        className="mt-2 font-mono"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {twilioSettings.authToken === '••••••••••••••••••••'
+                          ? 'Auth token is already set. Enter a new one only if you want to update it.'
+                          : 'Keep this secret! Found in your Twilio Console dashboard'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="twilio-phone-number">Twilio Phone Number</Label>
+                      <Input
+                        id="twilio-phone-number"
+                        type="tel"
+                        value={twilioSettings.phoneNumber}
+                        onChange={(e) =>
+                          setTwilioSettings(prev => ({ ...prev, phoneNumber: e.target.value }))
+                        }
+                        placeholder="+1234567890"
+                        className="mt-2 font-mono"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Your Twilio phone number in E.164 format (e.g., +1234567890)
+                      </p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                    <div>
+                      <Label htmlFor="test-phone-number" className="text-base font-semibold">Test SMS Connection</Label>
+                      <p className="text-sm text-gray-500 mt-1 mb-3">Send a test SMS to verify your Twilio configuration</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        id="test-phone-number"
+                        type="tel"
+                        value={testPhoneNumber}
+                        onChange={(e) => setTestPhoneNumber(e.target.value)}
+                        placeholder="+1234567890"
+                        className="font-mono"
+                      />
+                      <Button
+                        onClick={testSMS}
+                        disabled={testingSMS || !testPhoneNumber}
+                        className="bg-blue-600 hover:bg-blue-700 text-white min-w-32"
+                      >
+                        {testingSMS ? (
+                          <>
+                            <Activity className="w-4 h-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            Test SMS
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <Button
+                    onClick={saveTwilioSettings}
+                    className="w-full bg-white hover:bg-gray-50 border border-gray-300 text-gray-900"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Save SMS Settings
+                  </Button>
+
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+                    <div className="flex gap-3">
+                      <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                          Important: Tech Invitation Flow
+                        </p>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                          When SMS is enabled, newly created technicians will receive their login code via SMS instead of email magic link. Make sure to collect phone numbers when creating technicians.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}

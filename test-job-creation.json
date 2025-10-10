@@ -1,0 +1,29 @@
+{
+  "technicianId": "718b58a8-9cef-4cca-9d0a-7838a0374925",
+  "franchiseeId": "92aae71c-1ce8-448b-a3b3-675e248effa1",
+  "client": {
+    "name": "Test Client",
+    "phone": "555-1234",
+    "email": "",
+    "preferredContactMethod": "phone",
+    "consentToContact": false,
+    "consentToShare": false
+  },
+  "service": {
+    "category": "Automotive",
+    "type": "Car Lockout",
+    "location": "123 Test St, Toronto, ON",
+    "date": "2025-10-09",
+    "duration": 30,
+    "satisfaction": 5,
+    "description": "Test job - verifying franchisee ID fix works"
+  },
+  "vehicle": {
+    "year": "2023",
+    "make": "Ford",
+    "model": "F-150"
+  },
+  "customerConcern": "",
+  "customerReaction": "",
+  "specialChallenges": ""
+}

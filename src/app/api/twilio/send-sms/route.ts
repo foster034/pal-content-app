@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 interface SMSRequest {
   to: string;
@@ -9,14 +15,42 @@ interface SMSRequest {
   userName?: string;
 }
 
-// Mock configuration - in real app, load from database
-const getTwilioConfig = () => ({
-  accountSid: process.env.TWILIO_ACCOUNT_SID || '',
-  authToken: process.env.TWILIO_AUTH_TOKEN || '',
-  phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
-  enabled: process.env.TWILIO_ENABLED === 'true',
-  testMode: process.env.TWILIO_TEST_MODE === 'true',
-});
+async function getTwilioConfig() {
+  const { data: settings } = await supabase
+    .from('admin_settings')
+    .select('setting_key, setting_value')
+    .in('setting_key', ['twilio_account_sid', 'twilio_auth_token', 'twilio_phone_number', 'twilio_enabled', 'twilio_test_mode']);
+
+  const config = {
+    accountSid: '',
+    authToken: '',
+    phoneNumber: '',
+    enabled: false,
+    testMode: false,
+  };
+
+  settings?.forEach(setting => {
+    switch (setting.setting_key) {
+      case 'twilio_account_sid':
+        config.accountSid = (setting.setting_value || '').trim();
+        break;
+      case 'twilio_auth_token':
+        config.authToken = (setting.setting_value || '').trim();
+        break;
+      case 'twilio_phone_number':
+        config.phoneNumber = (setting.setting_value || '').trim();
+        break;
+      case 'twilio_enabled':
+        config.enabled = setting.setting_value === 'true';
+        break;
+      case 'twilio_test_mode':
+        config.testMode = setting.setting_value === 'true';
+        break;
+    }
+  });
+
+  return config;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +63,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const config = getTwilioConfig();
+    const config = await getTwilioConfig();
 
     if (!config.enabled) {
       console.log(`📱 SMS DISABLED - Would send to ${to}: ${message}`);
@@ -64,6 +98,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Send actual SMS
+    console.log('🔍 TWILIO DEBUG INFO:');
+    console.log(`  Account SID length: ${config.accountSid.length}`);
+    console.log(`  Account SID starts with AC: ${config.accountSid.startsWith('AC')}`);
+    console.log(`  Auth Token length: ${config.authToken.length}`);
+    console.log(`  Phone Number: ${config.phoneNumber}`);
+    console.log(`  Has whitespace in SID: ${config.accountSid !== config.accountSid.trim()}`);
+    console.log(`  Has whitespace in Token: ${config.authToken !== config.authToken.trim()}`);
+
     const client = twilio(config.accountSid, config.authToken);
 
     const messageResult = await client.messages.create({

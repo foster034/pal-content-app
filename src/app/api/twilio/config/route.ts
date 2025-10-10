@@ -1,54 +1,106 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// In a real application, you'd want to store these in a database
-// For now, we'll just store them in memory (will be lost on restart)
-let twilioConfig = {
-  accountSid: '',
-  authToken: '',
-  phoneNumber: '',
-  enabled: false,
-  testMode: true,
-};
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+async function getTwilioConfig() {
+  const { data: settings } = await supabase
+    .from('admin_settings')
+    .select('setting_key, setting_value')
+    .in('setting_key', ['twilio_account_sid', 'twilio_auth_token', 'twilio_phone_number', 'twilio_enabled', 'twilio_test_mode']);
+
+  const config = {
+    accountSid: '',
+    authToken: '',
+    phoneNumber: '',
+    enabled: false,
+    testMode: false,
+  };
+
+  settings?.forEach(setting => {
+    switch (setting.setting_key) {
+      case 'twilio_account_sid':
+        config.accountSid = (setting.setting_value || '').trim();
+        break;
+      case 'twilio_auth_token':
+        config.authToken = (setting.setting_value || '').trim();
+        break;
+      case 'twilio_phone_number':
+        config.phoneNumber = (setting.setting_value || '').trim();
+        break;
+      case 'twilio_enabled':
+        config.enabled = setting.setting_value === 'true';
+        break;
+      case 'twilio_test_mode':
+        config.testMode = setting.setting_value === 'true';
+        break;
+    }
+  });
+
+  return config;
+}
+
+async function saveTwilioSetting(key: string, value: string) {
+  await supabase
+    .from('admin_settings')
+    .upsert({
+      setting_key: key,
+      setting_value: value.trim(), // Trim whitespace to prevent auth issues
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'setting_key'
+    });
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     // Validate required fields
     const { accountSid, authToken, phoneNumber, enabled, testMode } = body;
-    
-    if (enabled && (!accountSid || !authToken || !phoneNumber)) {
+
+    // Get existing config to check if authToken exists
+    const existingConfig = await getTwilioConfig();
+    const hasExistingAuthToken = !!existingConfig.authToken;
+
+    // If SMS is enabled, require accountSid and phoneNumber
+    // For authToken, only require if it's not already set in DB and not provided in request
+    if (enabled && (!accountSid || !phoneNumber || (!authToken && !hasExistingAuthToken))) {
       return NextResponse.json(
         { error: 'Account SID, Auth Token, and Phone Number are required when SMS is enabled' },
         { status: 400 }
       );
     }
 
-    // Store the configuration (in a real app, save to database)
-    twilioConfig = {
-      accountSid: accountSid || '',
-      authToken: authToken || '',
-      phoneNumber: phoneNumber || '',
-      enabled: !!enabled,
-      testMode: !!testMode,
-    };
+    // Save to database (trim is also applied in saveTwilioSetting, but doing it here too for clarity)
+    await saveTwilioSetting('twilio_account_sid', (accountSid || '').trim());
+    // Only update authToken if a new one is provided
+    if (authToken) {
+      await saveTwilioSetting('twilio_auth_token', authToken.trim());
+    }
+    await saveTwilioSetting('twilio_phone_number', (phoneNumber || '').trim());
+    await saveTwilioSetting('twilio_enabled', enabled ? 'true' : 'false');
+    await saveTwilioSetting('twilio_test_mode', testMode ? 'true' : 'false');
 
     console.log(`🔧 TWILIO CONFIG UPDATED`);
-    console.log(`Enabled: ${twilioConfig.enabled}`);
-    console.log(`Test Mode: ${twilioConfig.testMode}`);
-    console.log(`Phone Number: ${twilioConfig.phoneNumber}`);
-    console.log(`Account SID: ${twilioConfig.accountSid ? twilioConfig.accountSid.substring(0, 10) + '...' : 'Not set'}`);
+    console.log(`Enabled: ${enabled} (type: ${typeof enabled})`);
+    console.log(`Test Mode: ${testMode} (type: ${typeof testMode})`);
+    console.log(`Saving Test Mode as: '${testMode ? 'true' : 'false'}'`);
+    console.log(`Phone Number: ${phoneNumber}`);
+    console.log(`Account SID: ${accountSid ? accountSid.substring(0, 10) + '...' : 'Not set'}`);
 
     return NextResponse.json({
       success: true,
       message: 'Twilio configuration saved successfully',
       config: {
-        enabled: twilioConfig.enabled,
-        testMode: twilioConfig.testMode,
-        phoneNumber: twilioConfig.phoneNumber,
-        // Don't return sensitive data
-        hasAccountSid: !!twilioConfig.accountSid,
-        hasAuthToken: !!twilioConfig.authToken,
+        enabled: !!enabled,
+        testMode: !!testMode,
+        phoneNumber: phoneNumber || '',
+        hasAccountSid: !!accountSid,
+        hasAuthToken: !!authToken,
       }
     });
 
@@ -62,16 +114,29 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({
-    success: true,
-    config: {
-      enabled: twilioConfig.enabled,
-      testMode: twilioConfig.testMode,
-      phoneNumber: twilioConfig.phoneNumber,
-      accountSid: twilioConfig.accountSid ? twilioConfig.accountSid.substring(0, 10) + '...' : '',
-      // Don't return sensitive auth token
-      hasAccountSid: !!twilioConfig.accountSid,
-      hasAuthToken: !!twilioConfig.authToken,
-    }
-  });
+  try {
+    const config = await getTwilioConfig();
+
+    console.log(`📖 LOADING TWILIO CONFIG:`);
+    console.log(`  Enabled: ${config.enabled}`);
+    console.log(`  Test Mode: ${config.testMode}`);
+
+    return NextResponse.json({
+      success: true,
+      config: {
+        enabled: config.enabled,
+        testMode: config.testMode,
+        phoneNumber: config.phoneNumber,
+        accountSid: config.accountSid ? config.accountSid.substring(0, 10) + '...' : '',
+        hasAccountSid: !!config.accountSid,
+        hasAuthToken: !!config.authToken,
+      }
+    });
+  } catch (error) {
+    console.error('Error loading Twilio config:', error);
+    return NextResponse.json(
+      { error: 'Failed to load Twilio configuration' },
+      { status: 500 }
+    );
+  }
 }

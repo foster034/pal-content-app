@@ -42,7 +42,12 @@ export async function GET(
     // Get user profile to check role
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, franchisee_id')
+      .select(`
+        franchisee_id,
+        roles (
+          name
+        )
+      `)
       .eq('id', session.user.id)
       .single();
 
@@ -50,9 +55,11 @@ export async function GET(
       return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
     }
 
+    const roleName = profile.roles?.name;
+
     // Allow access if user is admin, or if they're accessing their own franchisee data
-    const hasAccess = profile.role === 'admin' ||
-                     (profile.role === 'franchisee' && profile.franchisee_id === id);
+    const hasAccess = roleName === 'admin' ||
+                     (roleName === 'franchisee' && profile.franchisee_id === id);
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
@@ -120,7 +127,12 @@ export async function PUT(
     // Get user profile to check role
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, franchisee_id')
+      .select(`
+        franchisee_id,
+        roles (
+          name
+        )
+      `)
       .eq('id', session.user.id)
       .single();
 
@@ -128,9 +140,11 @@ export async function PUT(
       return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
     }
 
+    const roleName = profile.roles?.name;
+
     // Allow access if user is admin, or if they're updating their own franchisee data
-    const hasAccess = profile.role === 'admin' ||
-                     (profile.role === 'franchisee' && profile.franchisee_id === id);
+    const hasAccess = roleName === 'admin' ||
+                     (roleName === 'franchisee' && profile.franchisee_id === id);
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });

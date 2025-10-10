@@ -173,11 +173,10 @@ export default function FranchiseesPage() {
     country: 'United States',
     status: 'Active' as 'Active' | 'Inactive' | 'Pending',
     image: '',
-    owners: [] as Owner[],
+    parentFranchiseeId: null as string | null,
     createAuth: true,
     authMethod: 'magic_link' as 'magic_link' | 'temp_password',
     tempPassword: '',
-    ownerName: '',
   });
 
   const [currentOwner, setCurrentOwner] = useState({
@@ -275,10 +274,7 @@ export default function FranchiseesPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...formData,
-            owners: formData.owners.map((owner, index) => ({
-              ...owner,
-              id: Date.now() + index
-            }))
+            ownerName: formData.name  // Use the main name field for auth account
           })
         });
 
@@ -330,8 +326,7 @@ export default function FranchiseesPage() {
       }
 
       // Reset form
-      setFormData({ name: '', username: '', email: '', phone: '', territory: '', country: 'United States', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', owners: [], createAuth: true, authMethod: 'magic_link' as 'magic_link' | 'temp_password', tempPassword: '', ownerName: '' });
-      setCurrentOwner({ name: '', email: '', phone: '', image: '', isPrimary: false });
+      setFormData({ name: '', username: '', email: '', phone: '', territory: '', country: 'United States', status: 'Active' as 'Active' | 'Inactive' | 'Pending', image: '', parentFranchiseeId: null, createAuth: true, authMethod: 'magic_link' as 'magic_link' | 'temp_password', tempPassword: '' });
       setShowCreateForm(false);
     } catch (error) {
       console.error('Error saving franchisee:', error);
@@ -635,7 +630,7 @@ export default function FranchiseesPage() {
               <ImageUploader
                 label="Main Franchise Image"
                 currentImage={formData.image}
-                onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image: imageUrl }))}
+                onImageSelected={(imageUrl) => setFormData(prev => ({ ...prev, image: imageUrl }))}
               />
 
               {/* Auth User Creation Section */}
@@ -657,17 +652,10 @@ export default function FranchiseesPage() {
 
                 {formData.createAuth && (
                   <div className="space-y-4 pl-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Owner Full Name (for auth account)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.ownerName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, ownerName: e.target.value }))}
-                        placeholder="Enter franchisee owner's full name"
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                      />
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        ℹ️ The franchisee's name and email above will be used for the auth account.
+                      </p>
                     </div>
 
                     <div>
@@ -727,135 +715,39 @@ export default function FranchiseesPage() {
                 )}
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Franchise Owners</h3>
-                
-                <div className="border rounded-lg p-4 space-y-4">
-                  <h4 className="font-medium">Add New Owner</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Owner Name</label>
-                      <input
-                        type="text"
-                        value={currentOwner.name}
-                        onChange={(e) => setCurrentOwner(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Owner Email</label>
-                      <input
-                        type="email"
-                        value={currentOwner.email}
-                        onChange={(e) => setCurrentOwner(prev => ({ ...prev, email: e.target.value }))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Owner Phone</label>
-                      <input
-                        type="tel"
-                        value={currentOwner.phone}
-                        onChange={(e) => setCurrentOwner(prev => ({ ...prev, phone: e.target.value }))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <ImageUploader
-                        label="Owner Image"
-                        currentImage={currentOwner.image}
-                        onImageUploaded={(imageUrl) => setCurrentOwner(prev => ({ ...prev, image: imageUrl }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={currentOwner.isPrimary}
-                        onChange={(e) => setCurrentOwner(prev => ({ ...prev, isPrimary: e.target.checked }))}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Set as Primary Contact
-                      </span>
+              {/* Link to Parent Franchisee */}
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-lg font-semibold">Multi-Location Owner (Optional)</h3>
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    If this franchisee belongs to a multi-location owner, link them to the parent franchisee account.
+                    Each franchisee will have their own login but can be grouped together for reporting.
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Link to Parent Franchisee (Optional)
                     </label>
-                    <Button
-                      type="button"
-                      onClick={addOwner}
-                      className="bg-green-600 hover:bg-green-700"
-                      disabled={!currentOwner.name || !currentOwner.email}
+                    <select
+                      value={formData.parentFranchiseeId || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, parentFranchiseeId: e.target.value || null }))}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                     >
-                      Add Owner
-                    </Button>
+                      <option value="">No parent (standalone franchisee)</option>
+                      {franchisees.filter(f => !editingFranchisee || f.id !== editingFranchisee.id).map(franchisee => (
+                        <option key={franchisee.id} value={franchisee.id}>
+                          {franchisee.name} - {franchisee.territory}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-
-                {formData.owners.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Current Owners ({formData.owners.length})</h4>
-                    {formData.owners.map((owner) => (
-                      <div key={owner.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          {owner.image ? (
-                            <img
-                              src={owner.image}
-                              alt={owner.name}
-                              className="w-10 h-10 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm font-medium">
-                              {owner.name?.charAt(0)?.toUpperCase()}
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <div className="font-medium">{owner.name}</div>
-                              {owner.isPrimary && (
-                                <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">
-                                  Primary
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">{owner.email}</div>
-                            {owner.phone && (
-                              <div className="text-xs text-gray-500">{owner.phone}</div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          {!owner.isPrimary && (
-                            <Button
-                              type="button"
-                              onClick={() => setPrimaryOwner(owner.id)}
-                              variant="ghost"
-                              size="sm"
-                              className="text-blue-600 hover:text-blue-700"
-                            >
-                              Set Primary
-                            </Button>
-                          )}
-                          <Button
-                            type="button"
-                            onClick={() => removeOwner(owner.id)}
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
 
               <div className="flex space-x-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 bg-white hover:bg-gray-50 border border-gray-300 text-gray-900 py-2 rounded-lg transition-colors"
                 >
                   {editingFranchisee ? 'Update' : 'Create'}
                 </button>
@@ -899,8 +791,8 @@ export default function FranchiseesPage() {
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white bg-white min-w-[200px]"
               >
                 <option value="">All Companies</option>
-                {companyNames.map((companyName) => (
-                  <option key={companyName} value={companyName}>
+                {companyNames.map((companyName, index) => (
+                  <option key={`${companyName}-${index}`} value={companyName}>
                     {companyName}
                   </option>
                 ))}
