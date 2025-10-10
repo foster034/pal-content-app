@@ -42,7 +42,8 @@ export async function middleware(request: NextRequest) {
     '/api/tech-photos', '/api/testimonials', '/api/franchisees', '/api/technicians', '/api/franchisee-photos',
     '/api/google-my-business', '/api/generated-content', '/api/marketing-content', '/api/ai-marketing',
     '/api/job-reports', '/api/tts', '/api/twilio', '/api/profile', '/api/tech-profile', '/api/update-job-ai-report',
-    '/api/generate-job-report', '/api/debug-technicians', '/api/migrate-ai-columns', '/api/upload-avatar', '/api/upload-job-photos'
+    '/api/generate-job-report', '/api/debug-technicians', '/api/migrate-ai-columns', '/api/upload-avatar', '/api/upload-job-photos',
+    '/api/check-user', '/api/reset-user-password'
   ]
   const isPublicRoute = publicRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
@@ -77,7 +78,7 @@ export async function middleware(request: NextRequest) {
       .single()
 
     // If user has tech role in profiles, allow access
-    if (profile && profile.role === 'tech') {
+    if (profile && profile.role === 'technician') {
       return response
     }
 
@@ -112,22 +113,23 @@ export async function middleware(request: NextRequest) {
   }
 
   const pathname = request.nextUrl.pathname
+  const roleName = profile.role || ''
 
   // Role-based route protection
-  if (pathname.startsWith('/admin') && profile.role !== 'admin') {
+  if (pathname.startsWith('/admin') && roleName !== 'admin') {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  if (pathname.startsWith('/franchisee') && !['admin', 'franchisee'].includes(profile.role)) {
+  if (pathname.startsWith('/franchisee') && !['admin', 'franchisee'].includes(roleName)) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  if (pathname.startsWith('/tech') && !['admin', 'tech'].includes(profile.role)) {
+  if (pathname.startsWith('/tech') && !['admin', 'technician'].includes(roleName)) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
   // Special handling for techs who haven't completed setup
-  if (pathname.startsWith('/tech') && profile.role === 'tech' && !pathname.startsWith('/tech/setup')) {
+  if (pathname.startsWith('/tech') && roleName === 'technician' && !pathname.startsWith('/tech/setup')) {
     const userMetadata = session.user.user_metadata;
     // Only redirect to setup if explicitly marked as incomplete AND we have the required IDs
     if (userMetadata?.setup_completed === false) {
@@ -144,6 +146,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)).*)',
   ],
 }
