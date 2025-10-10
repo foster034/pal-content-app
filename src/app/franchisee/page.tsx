@@ -263,7 +263,8 @@ export default function FranchiseeDashboard() {
           ...tech,
           photoSubmissions: totalSubmissions,
           approved: approvedSubmissions.length,
-          marketingScore: approvalRate > 0 ? `${approvalRate}%` : 'undefined',
+          marketingScore: `${approvalRate}%`,
+          approvalRate: approvalRate,
           reviews: {
             completed: Math.floor(Math.random() * 20) + 5, // Mock data for now
             averageRating: (tech.rating || 4.0).toFixed(1),
@@ -581,7 +582,7 @@ export default function FranchiseeDashboard() {
                       <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                         <span>{tech.photoSubmissions} submissions</span>
                         <span>{tech.approved} approved</span>
-                        <span>{Math.round((tech.approved / tech.photoSubmissions) * 100)}% rate</span>
+                        <span>{tech.approvalRate}% rate</span>
                       </div>
                     ) : (
                       <div className="space-y-1">
