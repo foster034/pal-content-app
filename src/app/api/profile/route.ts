@@ -29,7 +29,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get the user's profile
+    // Get the user's profile with role information
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -90,7 +90,7 @@ export async function GET() {
       id: user.id,
       email: user.email,
       full_name: profile?.full_name || user.user_metadata?.full_name || '',
-      role: profile?.role || 'user',
+      role: profile?.role || 'franchisee',
       avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url || '',
       phone: profile?.phone || '',
       franchisee_id: franchiseeId,
@@ -175,8 +175,7 @@ export async function PUT(request: NextRequest) {
     // Prepare update data - only include core fields that definitely exist
     const updateData: any = {
       id: user.id,
-      full_name: full_name || null,
-      role: existingProfile?.role || 'user' // Preserve existing role
+      full_name: full_name || null
     };
 
     // Skip address fields for now since they don't exist in the table
