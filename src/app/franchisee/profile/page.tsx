@@ -715,31 +715,34 @@ export default function FranchiseeProfilePage() {
                   <div>
                     <Label htmlFor="businessName">Business Name</Label>
                     <div className="mt-2">
-                      {isEditing ? (
-                        <Input
-                          id="businessName"
-                          value={formData.business_name}
-                          onChange={(e) => setFormData(prev => ({ ...prev, business_name: e.target.value }))}
-                          placeholder="Enter your business name"
-                        />
-                      ) : (
-                        <p className="text-gray-900 dark:text-white py-2">
-                          {userProfile.business_name}
-                        </p>
-                      )}
+                      <p className="text-gray-900 dark:text-white py-2 font-semibold">
+                        Pop-A-Lock {formData.territory ? formData.territory : userProfile.territory || ''}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Company name is fixed. Edit your territory below to customize.
+                      </p>
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="territory">Territory</Label>
+                    <Label htmlFor="territory">
+                      Territory Name
+                      <span className="text-red-500 ml-1">*</span>
+                    </Label>
                     <div className="mt-2">
                       {isEditing ? (
-                        <Input
-                          id="territory"
-                          value={formData.territory}
-                          onChange={(e) => setFormData(prev => ({ ...prev, territory: e.target.value }))}
-                          placeholder="Enter your territory"
-                        />
+                        <div className="space-y-2">
+                          <Input
+                            id="territory"
+                            value={formData.territory}
+                            onChange={(e) => setFormData(prev => ({ ...prev, territory: e.target.value }))}
+                            placeholder="e.g., Simcoe County, Downtown Chicago, etc."
+                            className="border-blue-300 focus:border-blue-500"
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            This will create your full business name: <strong>Pop-A-Lock {formData.territory || '[Your Territory]'}</strong>
+                          </p>
+                        </div>
                       ) : (
                         <p className="text-gray-900 dark:text-white py-2">
                           {userProfile.territory || 'Not provided'}
