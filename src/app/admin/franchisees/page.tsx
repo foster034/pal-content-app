@@ -82,7 +82,8 @@ interface Franchisee {
   owners: Owner[];
   notificationPreferences: NotificationPreferences;
   techCount?: number;
-  owner_id?: number | null; // Parent franchisee ID for linked accounts
+  owner_id?: string | null; // Auth user ID of the owner franchisee
+  auth_user_id?: string | null; // This franchisee's auth user ID
   linkedFranchisees?: Franchisee[]; // Child franchisees linked to this one
 }
 
@@ -156,7 +157,8 @@ export default function FranchiseesPage() {
           owners: f.owners || [],
           notificationPreferences: f.notification_preferences || defaultNotificationPreferences,
           techCount: techCountMap[f.id] || 0,
-          owner_id: f.owner_id || null
+          owner_id: f.owner_id || null,
+          auth_user_id: f.auth_user_id || null
         }));
         setFranchisees(mappedData);
       }
@@ -476,27 +478,28 @@ export default function FranchiseesPage() {
     const groups: { parent: Franchisee; children: Franchisee[] }[] = [];
     const processed = new Set<number>();
 
+    // First pass: identify parent franchisees (those without owner_id)
     franchisees.forEach(franchisee => {
-      // Skip if already processed
       if (processed.has(franchisee.id)) return;
 
-      // If this is a parent (has no owner_id) or standalone
+      // If this franchisee has no owner_id, they're a parent or standalone
       if (!franchisee.owner_id) {
-        // Find all children
-        const children = franchisees.filter(f => f.owner_id === franchisee.id);
+        // Find children: franchisees whose owner_id matches this parent's auth_user_id
+        const children = franchisees.filter(f =>
+          f.owner_id && f.owner_id === franchisee.auth_user_id
+        );
 
         groups.push({
           parent: { ...franchisee, linkedFranchisees: children },
           children
         });
 
-        // Mark as processed
         processed.add(franchisee.id);
         children.forEach(child => processed.add(child.id));
       }
     });
 
-    // Add any orphaned children (parent not in list)
+    // Add any orphaned children (those with owner_id but parent not found)
     franchisees.forEach(franchisee => {
       if (!processed.has(franchisee.id)) {
         groups.push({

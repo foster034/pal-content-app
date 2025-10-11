@@ -78,7 +78,26 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json(data || []);
+    // Fetch profiles to get auth_user_id for each franchisee
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, franchisee_id');
+
+    // Create a map of franchisee_id to auth_user_id
+    const franchiseeToUserIdMap = new Map<string, string>();
+    profiles?.forEach(profile => {
+      if (profile.franchisee_id) {
+        franchiseeToUserIdMap.set(profile.franchisee_id, profile.id);
+      }
+    });
+
+    // Add auth_user_id to each franchisee
+    const enrichedData = (data || []).map(franchisee => ({
+      ...franchisee,
+      auth_user_id: franchiseeToUserIdMap.get(franchisee.id) || null
+    }));
+
+    return NextResponse.json(enrichedData);
   } catch (error) {
     console.error('Franchisees GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch franchisees' }, { status: 500 });

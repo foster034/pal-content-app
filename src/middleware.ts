@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
     '/api/google-my-business', '/api/generated-content', '/api/marketing-content', '/api/ai-marketing',
     '/api/job-reports', '/api/tts', '/api/twilio', '/api/profile', '/api/tech-profile', '/api/update-job-ai-report',
     '/api/generate-job-report', '/api/debug-technicians', '/api/migrate-ai-columns', '/api/upload-avatar', '/api/upload-job-photos',
-    '/api/check-user', '/api/reset-user-password'
+    '/api/check-user', '/api/reset-user-password', '/api/check-franchisee-links', '/api/fix-franchisee-links', '/api/check-db-structure', '/api/find-user-ids'
   ]
   const isPublicRoute = publicRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
