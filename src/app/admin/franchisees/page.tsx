@@ -82,6 +82,8 @@ interface Franchisee {
   owners: Owner[];
   notificationPreferences: NotificationPreferences;
   techCount?: number;
+  owner_id?: number | null; // Parent franchisee ID for linked accounts
+  linkedFranchisees?: Franchisee[]; // Child franchisees linked to this one
 }
 
 const defaultNotificationPreferences: NotificationPreferences = {
@@ -153,7 +155,8 @@ export default function FranchiseesPage() {
           image: f.image || '',
           owners: f.owners || [],
           notificationPreferences: f.notification_preferences || defaultNotificationPreferences,
-          techCount: techCountMap[f.id] || 0
+          techCount: techCountMap[f.id] || 0,
+          owner_id: f.owner_id || null
         }));
         setFranchisees(mappedData);
       }
@@ -466,6 +469,45 @@ export default function FranchiseesPage() {
       case 'Pending': return 'secondary';
       default: return 'outline';
     }
+  };
+
+  // Group franchisees by their parent relationship
+  const groupFranchisees = (franchisees: Franchisee[]) => {
+    const groups: { parent: Franchisee; children: Franchisee[] }[] = [];
+    const processed = new Set<number>();
+
+    franchisees.forEach(franchisee => {
+      // Skip if already processed
+      if (processed.has(franchisee.id)) return;
+
+      // If this is a parent (has no owner_id) or standalone
+      if (!franchisee.owner_id) {
+        // Find all children
+        const children = franchisees.filter(f => f.owner_id === franchisee.id);
+
+        groups.push({
+          parent: { ...franchisee, linkedFranchisees: children },
+          children
+        });
+
+        // Mark as processed
+        processed.add(franchisee.id);
+        children.forEach(child => processed.add(child.id));
+      }
+    });
+
+    // Add any orphaned children (parent not in list)
+    franchisees.forEach(franchisee => {
+      if (!processed.has(franchisee.id)) {
+        groups.push({
+          parent: franchisee,
+          children: []
+        });
+        processed.add(franchisee.id);
+      }
+    });
+
+    return groups;
   };
 
   // Get unique company names for dropdown
@@ -849,8 +891,11 @@ export default function FranchiseesPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredFranchisees.map((franchisee) => {
+              ) : groupFranchisees(filteredFranchisees).map(({ parent: franchisee, children }) => {
                 const primaryContact = getPrimaryContact(franchisee);
+                const allFranchisees = [franchisee, ...children];
+                const isGroup = children.length > 0;
+
                 return (
                 <TableRow
                   key={franchisee.id}
@@ -862,25 +907,67 @@ export default function FranchiseesPage() {
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      {(primaryContact?.image || franchisee.image) ? (
-                        <img
-                          className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
-                          src={primaryContact?.image || franchisee.image}
-                          alt={primaryContact?.name || franchisee.name}
-                          onClick={() => setSelectedImage({ url: primaryContact?.image || franchisee.image, name: primaryContact?.name || franchisee.name })}
-                          title="Click to view larger"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
-                            {(primaryContact?.name || franchisee.name)?.charAt(0)?.toUpperCase()}
-                          </span>
+                      {/* Show grouped avatars for linked franchisees */}
+                      {isGroup ? (
+                        <div className="flex -space-x-2">
+                          {allFranchisees.slice(0, 3).map((f, idx) => {
+                            const contact = getPrimaryContact(f);
+                            return (contact?.image || f.image) ? (
+                              <img
+                                key={f.id}
+                                className="w-10 h-10 rounded-full border-2 border-white dark:border-gray-800 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
+                                src={contact?.image || f.image}
+                                alt={f.territory}
+                                title={`${contact?.name || f.name} - ${f.territory}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedImage({ url: contact?.image || f.image, name: `${contact?.name || f.name} - ${f.territory}` });
+                                }}
+                              />
+                            ) : (
+                              <div
+                                key={f.id}
+                                className="w-10 h-10 rounded-full bg-gray-200 dark:border-gray-800 border-2 border-white flex items-center justify-center"
+                                title={`${contact?.name || f.name} - ${f.territory}`}
+                              >
+                                <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                                  {(contact?.name || f.name)?.charAt(0)?.toUpperCase()}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {allFranchisees.length > 3 && (
+                            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                                +{allFranchisees.length - 3}
+                              </span>
+                            </div>
+                          )}
                         </div>
+                      ) : (
+                        (primaryContact?.image || franchisee.image) ? (
+                          <img
+                            className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all object-cover"
+                            src={primaryContact?.image || franchisee.image}
+                            alt={primaryContact?.name || franchisee.name}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedImage({ url: primaryContact?.image || franchisee.image, name: primaryContact?.name || franchisee.name });
+                            }}
+                            title="Click to view larger"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                            <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                              {(primaryContact?.name || franchisee.name)?.charAt(0)?.toUpperCase()}
+                            </span>
+                          </div>
+                        )
                       )}
                       <div>
                         <div className="font-medium">{primaryContact?.name || franchisee.name}</div>
                         <div className="text-muted-foreground mt-0.5 text-xs">
-                          Primary Contact
+                          {isGroup ? `Multi-Location (${allFranchisees.length} locations)` : 'Primary Contact'}
                         </div>
                       </div>
                     </div>
@@ -893,8 +980,17 @@ export default function FranchiseesPage() {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{franchisee.territory}</div>
-                      <div className="text-muted-foreground text-xs">{franchisee.country || 'United States'}</div>
+                      {isGroup ? (
+                        <>
+                          <div className="font-medium">{allFranchisees.map(f => f.territory).join(', ')}</div>
+                          <div className="text-muted-foreground text-xs">{franchisee.country || 'United States'}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="font-medium">{franchisee.territory}</div>
+                          <div className="text-muted-foreground text-xs">{franchisee.country || 'United States'}</div>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
