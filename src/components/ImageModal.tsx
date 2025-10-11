@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, MapPin, Calendar, Tag, CheckCircle, XCircle, Clock, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, MapPin, Calendar, Tag, CheckCircle, XCircle, Clock, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Mail, Send } from 'lucide-react';
 
 interface JobPhotoDetails {
   imageUrl: string;
@@ -46,6 +46,10 @@ interface ImageModalProps {
 
 export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDetails }: ImageModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [shareMessage, setShareMessage] = useState('');
+  const [sending, setSending] = useState(false);
 
   // Get all images or fallback to single image
   const allImages = jobDetails?.allImages || [imageUrl];
@@ -87,8 +91,59 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
   useEffect(() => {
     if (isOpen) {
       setCurrentImageIndex(0);
+      // Pre-fill phone number if available in job details
+      if (jobDetails?.clientPhone) {
+        setPhoneNumber(jobDetails.clientPhone);
+      }
+      // Set default message
+      const defaultMsg = jobDetails?.clientName
+        ? `Hi ${jobDetails.clientName}! Here's a photo from your recent ${jobDetails.serviceType || 'service'} at ${jobDetails.location}. Thank you for choosing Pop-A-Lock!`
+        : `Here's a photo from your recent service. Thank you for choosing Pop-A-Lock!`;
+      setShareMessage(defaultMsg);
     }
-  }, [isOpen]);
+  }, [isOpen, jobDetails]);
+
+  // Handle SMS share
+  const handleSendSMS = async () => {
+    if (!phoneNumber.trim()) {
+      alert('Please enter a phone number');
+      return;
+    }
+
+    try {
+      setSending(true);
+
+      const message = shareMessage || `Here's a photo from your recent service: ${currentImage}`;
+
+      const response = await fetch('/api/twilio/send-sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: phoneNumber,
+          message: message,
+          userType: 'franchisee',
+          userId: 1,
+          userName: 'Franchisee'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✅ Photo shared via SMS successfully!${result.testMode ? ' (Test Mode)' : ''}`);
+        setShowShareDialog(false);
+      } else {
+        throw new Error(result.error || 'Failed to send SMS');
+      }
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      alert(`❌ Failed to send SMS: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -538,8 +593,106 @@ export default function ImageModal({ imageUrl, altText, isOpen, onClose, jobDeta
                 )}
               </div>
 
+              {/* Share Actions Footer */}
+              {jobDetails && (
+                <div className="border-t border-gray-200 px-4 py-3 bg-gray-50 flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => setShowShareDialog(true)}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors min-h-[44px] touch-manipulation"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Send via SMS
+                  </button>
+                  <button
+                    onClick={() => window.open(`mailto:${jobDetails.clientEmail}?subject=Your Service Photo&body=Here's a photo from your recent service: ${currentImage}`, '_blank')}
+                    disabled={!jobDetails.clientEmail}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Send via Email
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* SMS Share Dialog */}
+          {showShareDialog && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]" onClick={() => setShowShareDialog(false)}>
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                    Send Photo via SMS
+                  </h3>
+                  <button
+                    onClick={() => setShowShareDialog(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+1 (555) 123-4567"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-h-[44px]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Message (optional)
+                    </label>
+                    <textarea
+                      value={shareMessage}
+                      onChange={(e) => setShareMessage(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                      placeholder="Add a custom message..."
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Image link will be included in the message
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowShareDialog(false)}
+                    disabled={sending}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 min-h-[44px]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendSMS}
+                    disabled={sending || !phoneNumber.trim()}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[44px]"
+                  >
+                    {sending ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Send SMS
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

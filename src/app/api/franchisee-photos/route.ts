@@ -75,6 +75,9 @@ export async function GET(request: NextRequest) {
         created_at,
         ai_report,
         ai_report_generated_at,
+        client_name,
+        client_phone,
+        client_email,
         technicians (
           name,
           image_url,
@@ -131,6 +134,9 @@ export async function GET(request: NextRequest) {
             service_location: job.service_location,
             service_date: job.service_date,
             job_description: job.description,
+            client_name: job.client_name,
+            client_phone: job.client_phone,
+            client_email: job.client_email,
             status: 'pending', // Default status for job submission photos
             reviewed_at: null,
             review_notes: null,

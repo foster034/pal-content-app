@@ -28,6 +28,9 @@ interface FranchiseePhoto {
   service_location: string;
   service_date: string;
   job_description: string;
+  client_name?: string;
+  client_phone?: string;
+  client_email?: string;
   full_ai_report?: string;
   ai_report_generated_at?: string;
   status: 'pending' | 'approved' | 'denied' | 'flagged';
@@ -690,7 +693,12 @@ export default function FranchiseePhotosPage() {
           tags: [viewingPhoto.service_type, viewingPhoto.photo_type],
           technicianName: viewingPhoto.technician?.name,
           aiReport: viewingPhoto.full_ai_report,
-          aiReportGeneratedAt: viewingPhoto.ai_report_generated_at
+          aiReportGeneratedAt: viewingPhoto.ai_report_generated_at,
+          serviceType: viewingPhoto.service_type,
+          serviceDate: viewingPhoto.service_date,
+          clientName: viewingPhoto.client_name,
+          clientPhone: viewingPhoto.client_phone,
+          clientEmail: viewingPhoto.client_email
         } : undefined}
       />
     </div>
