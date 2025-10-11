@@ -986,8 +986,8 @@ export default function FranchiseesPage() {
                       {isGroup ? (
                         <>
                           <div className="font-medium space-y-0.5">
-                            {allFranchisees.map((f, idx) => (
-                              <div key={f.id}>{f.territory}</div>
+                            {Array.from(new Set(allFranchisees.map(f => f.territory))).map((territory, idx) => (
+                              <div key={idx}>{territory}</div>
                             ))}
                           </div>
                           <div className="text-muted-foreground text-xs mt-1">{franchisee.country || 'United States'}</div>
